@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		79260B8C2E139E23008BF6CB /* AppAmbit Testing App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AppAmbit Testing App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		79260B8C2E139E23008BF6CB /* AppAmbitTestinApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbitTestinApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		79260B8D2E139E23008BF6CB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				79260B8C2E139E23008BF6CB /* AppAmbit Testing App.app */,
+				79260B8C2E139E23008BF6CB /* AppAmbitTestinApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		79260B8B2E139E23008BF6CB /* AppAmbit Testing App */ = {
+		79260B8B2E139E23008BF6CB /* AppAmbitTestinApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbit Testing App" */;
+			buildConfigurationList = 79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbitTestinApp" */;
 			buildPhases = (
 				79260B882E139E23008BF6CB /* Sources */,
 				79260B892E139E23008BF6CB /* Frameworks */,
@@ -63,11 +63,11 @@
 			fileSystemSynchronizedGroups = (
 				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
 			);
-			name = "AppAmbit Testing App";
+			name = AppAmbitTestinApp;
 			packageProductDependencies = (
 			);
 			productName = "AppAmbit Testing App";
-			productReference = 79260B8C2E139E23008BF6CB /* AppAmbit Testing App.app */;
+			productReference = 79260B8C2E139E23008BF6CB /* AppAmbitTestinApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbit Testing App" */;
+			buildConfigurationList = 79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbitTestinApp" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				79260B8B2E139E23008BF6CB /* AppAmbit Testing App */,
+				79260B8B2E139E23008BF6CB /* AppAmbitTestinApp */,
 			);
 		};
 /* End PBXProject section */
@@ -267,7 +267,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestingApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -302,7 +302,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestingApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -317,7 +317,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbit Testing App" */ = {
+		79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbitTestinApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				79260B982E139E26008BF6CB /* Debug */,
@@ -326,7 +326,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbit Testing App" */ = {
+		79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbitTestinApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				79260B9B2E139E26008BF6CB /* Debug */,
