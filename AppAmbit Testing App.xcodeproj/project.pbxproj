@@ -11,9 +11,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		79260B8E2E139E23008BF6CB /* appambit-test-app */ = {
+		79260B8E2E139E23008BF6CB /* AppAmbitTestApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "appambit-test-app";
+			path = AppAmbitTestApp;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
-				79260B8E2E139E23008BF6CB /* appambit-test-app */,
+				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
 				79260B8D2E139E23008BF6CB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,7 +61,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				79260B8E2E139E23008BF6CB /* appambit-test-app */,
+				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
 			);
 			name = "AppAmbit Testing App";
 			packageProductDependencies = (
@@ -251,7 +251,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"AppAmbit Testing App/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"AppAmbitTestApp/Preview Content\"";
 				DEVELOPMENT_TEAM = T2U82CMAZM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -286,7 +286,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"AppAmbit Testing App/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"AppAmbitTestApp/Preview Content\"";
 				DEVELOPMENT_TEAM = T2U82CMAZM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
