@@ -6,7 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 7916DAD22E171C9B00CFEFA2 /* AppAmbit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = AppAmbitSdk; sourceTree = "<group>"; };
 		79260B8C2E139E23008BF6CB /* AppAmbitTestingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbitTestingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -23,16 +28,26 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7916DAB22E1719AF00CFEFA2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
+				7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */,
 				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
+				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,6 +80,7 @@
 			);
 			name = AppAmbitTestingApp;
 			packageProductDependencies = (
+				7916DAD22E171C9B00CFEFA2 /* AppAmbit */,
 			);
 			productName = "AppAmbit Testing App";
 			productReference = 79260B8C2E139E23008BF6CB /* AppAmbitTestingApp.app */;
@@ -336,6 +352,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7916DAD22E171C9B00CFEFA2 /* AppAmbit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppAmbit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 79260B842E139E23008BF6CB /* Project object */;
 }
