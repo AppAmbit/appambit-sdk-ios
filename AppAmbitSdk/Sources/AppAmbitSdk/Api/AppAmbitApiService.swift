@@ -1,6 +1,6 @@
 import Foundation
 
-class DefaultApiService: ApiService {
+class AppAmbitApiService: ApiService {
 
     private let workerQueue = DispatchQueue(label: "com.appambit.telemetry.worker", qos: .utility)
 
@@ -86,13 +86,21 @@ class DefaultApiService: ApiService {
         }
     }
 
-    func createConsumer(appKey: String, completion: @escaping @Sendable (ApiErrorType) -> Void) {
-        let endpoint = ConsumerService.shared.registerConsumer(appKey: appKey)
-
+    func createConsumer(
+        appKey: String,
+        completion: @escaping @Sendable (ApiErrorType) -> Void
+    ) {
+        let completionCopy = completion
         workerQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
 
-            self.executeRequest(endpoint, responseType: TokenResponse.self) { result in
+
+            let endpoint = ConsumerService.shared.registerConsumer(appKey: appKey)
+
+            self.executeRequest(
+                endpoint,
+                responseType: TokenResponse.self
+            ) { result in
                 if let token = result.data?.token {
                     self.tokenQueue.async(flags: .barrier) {
                         self._token = token
@@ -102,11 +110,12 @@ class DefaultApiService: ApiService {
                 let errorType = result.errorType ?? .unknown
 
                 DispatchQueue.main.async {
-                    completion(errorType)
+                    completionCopy(errorType)
                 }
             }
         }
     }
+
 
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
         if let headers = endpoint.customHeader {
@@ -137,6 +146,7 @@ class DefaultApiService: ApiService {
             }
         }.resume()
     }
+    
 
     private func handleSuccessResponse<T: Decodable>(
         data: Data,

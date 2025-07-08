@@ -6,8 +6,8 @@ final class ServiceContainer {
     
     private nonisolated(unsafe) static let _instance: ServiceContainer = {
         ServiceContainer(
-            apiService: DefaultApiService(),
-            appInfoService: DefaultAppInfoService()
+            apiService: AppAmbitApiService(),
+            appInfoService: AppAmbitInfoService()
         )
     }()
     
