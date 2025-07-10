@@ -29,7 +29,7 @@ final class ConsumerService {
 
         return RegisterEndpoint(consumer: Consumer(
             appKey: appKey,
-            deviceId: UUID().uuidString,
+            deviceId: "0FB8963B-9599-4F56-9A62-FCA4887D96D3",
             deviceModel: info.deviceModel,
             userId: UUID().uuidString,
             userEmail: "test@mail.com",

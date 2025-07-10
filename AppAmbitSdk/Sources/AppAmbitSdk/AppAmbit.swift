@@ -118,6 +118,7 @@ public final class AppAmbit: @unchecked Sendable {
     private func initializeServices() {
         _ = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
+        _ = ServiceContainer.shared.storageService
     }
 
     private func initializeConsumer() {
@@ -169,7 +170,6 @@ public final class AppAmbit: @unchecked Sendable {
     private func onResume() {
         debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
 
-
         if tokenIsValid() {
             getNewToken { [weak self] success in
                 guard let self = self else { return }
@@ -213,3 +213,5 @@ public final class AppAmbit: @unchecked Sendable {
         return ServiceContainer.shared.apiService.token?.isEmpty ?? true
     }
 }
+
+

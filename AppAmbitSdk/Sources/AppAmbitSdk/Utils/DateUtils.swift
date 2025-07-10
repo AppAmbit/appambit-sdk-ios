@@ -1,15 +1,44 @@
 import Foundation
 
-public struct DateUtils {
-    public static var utcNow: Date {
+struct DateUtils {
+    private init() {}
+
+    /// Formatter for "yyyy-MM-dd'T'HH:mm:ssZ" (ISO 8601)
+    private static let isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        return f
+    }()
+
+    /// Formatter for "yyyy-MM-dd HH:mm:ss" (custom)
+    private static let customFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return f
+    }()
+
+    static var utcNow: Date {
         Date()
     }
-    
-    public static var utcNowFormatted: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        return formatter.string(from: Date())
+
+    static func utcIsoFormatString(from date: Date) -> String {
+        isoFormatter.string(from: date)
+    }
+
+    static func utcIsoFormatDate(from string: String) -> Date? {
+        isoFormatter.date(from: string)
+    }
+
+    static func utcCustomFormatString(from date: Date) -> String {
+        customFormatter.string(from: date)
+    }
+
+    static func utcCustomFormatDate(from string: String) -> Date {
+        customFormatter.date(from: string)!
     }
 }
+

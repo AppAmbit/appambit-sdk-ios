@@ -2,7 +2,7 @@ import Foundation
 
 class LogEntity: Log {
     var id: String = UUID().uuidString
-    var createdAt: String = ""
+    var createdAt: Date = DateUtils.utcNow
 
     override func toMultipartValue() -> MultipartValue {
         let superValue = super.toMultipartValue()
@@ -15,8 +15,12 @@ class LogEntity: Log {
         }
         
         dict["id"] = .string(id)
-        dict["created_at"] = .string(createdAt)
+        
+        let createdAtString = DateUtils.utcCustomFormatString(from: createdAt)
+    
+        dict["created_at"] = .string(createdAtString)
         
         return .dictionary(dict)
     }
 }
+
