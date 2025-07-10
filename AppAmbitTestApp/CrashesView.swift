@@ -1,5 +1,5 @@
 import SwiftUI
-//import AppAmbit
+import AppAmbit
 
 struct CrashesView: View {
     @State private var userId: String = UUID().uuidString
@@ -9,7 +9,6 @@ struct CrashesView: View {
     var body: some View {
         VStack(spacing: 25) {
             
-            // User ID section
             VStack(alignment: .leading, spacing: 10) {
                 
                 TextField("User Id", text: $userId)
@@ -23,7 +22,7 @@ struct CrashesView: View {
                     .padding(.horizontal)
                 
                 Button("Change user id") {
-                 //   Analytics.setUserId(userId)
+                    Analytics.setUserId(userId)
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -33,7 +32,6 @@ struct CrashesView: View {
                 .padding(.horizontal)
             }
             
-            // Email section
             VStack(alignment: .leading, spacing: 10) {
                 
                 TextField("User email", text: $email)
@@ -48,7 +46,7 @@ struct CrashesView: View {
                     .padding(.horizontal)
                 
                 Button("Change user email") {
-                    //Analytics.setEmail(email)
+                    Analytics.setEmail(email)
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
