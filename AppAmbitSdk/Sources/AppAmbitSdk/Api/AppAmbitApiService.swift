@@ -3,6 +3,7 @@ import Foundation
 class AppAmbitApiService: ApiService {
 
     private let workerQueue = DispatchQueue(label: "com.appambit.telemetry.worker", qos: .utility)
+    private let storageService: StoragaService
 
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -20,7 +21,9 @@ class AppAmbitApiService: ApiService {
         set { tokenQueue.async(flags: .barrier) { self._token = newValue } }
     }
 
-    init() { }
+    init(storageService: StoragaService) {
+        self.storageService = storageService
+    }
 
     func executeRequest<T: Decodable>(
         _ endpoint: Endpoint,
@@ -106,8 +109,20 @@ class AppAmbitApiService: ApiService {
                         self._token = token
                     }
                 }
+                
+                do {
+                    if let consumerId = result.data?.consumerId {
+                        do {
+                            try self.storageService.putConsumerId(String(consumerId))
+                        } catch {
+                            print("Error saving consumerId: \(error)")
+                        }
+                    }
+                } catch {
+                    debugPrint("Errror to Save: \(error)")
+                }
 
-                let errorType = result.errorType ?? .unknown
+                let errorType = result.errorType
 
                 DispatchQueue.main.async {
                     completionCopy(errorType)

@@ -159,6 +159,34 @@ class Storable: StoragaService {
             }
         }
     }
+    
+    func putConsumerId(_ consumerId: String) throws {
+        try queue.sync {
+            let rowId = "1"
+            let query = secrets.filter(SQLite.Expression<String>(AppSecretsConfiguration.Column.id.name) == rowId)
+            if try db.pluck(query) != nil {
+                try db.run(query.update(
+                    SQLite.Expression<String?>(AppSecretsConfiguration.Column.consumerId.name) <- consumerId
+                ))
+            } else {
+                try db.run(secrets.insert(
+                    SQLite.Expression<String>(AppSecretsConfiguration.Column.id.name) <- rowId,
+                    SQLite.Expression<String?>(AppSecretsConfiguration.Column.consumerId.name) <- consumerId
+                ))
+            }
+        }
+    }
+    
+    func getConsumerId() throws -> String? {
+        return try queue.sync {
+            let rowId = "1"
+            let query = secrets.filter(SQLite.Expression<String>(AppSecretsConfiguration.Column.id.name) == rowId)
+            if let row = try db.pluck(query) {
+                return row[SQLite.Expression<String?>(AppSecretsConfiguration.Column.consumerId.name)]
+            }
+            return nil
+        }
+    }
 
     func getSessionId() throws -> String? {
         return try queue.sync {

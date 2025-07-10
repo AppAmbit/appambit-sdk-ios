@@ -18,7 +18,7 @@ final class ServiceContainer {
         }
 
         return ServiceContainer(
-            apiService: AppAmbitApiService(),
+            apiService: AppAmbitApiService(storageService: storageService),
             appInfoService: AppAmbitInfoService(),
             storageService: storageService
         )

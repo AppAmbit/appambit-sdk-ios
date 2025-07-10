@@ -1,10 +1,10 @@
 import SwiftUI
-import AppAmbit;
+//import AppAmbit;
 
 @main
 struct AppAmbitTestingApp: App {
     init() {
-        AppAmbit.start(appKey: "17595189-fd4a-40dd-999f-e189d78f30fd")
+       // AppAmbit.start(appKey: "7bba5bdc-0f0b-4770-8d59-1c4a62549311")
     }
     var body: some Scene {
         WindowGroup {

@@ -1,41 +1,76 @@
 import Foundation
 
-final class ConsumerService {
-    private nonisolated(unsafe) static let _instance: ConsumerService = {
-        let appInfoService = ServiceContainer.shared.appInfoService
-        return ConsumerService(appInfoService: appInfoService)
-    }()
+final class ConsumerService: @unchecked Sendable {
+    static let shared = ConsumerService(
+        appInfoService: ServiceContainer.shared.appInfoService,
+        storageService: ServiceContainer.shared.storageService)
 
-    static var shared: ConsumerService {
-        return _instance
-    }
-
-    private static let accessQueue = DispatchQueue(label: "com.appambit.consumerservice.access")
-
+    private let appInfoQueue = DispatchQueue(label: "com.appambit.consumerservice.access")
+    private let dbQueue = DispatchQueue(label: "com.appambit.database.queue", qos: .utility)
     private let appInfoService: AppInfoService
+    private let storageService: StoragaService
 
-    private init(appInfoService: AppInfoService) {
+    private init(appInfoService: AppInfoService, storageService: StoragaService) {
         self.appInfoService = appInfoService
+        self.storageService = storageService
     }
 
-    func registerConsumer(appKey: String) -> RegisterEndpoint {
-        let info = Self.accessQueue.sync {
-            let os = appInfoService.os ?? "iOS"
-            let deviceModel = appInfoService.deviceModel ?? "Unknown Model"
-            let country = appInfoService.country ?? Locale.current.regionCode ?? "Unknown country"
-            let language = appInfoService.language ?? Locale.current.languageCode ?? "Unknown language"
-            return (os: os, deviceModel: deviceModel, country: country, language: language)
+    func registerConsumer(appKey: String?) -> RegisterEndpoint {
+        let info = appInfoQueue.sync {
+            (
+                os: appInfoService.os ?? "iOS",
+                deviceModel: appInfoService.deviceModel ?? "Unknown Model",
+                country: appInfoService.country ?? Locale.current.regionCode ?? "Unknown country",
+                language: appInfoService.language ?? Locale.current.languageCode ?? "Unknown language"
+            )
         }
+        
+        var appId:String?
+        var deviceId:String?, userId:String?, userEmail:String?
+        do {
+            deviceId = try storageService.getDeviceId()
+            userId = try storageService.getUserId()
+            userEmail = try storageService.getUserEmail()
+            
+            if !(appKey?.isEmpty ?? true) {
+                appId = appKey
+                try storageService.putAppId(appId ?? "")
+            }
+            
+            if appKey?.isEmpty ?? true  {
+                if let storageAppKey = try storageService.getAppId() {
+                    appId = storageAppKey
+                }
+            }
+            
+            
+            if deviceId?.isEmpty ?? true {
+                deviceId = UUID().uuidString
+                try storageService.putDeviceId(deviceId!)
+            }
+            
+            
+            if userId?.isEmpty ?? true {
+                userId = UUID().uuidString
+                try storageService.putUserId(userId!)
+            }
+            
+            
 
+        } catch {
+            debugPrint("Error to get data for AppSecrets  ConsumerService: \(error)")
+        }
+    
         return RegisterEndpoint(consumer: Consumer(
-            appKey: appKey,
-            deviceId: "0FB8963B-9599-4F56-9A62-FCA4887D96D3",
+            appKey: appId ?? "",
+            deviceId: deviceId ?? "",
             deviceModel: info.deviceModel,
-            userId: UUID().uuidString,
-            userEmail: "test@mail.com",
+            userId: userId ?? "",
+            userEmail: userEmail,
             os: info.os,
             country: info.country,
             language: info.language
         ))
     }
 }
+

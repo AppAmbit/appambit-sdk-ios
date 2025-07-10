@@ -13,6 +13,9 @@ protocol StoragaService {
 
     func putSessionId(_ sessionId: String) throws
     func getSessionId() throws -> String?
+    
+    func putConsumerId(_ consumerId: String) throws
+    func getConsumerId() throws -> String?
 
     func putLogEvent(_ log: LogEntity) throws
     func putLogAnalyticsEvent(_ event: EventEntity) throws
