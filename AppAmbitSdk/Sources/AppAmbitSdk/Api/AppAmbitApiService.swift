@@ -3,7 +3,7 @@ import Foundation
 class AppAmbitApiService: ApiService {
 
     private let workerQueue = DispatchQueue(label: "com.appambit.telemetry.worker", qos: .utility)
-    private let storageService: StoragaService
+    private let storageService: StorageService
 
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -21,7 +21,7 @@ class AppAmbitApiService: ApiService {
         set { tokenQueue.async(flags: .barrier) { self._token = newValue } }
     }
 
-    init(storageService: StoragaService) {
+    init(storageService: StorageService) {
         self.storageService = storageService
     }
 

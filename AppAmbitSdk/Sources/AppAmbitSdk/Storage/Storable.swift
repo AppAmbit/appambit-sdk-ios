@@ -2,7 +2,7 @@ import Foundation
 import SQLite
 
 
-class Storable: StoragaService {
+class Storable: StorageService {
     private let db: Connection
     private let queue = DispatchQueue(label: "com.appambit.storage.service", qos: .utility)
 

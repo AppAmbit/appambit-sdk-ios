@@ -1,4 +1,4 @@
-protocol StoragaService {
+protocol StorageService {
     func putDeviceId(_ deviceId: String) throws
     func getDeviceId() throws -> String?
 

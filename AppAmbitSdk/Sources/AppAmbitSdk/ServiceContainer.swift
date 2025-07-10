@@ -3,11 +3,11 @@ import Foundation
 final class ServiceContainer {
     let apiService: ApiService
     let appInfoService: AppInfoService
-    let storageService: StoragaService
+    let storageService: StorageService
 
     private nonisolated(unsafe) static let _instance: ServiceContainer = {
         let dataStore: DataStore
-        let storageService: StoragaService
+        let storageService: StorageService
         
         do {
             dataStore = try DataStore()
@@ -39,7 +39,7 @@ final class ServiceContainer {
     private init(
         apiService: ApiService,
         appInfoService: AppInfoService,
-        storageService: StoragaService
+        storageService: StorageService
     ) {
         self.apiService = apiService
         self.appInfoService = appInfoService

@@ -3,13 +3,13 @@ import Foundation
 public final class Analytics {
     
     private nonisolated(unsafe) static var apiService: ApiService?
-    private nonisolated(unsafe) static var storageService: StoragaService?
+    private nonisolated(unsafe) static var storageService: StorageService?
     
     private static let syncQueue = DispatchQueue(label: "com.yourapp.analytics.syncQueue")
     
     private init() {}
     
-    static func initialize(apiService: ApiService, storageService: StoragaService) {
+    static func initialize(apiService: ApiService, storageService: StorageService) {
         syncQueue.sync {
             self.apiService = apiService
             self.storageService = storageService

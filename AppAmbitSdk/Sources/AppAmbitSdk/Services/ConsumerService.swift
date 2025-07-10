@@ -8,9 +8,9 @@ final class ConsumerService: @unchecked Sendable {
     private let appInfoQueue = DispatchQueue(label: "com.appambit.consumerservice.access")
     private let dbQueue = DispatchQueue(label: "com.appambit.database.queue", qos: .utility)
     private let appInfoService: AppInfoService
-    private let storageService: StoragaService
+    private let storageService: StorageService
 
-    private init(appInfoService: AppInfoService, storageService: StoragaService) {
+    private init(appInfoService: AppInfoService, storageService: StorageService) {
         self.appInfoService = appInfoService
         self.storageService = storageService
     }
