@@ -6,7 +6,6 @@ class Storable: StorageService {
     private let queue = DispatchQueue(label: "com.appambit.storage.service", qos: .utility)
     let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-
     init(ds: DataStore) throws {
         var tmpDb: OpaquePointer?
         let result = sqlite3_open(ds.dbPath, &tmpDb)
@@ -36,8 +35,6 @@ class Storable: StorageService {
         let message = String(cString: sqlite3_errmsg(db))
         return NSError(domain: "SQLite3", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
     }
-    
-    
     
     // MARK: - Secrets
     func putDeviceId(_ deviceId: String) throws {
@@ -135,7 +132,6 @@ class Storable: StorageService {
         }
     }
 
-
     func putLogAnalyticsEvent(_ event: EventEntity) throws {
         try queue.sync {
             let sql = """
@@ -178,8 +174,6 @@ class Storable: StorageService {
                     let createdAtCStr = sqlite3_column_text(stmt, 10),
                     let createdAt = dateFromStringCustom(String(cString: createdAtCStr))
                 else { continue }
-                
-                
 
                 let log = LogEntity()
                 log.id = id
@@ -213,7 +207,6 @@ class Storable: StorageService {
             return result
         }
     }
-
 
     func getOldest100Events() throws -> [EventEntity] {
         return try queue.sync {
@@ -272,23 +265,22 @@ class Storable: StorageService {
 
             for event in events {
                 let uuidString = event.id.uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
-                print("Attempting to delete event with id: \(uuidString)")
+                debugPrint("Attempting to delete event with id: \(uuidString)")
 
                 sqlite3_bind_text(stmt, 1, uuidString, -1, SQLITE_TRANSIENT)
 
                 let stepResult = sqlite3_step(stmt)
                 if stepResult != SQLITE_DONE {
-                    print("sqlite3_step failed for id: \(uuidString) with result \(stepResult)")
+                    debugPrint("sqlite3_step failed for id: \(uuidString) with result \(stepResult)")
                     throw sqliteError
                 } else {
-                    print("Deleted (or did not exist): \(uuidString)")
+                    debugPrint("Deleted (or did not exist): \(uuidString)")
                 }
 
                 sqlite3_reset(stmt)
             }
         }
     }
-
 
     func deleteLogList(_ logs: [LogEntity]) throws {
         try queue.sync {
@@ -306,18 +298,15 @@ class Storable: StorageService {
                 sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT)
                 let stepResult = sqlite3_step(stmt)
                 if stepResult != SQLITE_DONE {
-                    print("sqlite3_step returned: \(stepResult) for id \(id)")                    
+                    debugPrint("sqlite3_step returned: \(stepResult) for id \(id)")
                 } else {
-                    print("Deleted (or no-op if not found): \(id)")
+                    debugPrint("Deleted (or no-op if not found): \(id)")
                 }
 
                 sqlite3_reset(stmt)
             }
         }
     }
-
-
-
 
     func putSessionData(_ session: SessionData) throws {
         try queue.sync {
@@ -340,7 +329,6 @@ class Storable: StorageService {
                 guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
 
             case .end:
-                // First try to find the most recent open session to close
                 let selectSQL = """
                 SELECT id FROM \(SessionsConfiguration.tableName)
                 WHERE endSessionDate IS NULL
@@ -495,7 +483,6 @@ class Storable: StorageService {
 
 }
 
-
 extension Storable {
     private func checkSecretExists() throws -> Bool {
         guard let db = self.db else {
@@ -521,7 +508,6 @@ extension Storable {
         }
         defer { sqlite3_finalize(stmt) }
         
-        // Versión alternativa sin SQLITE_TRANSIENT
         let nsString = value as NSString
         let cString = nsString.utf8String
         guard sqlite3_bind_text(stmt, 1, cString, -1, nil) == SQLITE_OK else {

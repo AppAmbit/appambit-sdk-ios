@@ -11,7 +11,7 @@ final class DataStore {
             .appendingPathComponent("\(AppConstants.databaseFileName).sqlite")
         
         dbPath = fileURL.path
-        print("Database path: \(dbPath)")
+        debugPrint("Database path: \(dbPath)")
 
         if sqlite3_open(dbPath, &db) != SQLITE_OK {
             throw NSError(domain: "DataStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open database"])

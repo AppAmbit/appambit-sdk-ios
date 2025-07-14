@@ -2,10 +2,45 @@
 import Foundation
 
 public struct EventEntity: Codable {
+    // MARK: - Properties
+    
+    /// A unique identifier for the event.
     public let id: UUID
+    
+    /// The date when the event was created.
+    /// - Important: Uses UTC format for serialization.
     public let createdAt: Date
+    
+    /// The name of the event.
+    /// - Remark: This is a required field and should be descriptive.
     public var name: String
+    
+    /// Additional metadata associated with the event.
+    /// - Note: Stored as key-value pairs where both keys and values are strings.
     public var metadata: [String: String]
+    
+    /// Computed property that provides JSON string representation of metadata.
+    /// - Get: Serializes the metadata dictionary to JSON string.
+    ///   Returns "{}" if serialization fails.
+    /// - Set: Attempts to parse the JSON string back into a dictionary.
+    ///   Resets to empty dictionary if parsing fails.
+    public var dataJson: String {
+        get {
+            (try? JSONSerialization.data(withJSONObject: metadata, options: []))
+                .flatMap { String(data: $0, encoding: .utf8) }
+                ?? "{}"
+        }
+        set {
+            if
+                let data = newValue.data(using: .utf8),
+                let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+            {
+                metadata = dict
+            } else {
+                metadata = [:]
+            }
+        }
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -42,8 +77,6 @@ public struct EventEntity: Codable {
         metadata = try container.decode([String: String].self, forKey: .metadata)
     }
 
-
-
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
@@ -51,24 +84,5 @@ public struct EventEntity: Codable {
         try container.encode(dateString, forKey: .createdAt)
         try container.encode(name, forKey: .name)
         try container.encode(metadata, forKey: .metadata)
-    }
-
-    /// Raw JSON string for `metadata`
-    public var dataJson: String {
-        get {
-            (try? JSONSerialization.data(withJSONObject: metadata, options: []))
-                .flatMap { String(data: $0, encoding: .utf8) }
-                ?? "{}"
-        }
-        set {
-            if
-                let data = newValue.data(using: .utf8),
-                let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String]
-            {
-                metadata = dict
-            } else {
-                metadata = [:]
-            }
-        }
     }
 }

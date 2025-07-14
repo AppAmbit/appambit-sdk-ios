@@ -1,7 +1,6 @@
 struct AppSecretsConfiguration {
     private init() {}
 
-
     public static let tableName = "secrets"
 
     public enum Column: String {

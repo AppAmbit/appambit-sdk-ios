@@ -115,7 +115,7 @@ class AppAmbitApiService: ApiService {
                         do {
                             try self.storageService.putConsumerId(String(consumerId))
                         } catch {
-                            print("Error saving consumerId: \(error)")
+                            debugPrint("Error saving consumerId: \(error)")
                         }
                     }
                 } catch {

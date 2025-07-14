@@ -3,12 +3,6 @@ import Foundation
 public struct Event: Codable {
     public var name: String
     public private(set) var metadata: [String: String]
-
-    public init(name: String, metadata: [String: String] = [:]) {
-        self.name = name
-        self.metadata = metadata
-    }
-
     public var dataJson: String {
         get {
             guard let data = try? JSONSerialization.data(withJSONObject: metadata, options: []) else {
@@ -28,9 +22,9 @@ public struct Event: Codable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case name
-        case metadata = "metadata"
+    public init(name: String, metadata: [String: String] = [:]) {
+        self.name = name
+        self.metadata = metadata
     }
 }
 
