@@ -31,11 +31,17 @@ public struct EventEntity: Codable {
         id = try container.decode(UUID.self, forKey: .id)
 
         let dateString = try container.decode(String.self, forKey: .createdAt)
-        createdAt = DateUtils.utcCustomFormatDate(from: dateString)
+        guard let parsedDate = DateUtils.utcCustomFormatDate(from: dateString) else {
+            throw DecodingError.dataCorruptedError(forKey: .createdAt,
+                in: container,
+                debugDescription: "Invalid date format: \(dateString)")
+        }
+        createdAt = parsedDate
 
         name = try container.decode(String.self, forKey: .name)
         metadata = try container.decode([String: String].self, forKey: .metadata)
     }
+
 
 
     public func encode(to encoder: Encoder) throws {

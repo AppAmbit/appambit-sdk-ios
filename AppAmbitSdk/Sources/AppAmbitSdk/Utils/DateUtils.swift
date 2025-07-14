@@ -37,8 +37,8 @@ struct DateUtils {
         customFormatter.string(from: date)
     }
 
-    static func utcCustomFormatDate(from string: String) -> Date {
-        customFormatter.date(from: string)!
+    static func utcCustomFormatDate(from string: String) -> Date? {
+        customFormatter.date(from: string)
     }
 }
 
