@@ -27,4 +27,3 @@ public struct Event: Codable {
         self.metadata = metadata
     }
 }
-

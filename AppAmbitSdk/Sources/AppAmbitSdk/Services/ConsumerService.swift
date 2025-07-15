@@ -42,21 +42,16 @@ final class ConsumerService: @unchecked Sendable {
                     appId = storageAppKey
                 }
             }
-            
-            
+                        
             if deviceId?.isEmpty ?? true {
                 deviceId = UUID().uuidString
                 try storageService.putDeviceId(deviceId!)
             }
-            
-            
+                        
             if userId?.isEmpty ?? true {
                 userId = UUID().uuidString
                 try storageService.putUserId(userId!)
             }
-            
-            
-
         } catch {
             debugPrint("Error to get data for AppSecrets  ConsumerService: \(error)")
         }
@@ -73,4 +68,3 @@ final class ConsumerService: @unchecked Sendable {
         ))
     }
 }
-

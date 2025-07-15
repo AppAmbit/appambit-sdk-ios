@@ -7,5 +7,4 @@ protocol AppInfoService {
     var country: String?      { get }
     var utcOffset: String?    { get }
     var language: String?     { get }
-
 }

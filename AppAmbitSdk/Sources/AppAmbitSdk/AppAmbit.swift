@@ -11,11 +11,10 @@ public final class AppAmbit: @unchecked Sendable {
 
     private let appKey: String
     private let workerQueue = DispatchQueue(label: "com.appambit.workerQueue")
+    private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
     private var isCreatingConsumer = false
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
-    private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
-
-
+    
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
         self.appKey = appKey
@@ -70,7 +69,6 @@ public final class AppAmbit: @unchecked Sendable {
             self.onResume()
         }
     }
-
     
     @objc private func appWillResignActive() {
         debugPrint("[AppAmbit] appWillResignActive")
@@ -132,7 +130,6 @@ public final class AppAmbit: @unchecked Sendable {
         }
     }
 
-
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
             if self.isCreatingConsumer {
@@ -160,14 +157,12 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
     
     private func onStart() {
         debugPrint("[AppAmbit] OnStart")
         self.initializeServices()
         self.initializeConsumer()
     }
-
     
     private func onResume() {
         debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
@@ -198,7 +193,6 @@ public final class AppAmbit: @unchecked Sendable {
         debugPrint("[AppAmbit] onEnd: saveEndSession")
     }
     
-
     private func sendPendingLogs() {
         debugPrint("[AppAmbit] Sending pending logs...")
     }
@@ -215,5 +209,3 @@ public final class AppAmbit: @unchecked Sendable {
         return ServiceContainer.shared.apiService.token?.isEmpty ?? true
     }
 }
-
-

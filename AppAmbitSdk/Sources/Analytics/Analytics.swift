@@ -34,6 +34,5 @@ public final class Analytics {
                 debugPrint("Error putting email: \(error)")
             }
         }
-    }
-    
+    }    
 }

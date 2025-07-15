@@ -28,4 +28,3 @@ class LogEntity: Log {
         return .dictionary(dict)
     }
 }
-

@@ -5,7 +5,6 @@ struct CrashesView: View {
     @State private var userId: String = UUID().uuidString
     @State private var email: String = "test@gmail.com"
     
-
     var body: some View {
         VStack(spacing: 25) {
             

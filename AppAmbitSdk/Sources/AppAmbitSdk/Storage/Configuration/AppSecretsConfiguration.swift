@@ -13,7 +13,6 @@ struct AppSecretsConfiguration {
         case userId
         case userEmail
         
-        // Raw value is the name in the DB
         var name: String { rawValue }
     }
 

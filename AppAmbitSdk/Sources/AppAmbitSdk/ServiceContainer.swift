@@ -23,8 +23,7 @@ final class ServiceContainer {
             storageService: storageService
         )
     }()
-    
-    
+        
     private static let accessQueue = DispatchQueue(
         label: "com.appambit.sdk.service.container",
         attributes: .concurrent

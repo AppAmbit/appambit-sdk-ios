@@ -97,7 +97,6 @@ class AppAmbitApiService: ApiService {
         workerQueue.async { [weak self] in
             guard let self = self else { return }
 
-
             let endpoint = ConsumerService.shared.registerConsumer(appKey: appKey)
 
             self.executeRequest(
@@ -131,7 +130,6 @@ class AppAmbitApiService: ApiService {
         }
     }
 
-
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
         if let headers = endpoint.customHeader {
             for (key, value) in headers {
@@ -162,7 +160,6 @@ class AppAmbitApiService: ApiService {
         }.resume()
     }
     
-
     private func handleSuccessResponse<T: Decodable>(
         data: Data,
         response: URLResponse,
@@ -244,12 +241,10 @@ class AppAmbitApiService: ApiService {
         #endif
     }
 
-
     private func extractBoundary(from request: URLRequest) -> String? {
         guard let contentType = request.value(forHTTPHeaderField: "Content-Type") else { return nil }
         let prefix = "boundary="
         guard let range = contentType.range(of: prefix) else { return nil }
         return String(contentType[range.upperBound...])
     }
-
 }

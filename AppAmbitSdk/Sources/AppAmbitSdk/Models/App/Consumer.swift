@@ -25,5 +25,4 @@ struct Consumer: DictionaryConvertible {
 
         return dict
     }
-
 }

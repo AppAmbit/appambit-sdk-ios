@@ -41,4 +41,3 @@ struct DateUtils {
         customFormatter.date(from: string)
     }
 }
-
