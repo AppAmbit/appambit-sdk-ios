@@ -1,7 +1,7 @@
 protocol StorageService {
     func putDeviceId(_ deviceId: String) throws
     func getDeviceId() throws -> String?
-
+    
     func putAppId(_ appId: String) throws
     func getAppId() throws -> String?
 
@@ -20,7 +20,6 @@ protocol StorageService {
     func putLogEvent(_ log: LogEntity) throws
     func putLogAnalyticsEvent(_ event: EventEntity) throws
     
-
     func deleteLogList(_ logs: [LogEntity]) throws
     func getOldest100Logs() throws -> [LogEntity]
 
