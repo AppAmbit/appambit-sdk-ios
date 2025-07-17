@@ -5,9 +5,7 @@ final class SessionManager: @unchecked Sendable {
     private nonisolated(unsafe) static var _sessionId: String?
     nonisolated(unsafe) static var isSessionActive: Bool = false
 
-    
     private static let syncQueue = DispatchQueue(label: "com.appambit.sessionmanager.operations")
-
 
     static func initialize(apiService: ApiService, storageService: StorageService) {
         _apiService = apiService
@@ -20,8 +18,7 @@ final class SessionManager: @unchecked Sendable {
             if isSessionActive {
                 return;
             }
-            
-            
+                        
             guard let storage = _storageService, let api = _apiService else {
                 print("[SessionManager]: Error: Uninitialized Services (Storage or API)")
                 return
@@ -48,7 +45,6 @@ final class SessionManager: @unchecked Sendable {
                             timestamp: dateUtcNow,
                             sessionType: .start
                         ))
-                        
                         _sessionId = sessionId
                     }
                 }
@@ -56,6 +52,7 @@ final class SessionManager: @unchecked Sendable {
             isSessionActive = true
         }
     }
+    
     static func endSession() {
         debugPrint("endSession called");
         syncQueue.sync {
@@ -124,6 +121,5 @@ final class SessionManager: @unchecked Sendable {
             _ = FileUtils.getSavedSingleObject(SessionData.self)
                         
         }
-    }
-    
+    }    
 }

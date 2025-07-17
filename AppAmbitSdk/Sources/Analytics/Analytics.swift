@@ -50,7 +50,4 @@ public final class Analytics {
             isManualSessionEnabled = true
         }
     }
-    
-    
-    
 }

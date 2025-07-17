@@ -2,7 +2,6 @@ import SystemConfiguration
 import Foundation
 
 final class ReachabilityService: @unchecked Sendable {
-
     
     public enum ConnectionStatus {
         case connected

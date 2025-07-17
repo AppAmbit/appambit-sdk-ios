@@ -25,7 +25,6 @@ struct AnalyticsView: View {
             .padding(.horizontal)
             
         }
-        .padding()
-        
+        .padding()        
     }
 }

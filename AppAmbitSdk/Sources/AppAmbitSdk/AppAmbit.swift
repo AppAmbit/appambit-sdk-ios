@@ -2,7 +2,7 @@ import UIKit
 import Foundation
 
 public final class AppAmbit: @unchecked Sendable {
-    private static var _instance: AppAmbit?
+    private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.instance.queue")
 
     public static var shared: AppAmbit? {
@@ -16,7 +16,6 @@ public final class AppAmbit: @unchecked Sendable {
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
     private static let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
     private var reachability: ReachabilityService?
-
 
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
@@ -36,7 +35,6 @@ public final class AppAmbit: @unchecked Sendable {
         }
     }
     
-
     private func setupLifecycleObservers() {
         let nc = NotificationCenter.default
         nc.addObserver(self,
@@ -157,8 +155,6 @@ public final class AppAmbit: @unchecked Sendable {
         }
     }
 
-
-
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
             if self.isCreatingConsumer {
@@ -211,8 +207,6 @@ public final class AppAmbit: @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-        
-        
         
         sendAllPendingData();
     }
