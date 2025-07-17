@@ -4,26 +4,31 @@ final class ServiceContainer {
     let apiService: ApiService
     let appInfoService: AppInfoService
     let storageService: StorageService
+    let reachabilityService: ReachabilityService
 
     private nonisolated(unsafe) static let _instance: ServiceContainer = {
         let dataStore: DataStore
         let storageService: StorageService
-        
+        let reachabilityService: ReachabilityService
+
         do {
             dataStore = try DataStore()
             storageService = try Storable(ds: dataStore)
+            reachabilityService = try ReachabilityService()
         } catch {
-            debugPrint("Error initializing DataStore: \(error)")
-            fatalError("Failed to initialize DataStore")
+            debugPrint("Error initializing DataStore or ReachabilityService: \(error)")
+            fatalError("Failed to initialize ServiceContainer")
         }
 
         return ServiceContainer(
             apiService: AppAmbitApiService(storageService: storageService),
             appInfoService: AppAmbitInfoService(),
-            storageService: storageService
+            storageService: storageService,
+            reachabilityService: reachabilityService
         )
     }()
-        
+    
+    
     private static let accessQueue = DispatchQueue(
         label: "com.appambit.sdk.service.container",
         attributes: .concurrent
@@ -38,10 +43,12 @@ final class ServiceContainer {
     private init(
         apiService: ApiService,
         appInfoService: AppInfoService,
-        storageService: StorageService
+        storageService: StorageService,
+        reachabilityService: ReachabilityService
     ) {
         self.apiService = apiService
         self.appInfoService = appInfoService
         self.storageService = storageService
+        self.reachabilityService = reachabilityService
     }
 }

@@ -117,8 +117,22 @@ public final class AppAmbit: @unchecked Sendable {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
         let storageService = ServiceContainer.shared.storageService
+        let reachabilityService = ServiceContainer.shared.reachabilityService
         
         Analytics.initialize(apiService: apiService, storageService: storageService)
+        
+        reachabilityService.onConnectionChange = handleConnectionChange
+        try? reachabilityService.initialize()
+    }
+    
+    @Sendable
+    func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
+        switch status {
+        case .connected:
+            print("Access to a red light")
+        case .disconnected:
+            print("There is no access to a red light")
+        }
     }
 
     private func initializeConsumer() {
@@ -133,26 +147,49 @@ public final class AppAmbit: @unchecked Sendable {
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
             if self.isCreatingConsumer {
-                debugPrint("It is already created, we add the callback to the list to call later")
+                debugPrint("Token operation already in progress, queuing callback...")
                 self.consumerCreationCallbacks.append(completion)
                 return
             }
+            
             self.isCreatingConsumer = true
             self.consumerCreationCallbacks.append(completion)
+            
+            do {
+                _ = ConsumerService.shared.buildRegisterEndpoint(appKey: self.appKey)
 
-            ServiceContainer.shared.apiService.createConsumer(appKey: self.appKey) { errorType in
-                DispatchQueue.main.async {
-                    let success = (errorType == .none)
-                    debugPrint("[AppAmbit] Created consumer with: \(errorType)")
-
-                    self.consumerCreationQueue.async {
-                        self.isCreatingConsumer = false
-                        let callbacks = self.consumerCreationCallbacks
-                        self.consumerCreationCallbacks = []
-                        for cb in callbacks {
-                            cb(success)
-                        }
+                if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
+                    debugPrint("Consumer ID exists (\(consumerId)), renewing token...")
+                    
+                    ServiceContainer.shared.apiService.getNewToken { errorType in
+                        self.handleTokenResult(errorType: errorType)
                     }
+                } else {
+                    debugPrint("There is no consumerId, creating a new one...")
+                    
+                    ConsumerService.shared.createConsumer(appKey: self.appKey) { errorType in
+                        self.handleTokenResult(errorType: errorType)
+                    }
+                }
+            } catch {
+                debugPrint("Error reading consumerId: \(error)")
+                self.handleTokenResult(errorType: .unknown)
+            }
+        }
+    }
+
+    private func handleTokenResult(errorType: ApiErrorType) {
+        DispatchQueue.main.async {
+            let success = (errorType == .none)
+            debugPrint("[AppAmbit] Operación completada con: \(errorType)")
+            
+            self.consumerCreationQueue.async {
+                self.isCreatingConsumer = false
+                let callbacks = self.consumerCreationCallbacks
+                self.consumerCreationCallbacks = []
+                
+                for callback in callbacks {
+                    callback(success)
                 }
             }
         }
@@ -184,6 +221,7 @@ public final class AppAmbit: @unchecked Sendable {
         self.sendPendingEvents()
         self.sendPendingSessiones()
     }
+    
     
     private func onSleep() {
         debugPrint("[AppAmbit] OnSleep: saveEndSession")
