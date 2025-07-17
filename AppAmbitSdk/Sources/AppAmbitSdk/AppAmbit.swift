@@ -11,11 +11,10 @@ public final class AppAmbit: @unchecked Sendable {
 
     private let appKey: String
     private let workerQueue = DispatchQueue(label: "com.appambit.workerQueue")
+    private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
     private var isCreatingConsumer = false
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
-    private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
-
-
+    
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
         self.appKey = appKey
@@ -24,7 +23,7 @@ public final class AppAmbit: @unchecked Sendable {
     }
 
     public static func start(appKey: String) {
-        instanceQueue.sync {
+        instanceQueue.async {
             if _instance == nil {
                 _instance = AppAmbit(appKey: appKey)
                 debugPrint("[AppAmbit] SDK started with appKey: \(appKey)")
@@ -70,7 +69,6 @@ public final class AppAmbit: @unchecked Sendable {
             self.onResume()
         }
     }
-
     
     @objc private func appWillResignActive() {
         debugPrint("[AppAmbit] appWillResignActive")
@@ -116,8 +114,11 @@ public final class AppAmbit: @unchecked Sendable {
     }
 
     private func initializeServices() {
-        _ = ServiceContainer.shared.apiService
+        let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
+        let storageService = ServiceContainer.shared.storageService
+        
+        Analytics.initialize(apiService: apiService, storageService: storageService)
     }
 
     private func initializeConsumer() {
@@ -128,7 +129,6 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
 
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
@@ -143,7 +143,7 @@ public final class AppAmbit: @unchecked Sendable {
             ServiceContainer.shared.apiService.createConsumer(appKey: self.appKey) { errorType in
                 DispatchQueue.main.async {
                     let success = (errorType == .none)
-                    debugPrint("[AppAmbit] Created consumer: \(success)")
+                    debugPrint("[AppAmbit] Created consumer with: \(errorType)")
 
                     self.consumerCreationQueue.async {
                         self.isCreatingConsumer = false
@@ -157,18 +157,15 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
     
     private func onStart() {
         debugPrint("[AppAmbit] OnStart")
         self.initializeServices()
         self.initializeConsumer()
     }
-
     
     private func onResume() {
         debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
-
 
         if tokenIsValid() {
             getNewToken { [weak self] success in
@@ -196,7 +193,6 @@ public final class AppAmbit: @unchecked Sendable {
         debugPrint("[AppAmbit] onEnd: saveEndSession")
     }
     
-
     private func sendPendingLogs() {
         debugPrint("[AppAmbit] Sending pending logs...")
     }

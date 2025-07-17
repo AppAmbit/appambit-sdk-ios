@@ -1,17 +1,28 @@
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!!!")
-        }
-        .padding()
-    }
-}
+    @AppStorage("tab-view-customization")
+    private var customization: TabViewCustomization
 
-#Preview {
-    ContentView()
+    var body: some View {
+        TabView {
+            CrashesView()
+                .tabItem {
+                    Label("Crashes", systemImage: "exclamationmark.triangle")
+                }
+
+            AnalyticsView()
+                .tabItem {
+                    Label("Analytics", systemImage: "chart.bar")
+                }
+
+            LoadView()
+                .tabItem {
+                    Label("Load", systemImage: "bolt.horizontal.circle")
+                }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .tabViewCustomization($customization)
+        .ignoresSafeArea(.keyboard)
+    }
 }

@@ -7,7 +7,7 @@ class Log: Codable {
     var lineNumber: Int64 = 0
     var message: String = ""
     var stackTrace: String = AppConstants.noStackTraceAvailable
-    private var contextJson: String = "{}"
+    var contextJson: String = "{}"
     var context: [String: String] {
         get {
             guard let data = contextJson.data(using: .utf8) else { return [:] }

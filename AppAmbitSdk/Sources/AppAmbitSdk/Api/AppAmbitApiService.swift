@@ -3,6 +3,7 @@ import Foundation
 class AppAmbitApiService: ApiService {
 
     private let workerQueue = DispatchQueue(label: "com.appambit.telemetry.worker", qos: .utility)
+    private let storageService: StorageService
 
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -20,7 +21,9 @@ class AppAmbitApiService: ApiService {
         set { tokenQueue.async(flags: .barrier) { self._token = newValue } }
     }
 
-    init() { }
+    init(storageService: StorageService) {
+        self.storageService = storageService
+    }
 
     func executeRequest<T: Decodable>(
         _ endpoint: Endpoint,
@@ -94,7 +97,6 @@ class AppAmbitApiService: ApiService {
         workerQueue.async { [weak self] in
             guard let self = self else { return }
 
-
             let endpoint = ConsumerService.shared.registerConsumer(appKey: appKey)
 
             self.executeRequest(
@@ -106,8 +108,20 @@ class AppAmbitApiService: ApiService {
                         self._token = token
                     }
                 }
+                
+                do {
+                    if let consumerId = result.data?.consumerId {
+                        do {
+                            try self.storageService.putConsumerId(String(consumerId))
+                        } catch {
+                            debugPrint("Error saving consumerId: \(error)")
+                        }
+                    }
+                } catch {
+                    debugPrint("Errror to Save: \(error)")
+                }
 
-                let errorType = result.errorType ?? .unknown
+                let errorType = result.errorType
 
                 DispatchQueue.main.async {
                     completionCopy(errorType)
@@ -115,7 +129,6 @@ class AppAmbitApiService: ApiService {
             }
         }
     }
-
 
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
         if let headers = endpoint.customHeader {
@@ -147,7 +160,6 @@ class AppAmbitApiService: ApiService {
         }.resume()
     }
     
-
     private func handleSuccessResponse<T: Decodable>(
         data: Data,
         response: URLResponse,
@@ -229,12 +241,10 @@ class AppAmbitApiService: ApiService {
         #endif
     }
 
-
     private func extractBoundary(from request: URLRequest) -> String? {
         guard let contentType = request.value(forHTTPHeaderField: "Content-Type") else { return nil }
         let prefix = "boundary="
         guard let range = contentType.range(of: prefix) else { return nil }
         return String(contentType[range.upperBound...])
     }
-
 }
