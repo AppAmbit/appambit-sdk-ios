@@ -5,8 +5,10 @@ final class ConsumerService: @unchecked Sendable {
         appInfoService: ServiceContainer.shared.appInfoService,
         storageService: ServiceContainer.shared.storageService)
 
-    private let appInfoQueue = DispatchQueue(label: "com.appambit.consumerservice.access")
-    private let dbQueue = DispatchQueue(label: "com.appambit.database.queue", qos: .utility)
+    private let appInfoQueue = DispatchQueue(label: "com.appambit.consumerservice.info")
+    private let dbQueue = DispatchQueue(label: "com.appambit.consumerservice.datavase", qos: .utility)
+    private let consumerQueue = DispatchQueue(label: "com.appambit.consumerservice.consumer", attributes: .concurrent)
+    
     private let appInfoService: AppInfoService
     private let storageService: StorageService
 
@@ -15,7 +17,7 @@ final class ConsumerService: @unchecked Sendable {
         self.storageService = storageService
     }
 
-    func registerConsumer(appKey: String?) -> RegisterEndpoint {
+    func buildRegisterEndpoint(appKey: String?) -> RegisterEndpoint {
         let info = appInfoQueue.sync {
             (
                 os: appInfoService.os ?? "iOS",
@@ -32,15 +34,22 @@ final class ConsumerService: @unchecked Sendable {
             userId = try storageService.getUserId()
             userEmail = try storageService.getUserEmail()
             
-            if !(appKey?.isEmpty ?? true) {
-                appId = appKey
-                try storageService.putAppId(appId ?? "")
+            let storedAppKey = try storageService.getAppId()
+
+            let incomingAppKey = appKey?.isEmpty ?? true ? nil : appKey
+
+            if storedAppKey != incomingAppKey {
+                try storageService.putConsumerId("")
             }
-            
-            if appKey?.isEmpty ?? true  {
-                if let storageAppKey = try storageService.getAppId() {
-                    appId = storageAppKey
-                }
+
+            if let newAppKey = incomingAppKey {
+                try storageService.putAppId(newAppKey)
+            }
+
+            if incomingAppKey == nil, let fallbackAppKey = storedAppKey {
+                appId = fallbackAppKey
+            } else {
+                appId = incomingAppKey
             }
                         
             if deviceId?.isEmpty ?? true {
@@ -66,5 +75,40 @@ final class ConsumerService: @unchecked Sendable {
             country: info.country,
             language: info.language
         ))
+    }
+    
+    func createConsumer(
+        appKey: String,
+        completion: @escaping @Sendable (ApiErrorType) -> Void
+    ) {
+        consumerQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            let endpoint = self.buildRegisterEndpoint(appKey: appKey)
+
+            ServiceContainer.shared.apiService.executeRequest(
+                endpoint,
+                responseType: TokenResponse.self
+            ) { result in
+                if let token = result.data?.token {
+                    self.consumerQueue.async(flags: .barrier) {
+                        ServiceContainer.shared.apiService.setToken(token)                    
+                    }
+                }
+                
+                if let consumerId = result.data?.consumerId {
+                    do {
+                        try self.storageService.putConsumerId(String(consumerId))
+                    } catch {
+                        debugPrint("Error saving consumerId: \(error)")
+                    }
+                }
+                let errorType = result.errorType
+
+                DispatchQueue.main.async {
+                    completion(errorType)
+                }
+            }
+        }
     }
 }
