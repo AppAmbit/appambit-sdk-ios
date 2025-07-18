@@ -21,7 +21,7 @@ struct AnalyticsView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.green)
+            .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(8)
             .padding(.horizontal)
