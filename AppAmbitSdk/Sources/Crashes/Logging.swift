@@ -8,22 +8,20 @@ final class Logging: Sendable {
     private static let tag = "Logging"
     
     static func logEvent(
-        context: Any?, // En iOS no se usa Context, así que podría ser opcional o nil
+        context: Any?,
         message: String?,
         logType: LogType,
-        exception: NSException?, // en Swift no hay Exception, uso NSException para ejemplo
+        exception: NSException?,
         properties: [String: String]?,
         classFqn: String?,
         fileName: String?,
         lineNumber: Int,
         createdAt: Date?
     ) {
-        //let exceptionInfo = exception != nil ? ExceptionInfo.from(exception: exception!) : nil
         logEvent(
             context: context,
             message: message,
             logType: logType,
-            //exceptionInfo: exceptionInfo,
             properties: properties,
             classFqn: classFqn,
             fileName: fileName,
@@ -48,14 +46,8 @@ final class Logging: Sendable {
         
         let file = MultipartFile(fileName: "example.txt", mimeType: "text/plain", data: Data("Contenido del archivo".utf8))
 
-        // Obtener info versión app iOS
-        let appVersion: String = {
-            if let info = Bundle.main.infoDictionary {
-                let version = info["CFBundleShortVersionString"] as? String ?? "Unknown"
-                let build = info["CFBundleVersion"] as? String ?? "Unknown"
-                return "\(version) (\(build))"
-            }
-            return "Unknown"
+        let appVersion: String = {            
+            return "\(ServiceContainer.shared.appInfoService.appVersion ?? "") (\(ServiceContainer.shared.appInfoService.build ?? ""))"
         }()
         
         let log = Log()
@@ -76,10 +68,7 @@ final class Logging: Sendable {
         queue.async {
             let apiService = ServiceContainer.shared.apiService
             let logEndpoint = LogEndpoint(log: log)
-            
-            // Creamos una copia inmutable para el closure Sendable
-            let logCopy = log
-            
+                        
             apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { result in
                 
                 if result.errorType != .none {
@@ -105,9 +94,9 @@ final class Logging: Sendable {
         queue.async {
             do {
                 try storable.putLogEvent(log)
-                print("\(tag): Log event stored in database")
+                debugPrint("\(tag): Log event stored in database")
             } catch {
-                print("\(tag): Failed to store log event: \(error.localizedDescription)")
+                debugPrint("\(tag): Failed to store log event: \(error.localizedDescription)")
             }
         }
     }

@@ -129,9 +129,9 @@ public final class AppAmbit: @unchecked Sendable {
     func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
         switch status {
         case .connected:
-            print("Access to a red light")
+            debugPrint("Access to a red")
         case .disconnected:
-            print("There is no access to a red light")
+            debugPrint("There is no access to a red")
         }
     }
 
@@ -181,7 +181,7 @@ public final class AppAmbit: @unchecked Sendable {
     private func handleTokenResult(errorType: ApiErrorType) {
         DispatchQueue.main.async {
             let success = (errorType == .none)
-            debugPrint("[AppAmbit] Operación completada con: \(errorType)")
+            debugPrint("[AppAmbit] Operation completed with: \(errorType)")
             
             self.consumerCreationQueue.async {
                 self.isCreatingConsumer = false

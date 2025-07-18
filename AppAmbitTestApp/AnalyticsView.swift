@@ -42,13 +42,13 @@ struct AnalyticsView: View {
 
         Analytics.clearToken()
 
-       print("[Test] Enviando 5 logs concurrentes con token vacío")
-        for i in 1...5 {
+        debugPrint("[AnalyticsView] Sending 5 concurrent logs with empty token")
+        for _ in 1...5 {
             group.enter()
             queue.async {
                 Crashes.logError(
                     context: nil,
-                    message: "Sending error 5 after invalid token",
+                    message: "Sending logs 5 after invalid token",
                     properties: ["user_id": "1"],
                     classFqn: "AnalyticsView",
                     exception: nil,
@@ -61,13 +61,13 @@ struct AnalyticsView: View {
         }
 
        group.notify(queue: .main) {
-            print("[Test] Terminó batch de Logs. Limpiando token para Events.")
+           debugPrint("[AnalyticsView] Log batch completed. Clearing event tokens.")
             Analytics.clearToken()
 
             let eventGroup = DispatchGroup()
 
-            print("[Test] Enviando 5 eventos concurrentes con token vacío")
-            for i in 1...5 {
+           debugPrint("[AnalyticsView] Sending 5 concurrent events with empty token")
+            for _ in 1...5 {
                 eventGroup.enter()
                 queue.async {
                     Analytics.trackEvent(
@@ -80,7 +80,7 @@ struct AnalyticsView: View {
             }
 
             eventGroup.notify(queue: .main) {
-                print("[Test] Se enviaron 5 logs y 5 eventos con renovación de token en concurrencia.")
+                debugPrint("[AnalyticsView] 5 logs and 5 events with token renewal were sent concurrently.")
                 showCompletionAlert = true
             }
         }

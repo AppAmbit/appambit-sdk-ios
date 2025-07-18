@@ -516,7 +516,7 @@ class Storable: StorageService {
         }
     }
 
-    private func insertSecret(column: String, value: String) throws {
+    private func insertSecret(column: String, value: String?) throws {
         let columns = [
             AppSecretsConfiguration.Column.appId.name,
             AppSecretsConfiguration.Column.deviceId.name,
@@ -525,31 +525,26 @@ class Storable: StorageService {
             AppSecretsConfiguration.Column.sessionId.name,
             AppSecretsConfiguration.Column.consumerId.name
         ]
-        
+
         let columnNames = columns.joined(separator: ", ")
         let placeholders = columns.map { $0 == column ? "?" : "NULL" }.joined(separator: ", ")
-        
         let sql = "INSERT INTO \(AppSecretsConfiguration.tableName) (\(columnNames)) VALUES (\(placeholders));"
-        
+
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             throw sqliteError
         }
         defer { sqlite3_finalize(stmt) }
-        
+
         if let index = columns.firstIndex(of: column) {
-            let nsString = value as NSString
-            let cString = nsString.utf8String
-            guard sqlite3_bind_text(stmt, Int32(index + 1), cString, -1, nil) == SQLITE_OK else {
-                throw NSError(domain: "SQLite3", code: Int(sqlite3_errcode(db)),
-                            userInfo: [NSLocalizedDescriptionKey: "Failed to bind text value"])
-            }
+            bindText(stmt, index: Int32(index + 1), value: value)
         }
-        
+
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             throw sqliteError
         }
     }
+
 
     private func getSecret(column: String) throws -> String? {
         let sql = "SELECT \(column) FROM \(AppSecretsConfiguration.tableName) LIMIT 1;"

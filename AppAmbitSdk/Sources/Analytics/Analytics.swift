@@ -48,20 +48,22 @@ public final class Analytics {
     }
     
     private static func sendOrSaveEvent(eventTitle: String, data: [String: String], createdAt: Date?) {
-        let event = Event(
-            name: eventTitle,
-            metadata: data
-        )
-        
-        let endpoint = EventEndpoint(event: event)
-        
-        self.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { result in
-            if result.errorType != .none {
-                debugPrint("Save on datbase event: \(result.message ?? "")")
-                return
-            }
+        isolationQueue.async {
+            let event = Event(
+                name: eventTitle,
+                metadata: data
+            )
             
-            debugPrint("Log send")
+            let endpoint = EventEndpoint(event: event)
+            
+            self.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { result in
+                if result.errorType != .none {
+                    debugPrint("Save on datbase event: \(result.message ?? "")")
+                    return
+                }
+                
+                debugPrint("Event send")
+            }
         }
     }
 }

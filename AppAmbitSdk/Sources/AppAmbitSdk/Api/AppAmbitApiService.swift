@@ -388,7 +388,15 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
         #endif
         
-        return try JSONDecoder().decode(T.self, from: data)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw ApiExceptions.httpError(
+                statusCode: -1,
+                message: "Decode"
+            )
+        }
+        
     }
     
     private func checkStatusCodeFrom(response: URLResponse) throws {
