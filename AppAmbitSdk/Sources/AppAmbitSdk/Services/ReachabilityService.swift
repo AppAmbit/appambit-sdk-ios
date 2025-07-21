@@ -14,7 +14,6 @@ final class ReachabilityService: @unchecked Sendable {
     
     public var onConnectionChange: (@Sendable (ConnectionStatus) -> Void)?
 
-    
     private var weakifier: ReachabilityWeakifier?
     
     public var isConnected: Bool {
