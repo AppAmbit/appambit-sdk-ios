@@ -2,8 +2,6 @@ import Foundation
 
 class AppAmbitApiService: ApiService {
 
-    private nonisolated(unsafe) static var isNetworkAvailable = false
-
     private let workerQueue = DispatchQueue(label: "com.appambit.telemetry.worker", qos: .utility)
     private let storageService: StorageService
 
