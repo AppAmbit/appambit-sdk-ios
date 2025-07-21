@@ -75,7 +75,7 @@ final class SessionManager: @unchecked Sendable {
     
     private static func sendEndSessionOrSaveLocally(endSession: SessionData) {
         guard let storage = _storageService, let api = _apiService else {
-            print("[SessionManager]: Error: Servicios no inicializados (Storage o API)")
+            print("[SessionManager]: Error: Services not initialized")
             return
         }
         
