@@ -34,7 +34,6 @@ final class Logging: Sendable {
         context: Any?,
         message: String?,
         logType: LogType,
-        //exceptionInfo: ExceptionInfo?,
         properties: [String: String]?,
         classFqn: String?,
         fileName: String?,
@@ -100,5 +99,4 @@ final class Logging: Sendable {
             }
         }
     }
-
 }
