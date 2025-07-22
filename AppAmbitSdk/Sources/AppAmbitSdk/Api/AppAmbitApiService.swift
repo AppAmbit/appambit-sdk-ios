@@ -7,14 +7,14 @@ class AppAmbitApiService: ApiService {
 
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 60
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 5
         config.waitsForConnectivity = true
         return URLSession(configuration: config)
     }()
 
     private var _token: String?
-    private let tokenQueue = DispatchQueue(label: "com.appambit.token.access", attributes: .concurrent)
+    private let tokenQueue = DispatchQueue(label: "com.appambit.api.request", attributes: .concurrent)
 
     var token: String? {
         get { tokenQueue.sync { _token } }
@@ -31,6 +31,12 @@ class AppAmbitApiService: ApiService {
         completion: @escaping (ApiResult<T>) -> Void
     ) {
         workerQueue.async { [completion] in
+
+            if !ServiceContainer.shared.reachabilityService.isConnected {
+                completion(.fail(.unknown, message: "No internet connection"))
+                return
+            }
+            
             guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
                 completion(.fail(.unknown, message: "Invalid URL"))
                 return
@@ -131,6 +137,8 @@ class AppAmbitApiService: ApiService {
     }
 
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+
         if let headers = endpoint.customHeader {
             for (key, value) in headers {
                 request.addValue(value, forHTTPHeaderField: key)
@@ -159,7 +167,7 @@ class AppAmbitApiService: ApiService {
             }
         }.resume()
     }
-    
+
     private func handleSuccessResponse<T: Decodable>(
         data: Data,
         response: URLResponse,
@@ -215,7 +223,7 @@ class AppAmbitApiService: ApiService {
         debugPrint("HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
         if let jsonString = String(data: jsonData, encoding: .utf8) {
             print("HTTP - REQUEST - JSON Body:\n\(jsonString)")
-        }else {
+        } else {
             print("HTTP - REQUEST - JSON Body: (could not convert to String)")
         }
         #endif

@@ -4,8 +4,9 @@ public final class Analytics {
     
     private nonisolated(unsafe) static var apiService: ApiService?
     private nonisolated(unsafe) static var storageService: StorageService?
+    nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
     
-    private static let syncQueue = DispatchQueue(label: "com.yourapp.analytics.syncQueue")
+    private static let syncQueue = DispatchQueue(label: "com.appambit.analytics.syncQueue")
     
     private init() {}
     
@@ -33,6 +34,20 @@ public final class Analytics {
             } catch {
                 debugPrint("Error putting email: \(error)")
             }
+        }
+    }    
+    public static func startSession() {
+        SessionManager.startSession()
+    }
+
+    public static func endSession() {
+        SessionManager.endSession()
+    }
+    
+    public static func enableManualSession() {
+        syncQueue.sync {
+            
+            isManualSessionEnabled = true
         }
     }
 }
