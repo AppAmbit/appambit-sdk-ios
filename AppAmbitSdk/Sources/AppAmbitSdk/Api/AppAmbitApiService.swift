@@ -137,7 +137,6 @@ class AppAmbitApiService: ApiService {
     }
 
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
-        request.addValue("application/json", forHTTPHeaderField: "Accept")
 
         if let headers = endpoint.customHeader {
             for (key, value) in headers {
@@ -184,9 +183,8 @@ class AppAmbitApiService: ApiService {
             case 200..<300:
                 break
             default:
-                debugPrint("")
-                //completion(.fail(.unknown, message: "HTTP status \(httpResponse.statusCode)"))
-                //return
+                completion(.fail(.unknown, message: "HTTP status \(httpResponse.statusCode)"))
+                return
             }
         }
 
