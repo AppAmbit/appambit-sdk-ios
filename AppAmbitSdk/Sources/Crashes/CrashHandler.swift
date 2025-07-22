@@ -265,13 +265,11 @@ public class CrashHandler: @unchecked Sendable {
         do {
             if !FileManager.default.fileExists(atPath: crashLogsDir.path) {
                 try FileManager.default.createDirectory(at: crashLogsDir, withIntermediateDirectories: true, attributes: nil)
-                debugPrint("[Crashes] Directorio de logs de crash CREADO en: \(crashLogsDir.path)")
-            } else {
-                debugPrint("[Crashes] Directorio de logs de crash YA EXISTE en: \(crashLogsDir.path)")
+                debugPrint("[Crashes] Crash log directory CREATED in: \(crashLogsDir.path)")
             }
             return crashLogsDir
         } catch {
-            debugPrint("[Crashes] ERROR al crear o verificar el directorio de logs de crash: \(error.localizedDescription)")
+            debugPrint("[Crashes] ERROR creating or verifying the crash logs directory: \(error.localizedDescription)")
             return nil
         }
     }
