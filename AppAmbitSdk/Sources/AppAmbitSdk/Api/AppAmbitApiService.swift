@@ -40,7 +40,7 @@ class AppAmbitApiService: ApiService {
             request.httpMethod = endpoint.method.stringValue
 
             self.configureHeaders(for: &request, endpoint: endpoint)
-
+            request.addValue("application/json", forHTTPHeaderField: "Accept")
             if let payload = endpoint.payload {
                 if let log = payload as? Log {
                     let builder = MultipartFormDataBuilder()
@@ -176,8 +176,9 @@ class AppAmbitApiService: ApiService {
             case 200..<300:
                 break
             default:
-                completion(.fail(.unknown, message: "HTTP status \(httpResponse.statusCode)"))
-                return
+                debugPrint("")
+                //completion(.fail(.unknown, message: "HTTP status \(httpResponse.statusCode)"))
+                //return
             }
         }
 

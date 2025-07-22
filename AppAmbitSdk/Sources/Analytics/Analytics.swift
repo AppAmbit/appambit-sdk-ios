@@ -15,7 +15,7 @@ public final class Analytics {
             self.storageService = storageService
         }
     }
-
+    
     public static func setUserId(_ userId: String) {
         syncQueue.sync {
             do {
@@ -34,5 +34,5 @@ public final class Analytics {
                 debugPrint("Error putting email: \(error)")
             }
         }
-    }    
+    }
 }

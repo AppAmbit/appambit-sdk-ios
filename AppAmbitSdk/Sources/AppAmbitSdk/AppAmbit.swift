@@ -17,6 +17,7 @@ public final class AppAmbit: @unchecked Sendable {
     
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
+        CrashHandler.shared.register()
         self.appKey = appKey
         setupLifecycleObservers()
         onStart()
@@ -119,6 +120,7 @@ public final class AppAmbit: @unchecked Sendable {
         let storageService = ServiceContainer.shared.storageService
         
         Analytics.initialize(apiService: apiService, storageService: storageService)
+        
     }
 
     private func initializeConsumer() {
@@ -127,6 +129,8 @@ public final class AppAmbit: @unchecked Sendable {
             if success {
                 debugPrint("[AppAmbit] Consumer created")
             }
+            
+            Crashes.shared.loadCrashFileIfExists()
         }
     }
 
