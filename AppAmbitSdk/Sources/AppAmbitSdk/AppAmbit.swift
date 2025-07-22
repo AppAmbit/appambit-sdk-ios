@@ -20,6 +20,7 @@ public final class AppAmbit: @unchecked Sendable {
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
         self.appKey = appKey
+        CrashHandler.shared.register()
         setupLifecycleObservers()
         onStart()
     }
@@ -144,6 +145,8 @@ public final class AppAmbit: @unchecked Sendable {
 
         getNewToken { [weak self] _ in
             guard let self = self else { return }
+            
+            Crashes.shared.loadCrashFileIfExists()
 
             if Analytics.isManualSessionEnabled {
                 debugPrint("[AppAmbit] Manual session enabled")
@@ -187,8 +190,6 @@ public final class AppAmbit: @unchecked Sendable {
         debugPrint("[AppAmbit] OnStart")
         self.initializeServices()
         self.initializeConsumer()
-        
-        Crashes.shared.loadCrashFileIfExists()
     }
     
     private func onResume() {
