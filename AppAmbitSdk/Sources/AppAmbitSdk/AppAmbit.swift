@@ -14,7 +14,9 @@ public final class AppAmbit: @unchecked Sendable {
     private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
     private var isCreatingConsumer = false
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
-    
+    private static let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
+    private var reachability: ReachabilityService?
+
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
         self.appKey = appKey
@@ -32,7 +34,7 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
+    
     private func setupLifecycleObservers() {
         let nc = NotificationCenter.default
         nc.addObserver(self,
@@ -89,11 +91,11 @@ public final class AppAmbit: @unchecked Sendable {
     @objc private func appWillEnterForeground() {
         debugPrint("[AppAmbit] appWillEnterForeground")
         workerQueue.async { [weak self] in
-            debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
+            debugPrint("[AppAmbit] onResume: GetNewToken, removeSavedEndSession, SendBatchLogs, SendBatchEvents")
             
             guard let self = self else { return }
 
-            if tokenIsValid() {
+            if !tokenIsValid() {
                 self.getNewToken { success in
                     if success {
                         self.sendAllPendingData()
@@ -117,16 +119,39 @@ public final class AppAmbit: @unchecked Sendable {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
         let storageService = ServiceContainer.shared.storageService
-        
+        let reachabilityService = ServiceContainer.shared.reachabilityService
+
         Analytics.initialize(apiService: apiService, storageService: storageService)
+        SessionManager.initialize(apiService: apiService, storageService: storageService)
+
+        reachabilityService.onConnectionChange = handleConnectionChange
+        try? reachabilityService.initialize()
+       
+    }
+    
+    @Sendable
+    func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
+        switch status {
+        case .connected:
+            print("Access to a red light")
+        case .disconnected:
+            print("There is no access to a red light")
+        }
     }
 
     private func initializeConsumer() {
         debugPrint("[AppAmbit] Initializing consumer with appKey: \(appKey)")
-        getNewToken { success in
-            if success {
-                debugPrint("[AppAmbit] Consumer created")
+
+        getNewToken { [weak self] _ in
+            guard let self = self else { return }
+
+            if Analytics.isManualSessionEnabled {
+                debugPrint("[AppAmbit] Manual session enabled")
+                return
             }
+            
+            SessionManager.sendEndSessionIfExists()
+            SessionManager.startSession()
         }
     }
 
@@ -167,16 +192,23 @@ public final class AppAmbit: @unchecked Sendable {
     private func onResume() {
         debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
 
-        if tokenIsValid() {
+        if !tokenIsValid() {
             getNewToken { [weak self] success in
                 guard let self = self else { return }
-                if success {
-                    self.sendAllPendingData()
-                }
+                
+                self.continueOnResume()
             }
         } else {
-            sendAllPendingData();
+            continueOnResume()
         }
+    }
+    
+    private func continueOnResume() {
+        if !Analytics.isManualSessionEnabled {
+            SessionManager.removeSavedEndSession()
+        }
+        
+        sendAllPendingData();
     }
 
     private func sendAllPendingData() {
@@ -186,11 +218,15 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     private func onSleep() {
-        debugPrint("[AppAmbit] OnSleep: saveEndSession")
+        if !Analytics.isManualSessionEnabled {
+            SessionManager.saveEndSession()
+        }
     }
     
     private func onEnd() {
-        debugPrint("[AppAmbit] onEnd: saveEndSession")
+        if !Analytics.isManualSessionEnabled {
+            SessionManager.saveEndSession()
+        }
     }
     
     private func sendPendingLogs() {
@@ -206,6 +242,9 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     private func tokenIsValid() -> Bool {
-        return ServiceContainer.shared.apiService.token?.isEmpty ?? true
+        guard let token = ServiceContainer.shared.apiService.token else {
+            return false
+        }
+        return !token.isEmpty
     }
 }
