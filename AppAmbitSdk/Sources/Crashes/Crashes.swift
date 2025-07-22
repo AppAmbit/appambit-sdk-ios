@@ -9,7 +9,6 @@ public class Crashes: @unchecked Sendable {
     static let shared = Crashes()
     private init() {}
     
-   
     private static func logCrash(exceptionInfo: ExceptionInfo) {
         
         Logging.logEvent(message: exceptionInfo.message,

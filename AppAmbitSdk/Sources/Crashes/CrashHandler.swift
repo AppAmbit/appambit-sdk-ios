@@ -28,7 +28,6 @@ public class CrashHandler: @unchecked Sendable {
             debugPrint("[CrashHandler] ERROR: The crash log directory could not be determined or created.")
             self.crashStorageURL = nil
         }
-
     }
     
     func register() {

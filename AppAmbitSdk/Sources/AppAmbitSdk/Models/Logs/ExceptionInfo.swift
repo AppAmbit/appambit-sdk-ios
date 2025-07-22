@@ -59,7 +59,6 @@ public struct ExceptionInfo: Codable {
     
     static func fromSignalException(signalName: String, source: String?, stackTrace: String, fileNameFromStackTrace: String, classFullName: String, lineNumberFromStackTrace: Int64) -> ExceptionInfo {
         
-        
         return ExceptionInfo(
             type: signalName,
             message: "Application terminated due to signal: \(signalName)",

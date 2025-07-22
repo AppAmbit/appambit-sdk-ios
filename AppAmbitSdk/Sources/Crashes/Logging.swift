@@ -3,8 +3,7 @@ import Foundation
 final class Logging: @unchecked Sendable {
     private static let queue = DispatchQueue(label: "com.appambit.logging.queue", qos: .utility)
     private static let tag = "Logging"
-    
-    
+        
     static func logEvent(
         message: String?,
         logType: LogType,
@@ -87,7 +86,6 @@ final class Logging: @unchecked Sendable {
                     storeLogInDb(logEntity)
                     return
                 }
-                
                 debugPrint("\(tag): Log send")
             }            
         }
@@ -104,5 +102,4 @@ final class Logging: @unchecked Sendable {
             }
         }
     }
-
 }
