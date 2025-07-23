@@ -4,6 +4,7 @@ final class SessionManager: @unchecked Sendable {
     private var storageService: StorageService?
     private nonisolated(unsafe) static var _sessionId: String?
     nonisolated(unsafe) static var isSessionActive: Bool = false
+    static let Tag = "SessionManager"
     
     static let shared = SessionManager()
     private init (){ }
@@ -15,9 +16,9 @@ final class SessionManager: @unchecked Sendable {
         shared.storageService = storageService
     }
 
-    static func startSession() {
+    static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         debugPrint("StartSession called");
-        syncQueue.async(flags: .barrier) {
+        let workItem = DispatchWorkItem {
             if isSessionActive {
                 return;
             }
@@ -35,7 +36,7 @@ final class SessionManager: @unchecked Sendable {
                     if let sessionIdInt = response.data?.sessionId {
                         sessionId = String(sessionIdInt)
                     }
-                    
+                                                            
                     if response.errorType != .none {
                         _ = try? shared.storageService?.putSessionData(SessionData(
                             id: UUID().uuidString,
@@ -44,16 +45,22 @@ final class SessionManager: @unchecked Sendable {
                             sessionType: .start
                         ))
                         _sessionId = sessionId
+                        AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                        completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
+                    } else {
+                        completion?(nil)
                     }
                 }
             
             isSessionActive = true
         }
+        
+        syncQueue.async(execute: workItem)
     }
     
-    static func endSession() {
+    static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         debugPrint("endSession called");
-        syncQueue.sync {
+        let workItem = DispatchWorkItem {
             if !isSessionActive {
                 return;
             }
@@ -67,17 +74,23 @@ final class SessionManager: @unchecked Sendable {
                 sessionType: .end
             )
             
-            sendEndSessionOrSaveLocally(endSession: sessionData)
+            sendEndSessionOrSaveLocally(endSession: sessionData, completion: completion)
         }
+        
+        syncQueue.async(execute: workItem)
     }
     
-    private static func sendEndSessionOrSaveLocally(endSession: SessionData) {        
+    private static func sendEndSessionOrSaveLocally(endSession: SessionData, completion: (@Sendable (Error?) -> Void)? = nil) {
         shared.apiService?.executeRequest(EndSessionEndpoint(endSession: endSession),
                            responseType: EndSessionResponse.self,
-                           completion:  {response in
+                           completion:  { response in
             
             if response.errorType != .none {
+                AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
                 _ = try? shared.storageService?.putSessionData(endSession)
+            } else {
+                completion?(nil)
             }
         })
         

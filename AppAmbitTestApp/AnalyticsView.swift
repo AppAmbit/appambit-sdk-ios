@@ -26,7 +26,13 @@ struct AnalyticsView: View {
             .cornerRadius(8)
             .padding(.horizontal)
             Button("Start Session") {
-                Analytics.startSession()
+                Analytics.startSession { error in
+                    if let error = error {
+                        debugPrint("Error Start Session: \(error.localizedDescription)")
+                    } else {
+                        debugPrint("Successful Start Session")
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -36,7 +42,13 @@ struct AnalyticsView: View {
             .padding(.horizontal)
             
             Button("End Session") {
-                Analytics.endSession()
+                Analytics.endSession { response in
+                    if let response = response {
+                        debugPrint("Error Start Session: \(response.localizedDescription)")
+                    } else {
+                        debugPrint("Successful End Session")
+                    }                    
+                }
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -65,7 +77,7 @@ struct AnalyticsView: View {
         
         // 1. Error log phase (They run in parallel)
         let logsGroup = DispatchGroup()
-        debugPrint("[TEST] Starting 5 concurrent error logs")
+        debugPrint("[AnalyticsView] Starting 5 concurrent error logs")
         
         for i in 1...5 {
             logsGroup.enter()
@@ -81,9 +93,9 @@ struct AnalyticsView: View {
                     createdAt: Date()
                 ) { error in
                     if let error = error {
-                        print("Failed to log error \(i): \(error.localizedDescription)")
+                        debugPrint("Failed to log error \(i): \(error.localizedDescription)")
                     } else {
-                        print("Log \(i) recorded successfully")
+                        debugPrint("Log \(i) recorded successfully")
                     }
                     logsGroup.leave()
                 }
@@ -92,7 +104,7 @@ struct AnalyticsView: View {
         
         // 2. Event phase (They are executed one after the other)
         logsGroup.notify(queue: concurrentQueue) {
-            debugPrint("[TEST] All logs completed. Starting 5 serial events")
+            debugPrint("[AnalyticsView] All logs completed. Starting 5 serial events")
             
             let eventsGroup = DispatchGroup()
             
@@ -105,9 +117,9 @@ struct AnalyticsView: View {
                         createdAt: nil
                     ) { error in
                         if let error = error {
-                            print("Event \(i) failed: \(error.localizedDescription)")
+                            debugPrint("Event \(i) failed: \(error.localizedDescription)")
                         } else {
-                            print("Event \(i) tracked successfully")
+                            debugPrint("Event \(i) tracked successfully")
                         }
                         eventsGroup.leave()
                     }
@@ -116,15 +128,15 @@ struct AnalyticsView: View {
             
             // 3. Completion
             eventsGroup.notify(queue: .main) {
-                debugPrint("[TEST] All operations completed successfully")
+                debugPrint("[AnalyticsView] All operations completed successfully")
                 showCompletionAlert = true
                 overallGroup.leave()
             }
         }
         
-        // Opcional: Esperar por la finalización completa
+        //Wait for full completion
         overallGroup.notify(queue: .main) {
-            debugPrint("[TEST] Full test sequence completed")
+            debugPrint("[AnalyticsView] Full test sequence completed")
         }
     }
 }

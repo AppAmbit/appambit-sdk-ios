@@ -73,7 +73,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             
             let isTokenEndpoint = endpoint is TokenEndpoint
             let skipAuth = endpoint.skipAuthorization
-           
+            
             self.processResponse(request: request, responseType: responseType) { result in
                 
                 self.workerQueue.async {
@@ -101,12 +101,12 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                 guard let self = self else { return }
                 
                 switch result {
-                    case .success(let endpoint):
-                        self.fetchToken(using: endpoint, completion: completion)
-                    case .failure:
-                        DispatchQueue.main.async {
-                            completion(.unknown)
-                        }
+                case .success(let endpoint):
+                    self.fetchToken(using: endpoint, completion: completion)
+                case .failure:
+                    DispatchQueue.main.async {
+                        completion(.unknown)
+                    }
                 }
             }
         }
@@ -117,7 +117,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             self._token = newToken
         }
     }
-
+    
     private func handleTokenRefresh<T: Decodable>(
         originalRequest: URLRequest?,
         skipAuth: Bool,
@@ -218,9 +218,9 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         
         request.url = urlWithQueryParams
         
-        #if DEBUG
+#if DEBUG
         debugPrint("HTTP - REQUEST - URL with QueryParams: \(request.url?.absoluteString ?? "N/A")")
-        #endif
+#endif
     }
     
     /// Determines whether the payload is of the multipart type (Log or LogBatch)
@@ -281,7 +281,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             self._token = ""
         }
     }
-        
+    
     private func fetchToken(using endpoint: TokenEndpoint, completion: @escaping @Sendable (ApiErrorType) -> Void) {
         executeRequest(endpoint, responseType: TokenResponse.self) { [weak self] result in
             guard let self = self else { return }
@@ -347,7 +347,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                         apiErrorType = .unknown
                     }
                     completion(.fail(apiErrorType, message: error.localizedDescription))
-
+                    
                     
                 case .failure(let error):
                     completion(ApiResult.fail(.unknown, message: error.localizedDescription))
@@ -355,7 +355,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             }
         }.resume()
     }
-
+    
     private func processData<T: Decodable>(_ data: Data?, _ response: URLResponse?, _ error: Error?) throws -> T {
         if let error = error {
             if let urlError = error as? URLError {
@@ -369,6 +369,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
         
         if let httpResponse = response as? HTTPURLResponse {
+            debugPrint("HTTP RESPONSE CODE: \(httpResponse.statusCode)")
             switch httpResponse.statusCode {
             case 401:
                 throw ApiExceptions.unauthorized
@@ -382,18 +383,19 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             }
         }
         
-        #if DEBUG
+        
+#if DEBUG
         if let jsonString = String(data: data, encoding: .utf8) {
             print("HTTP RESPONSE BODY:\n\(jsonString)")
         }
-        #endif
+#endif
         
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
             throw ApiExceptions.httpError(
                 statusCode: -1,
-                message: "Decode"
+                message: "Decode: \(error.localizedDescription)"
             )
         }
         
@@ -430,7 +432,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     }
     
     private func printJSONRequest(request: URLRequest, jsonData: Data) {
-    #if DEBUG
+#if DEBUG
         debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
         debugPrint("HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
         debugPrint("HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
@@ -439,11 +441,11 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }else {
             print("HTTP - REQUEST - JSON Body: (could not convert to String)")
         }
-    #endif
+#endif
     }
     
     private func printMultipartRequest(request: URLRequest, body: Data) {
-    #if DEBUG
+#if DEBUG
         debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
         debugPrint("HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
         debugPrint("HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
@@ -451,7 +453,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         let fullBodyString = String(decoding: body, as: UTF8.self)
         print("HTTP - REQUEST - Body full length (\(body.count) bytes):\n\(fullBodyString)")
         
-    #endif
+#endif
     }
     
     private func extractBoundary(from request: URLRequest) -> String? {

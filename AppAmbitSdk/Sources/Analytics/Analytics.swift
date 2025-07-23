@@ -45,12 +45,12 @@ public final class Analytics: @unchecked Sendable {
         
         isolationQueue.async(execute: workItem)
     }
-    public static func startSession() {
-        SessionManager.startSession()
+    public static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+        SessionManager.startSession(completion: completion)
     }
 
-    public static func endSession() {
-        SessionManager.endSession()
+    public static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+        SessionManager.endSession(completion: completion)
     }
 
     public static func enableManualSession() {
