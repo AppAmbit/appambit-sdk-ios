@@ -1,16 +1,16 @@
 import Foundation
 
 public class Crashes {
-    
     public static func logError(
-        context: Any?,
-        message: String?,
-        properties: [String: String]?,
-        classFqn: String?,
-        exception: NSException?,
-        fileName: String?,
-        lineNumber: Int,
-        createdAt: Date?
+        context: Any? = nil,
+        message: String? = nil,
+        properties: [String: String]? = nil,
+        classFqn: String? = nil,
+        exception: NSException? = nil,
+        fileName: String? = nil,
+        lineNumber: Int64 = #line,
+        createdAt: Date? = nil,
+        completion: (@Sendable (Error?) -> Void)? = nil
     ) {
         Logging.logEvent(
             context: context,
@@ -21,8 +21,8 @@ public class Crashes {
             classFqn: classFqn,
             fileName: fileName,
             lineNumber: lineNumber,
-            createdAt: createdAt
+            createdAt: createdAt,
+            completion: completion
         )
     }
-
 }

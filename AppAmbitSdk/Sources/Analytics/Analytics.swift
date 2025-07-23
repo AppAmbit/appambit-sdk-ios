@@ -1,8 +1,12 @@
 import Foundation
 
-public final class Analytics {
-    private nonisolated(unsafe) static var apiService: ApiService?
-    private nonisolated(unsafe) static var storageService: StorageService?
+public final class Analytics: @unchecked Sendable {
+    private var apiService: ApiService?
+    private var storageService: StorageService?
+    static let TAG = "Analytics";
+    
+    static let shared = Analytics()
+    private init() {}
     
     private static let isolationQueue = DispatchQueue(
         label: "com.appambit.analytics.isolation",
@@ -10,31 +14,35 @@ public final class Analytics {
         attributes: []
     )
     
-    private init() {}
-    
     static func initialize(apiService: ApiService, storageService: StorageService) {
-        self.apiService = apiService
-        self.storageService = storageService
+        shared.apiService = apiService
+        shared.storageService = storageService
     }
     
-    public static func setUserId(_ userId: String) {
-        isolationQueue.async {
+    public static func setUserId(_ userId: String, completion: ((Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
             do {
-                try storageService?.putUserId(userId)
+                try shared.storageService?.putUserId(userId)
+                completion?(nil)
             } catch {
-                debugPrint("Error putting userId: \(error)")
+                AppAmbitLogger.log(error: error, context: "Analytics.setUserId")
+                completion?(error)
             }
         }
+        
+        isolationQueue.async(execute: workItem)
+        
     }
-    
-    public static func setEmail(_ email: String) {
-        isolationQueue.async {
+    public static func setEmail(_ email: String, completion: ((Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
             do {
-                try storageService?.putUserEmail(email)
+                try shared.storageService?.putUserEmail(email)
             } catch {
                 debugPrint("Error putting email: \(error)")
             }
         }
+        
+        isolationQueue.async(execute: workItem)
     }
     
     public static func clearToken() {
@@ -43,12 +51,26 @@ public final class Analytics {
         }
     }
     
-    public static func trackEvent(eventTitle: String, data: [String: String], createdAt: Date?) {
-        sendOrSaveEvent(eventTitle: eventTitle, data: data, createdAt: createdAt)
+    public static func trackEvent(
+        eventTitle: String,
+        data: [String: String],
+        createdAt: Date? = nil,
+        completion: (@Sendable (Error?) -> Void)? = nil
+    ) {
+        sendOrSaveEvent(
+            eventTitle: eventTitle,
+            data: data,
+            createdAt: createdAt,
+            completion: completion
+        )
     }
     
-    private static func sendOrSaveEvent(eventTitle: String, data: [String: String], createdAt: Date?) {
-        isolationQueue.async {
+    private static func sendOrSaveEvent(
+            eventTitle: String,
+            data: [String: String],
+            createdAt: Date?,
+            completion: (@Sendable (Error?) -> Void)? = nil
+        ) {
             let event = Event(
                 name: eventTitle,
                 metadata: data
@@ -56,14 +78,13 @@ public final class Analytics {
             
             let endpoint = EventEndpoint(event: event)
             
-            self.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { result in
-                if result.errorType != .none {
-                    debugPrint("Save on datbase event: \(result.message ?? "")")
-                    return
+            shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
+                if resultEvent.errorType != .none {
+                    AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
+                    completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
+                } else {
+                    completion?(nil)
                 }
-                
-                debugPrint("Event send")
             }
-        }
     }
 }

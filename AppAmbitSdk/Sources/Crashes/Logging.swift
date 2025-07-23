@@ -1,9 +1,7 @@
 import Foundation
 
-final class Logging: Sendable {
+final class Logging: @unchecked Sendable {
     
-    private nonisolated(unsafe) static let apiService: ApiService = ServiceContainer.shared.apiService
-    private nonisolated(unsafe) static let storable: StorageService = ServiceContainer.shared.storageService
     private static let queue = DispatchQueue(label: "com.appambit.logging.queue", qos: .utility)
     private static let tag = "Logging"
     
@@ -11,92 +9,56 @@ final class Logging: Sendable {
         context: Any?,
         message: String?,
         logType: LogType,
-        exception: NSException?,
-        properties: [String: String]?,
-        classFqn: String?,
-        fileName: String?,
-        lineNumber: Int,
-        createdAt: Date?
+        exception: NSException? = nil,
+        properties: [String: String]? = nil,
+        classFqn: String? = nil,
+        fileName: String? = nil,
+        lineNumber: Int64 = #line,
+        createdAt: Date? = nil,
+        completion: (@Sendable (Error?) -> Void)? = nil
     ) {
-        logEvent(
-            context: context,
-            message: message,
-            logType: logType,
-            properties: properties,
-            classFqn: classFqn,
-            fileName: fileName,
-            lineNumber: lineNumber,
-            createdAt: createdAt
-        )
-    }
-    
-    static func logEvent(
-        context: Any?,
-        message: String?,
-        logType: LogType,
-        properties: [String: String]?,
-        classFqn: String?,
-        fileName: String?,
-        lineNumber: Int,
-        createdAt: Date?
-    ) {
+        let file = (logType == .crash) ?
+            MultipartFile(
+                fileName: "crash_log.txt",
+                mimeType: "text/plain",
+                data: Data("Crash report content".utf8)
+            ) : nil
         
-     
+        let appVersion = "\(ServiceContainer.shared.appInfoService.appVersion ?? "") (\(ServiceContainer.shared.appInfoService.build ?? ""))"
         
-        let file = MultipartFile(fileName: "example.txt", mimeType: "text/plain", data: Data("Contenido del archivo".utf8))
 
-        let appVersion: String = {            
-            return "\(ServiceContainer.shared.appInfoService.appVersion ?? "") (\(ServiceContainer.shared.appInfoService.build ?? ""))"
-        }()
-        
         let log = Log()
         log.appVersion = appVersion
-        log.classFQN = AppConstants.unknownClass
-        log.fileName = AppConstants.unknownFileName
-        log.lineNumber = 0
+        log.classFQN = classFqn ?? AppConstants.unknownClass
+        log.fileName = fileName ?? AppConstants.unknownFileName
+        log.lineNumber = lineNumber
         log.message = message ?? ""
-        log.stackTrace = AppConstants.noStackTraceAvailable
+        log.stackTrace = exception?.callStackSymbols.joined(separator: "\n") ?? AppConstants.noStackTraceAvailable
         log.context = properties ?? [:]
         log.type = logType
-        log.file = (logType == .crash) ? file : nil
+        log.file = file
         
-        sendOrSaveLogEventAsync(log)
+        sendOrSaveLogEventAsync(log) { error in
+            DispatchQueue.main.async {
+                completion?(error)
+            }
+        }
     }
     
-    private static func sendOrSaveLogEventAsync(_ log: Log) {
-        queue.async {
-            let apiService = ServiceContainer.shared.apiService
+    private static func sendOrSaveLogEventAsync(_ log: Log, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
             let logEndpoint = LogEndpoint(log: log)
-                        
-            apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { result in
-                
+            
+            let apiService = ServiceContainer.shared.apiService
+            apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
                 if result.errorType != .none {
-                    debugPrint("\(tag): Save on datbase Log: \(result.message ?? "")")
-                    return
+                    AppAmbitLogger.log(message: result.message ?? "Unknown")
+                    completion?(AppAmbitLogger.buildError(message: result.message ?? "", code: 101))
+                } else {
+                    completion?(nil)
                 }
-                
-                debugPrint("\(tag): Log send")
             }
         }
-    }
-
-    private static func storeLogInDb(log: LogEntity) {
-        do {
-            try storable.putLogEvent(log)
-            debugPrint("\(tag): Log event stored in database")
-        } catch {
-            debugPrint("\(tag): Failed to store log event: \(error.localizedDescription)")
-        }
-    }
-
-    private static func storeLogInDb(_ log: LogEntity, storable: StorageService) {
-        queue.async {
-            do {
-                try storable.putLogEvent(log)
-                debugPrint("\(tag): Log event stored in database")
-            } catch {
-                debugPrint("\(tag): Failed to store log event: \(error.localizedDescription)")
-            }
-        }
+        queue.async(execute: workItem)
     }
 }

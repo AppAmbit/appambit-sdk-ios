@@ -37,15 +37,19 @@ struct AnalyticsView: View {
     }
     
     private func onTokenRefreshTest() {
-        let group = DispatchGroup()
-        let queue = DispatchQueue.global(qos: .utility)
-
-        Analytics.clearToken()
-
-        debugPrint("[AnalyticsView] Sending 5 concurrent logs with empty token")
-        for _ in 1...5 {
-            group.enter()
-            queue.async {
+        let overallGroup = DispatchGroup()
+        let concurrentQueue = DispatchQueue.global(qos: .utility)
+        let serialEventQueue = DispatchQueue(label: "com.appambit.analytics.eventQueue")
+        
+        overallGroup.enter() // Start of the entire process
+        
+        // 1. Error log phase (They run in parallel)
+        let logsGroup = DispatchGroup()
+        debugPrint("[TEST] Starting 5 concurrent error logs")
+        
+        for i in 1...5 {
+            logsGroup.enter()
+            concurrentQueue.async {
                 Crashes.logError(
                     context: nil,
                     message: "Sending logs 5 after invalid token",
@@ -55,34 +59,52 @@ struct AnalyticsView: View {
                     fileName: nil,
                     lineNumber: 0,
                     createdAt: Date()
-                )
-                group.leave()
+                ) { error in
+                    if let error = error {
+                        print("Failed to log error \(i): \(error.localizedDescription)")
+                    } else {
+                        print("Log \(i) recorded successfully")
+                    }
+                    logsGroup.leave()
+                }
             }
         }
-
-       group.notify(queue: .main) {
-           debugPrint("[AnalyticsView] Log batch completed. Clearing event tokens.")
-            Analytics.clearToken()
-
-            let eventGroup = DispatchGroup()
-
-           debugPrint("[AnalyticsView] Sending 5 concurrent events with empty token")
-            for _ in 1...5 {
-                eventGroup.enter()
-                queue.async {
+        
+        // 2. Event phase (They are executed one after the other)
+        logsGroup.notify(queue: concurrentQueue) {
+            debugPrint("[TEST] All logs completed. Starting 5 serial events")
+            
+            let eventsGroup = DispatchGroup()
+            
+            for i in 1...5 {
+                eventsGroup.enter()
+                serialEventQueue.async {
                     Analytics.trackEvent(
                         eventTitle: "Sending event 5 after invalid token",
                         data: ["Test Token": "5 events sent"],
                         createdAt: nil
-                    )
-                    eventGroup.leave()
+                    ) { error in
+                        if let error = error {
+                            print("Event \(i) failed: \(error.localizedDescription)")
+                        } else {
+                            print("Event \(i) tracked successfully")
+                        }
+                        eventsGroup.leave()
+                    }
                 }
             }
-
-            eventGroup.notify(queue: .main) {
-                debugPrint("[AnalyticsView] 5 logs and 5 events with token renewal were sent concurrently.")
+            
+            // 3. Completion
+            eventsGroup.notify(queue: .main) {
+                debugPrint("[TEST] All operations completed successfully")
                 showCompletionAlert = true
+                overallGroup.leave()
             }
+        }
+        
+        // Opcional: Esperar por la finalización completa
+        overallGroup.notify(queue: .main) {
+            debugPrint("[TEST] Full test sequence completed")
         }
     }
 }
