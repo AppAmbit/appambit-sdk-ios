@@ -2,32 +2,45 @@ import Foundation
 
 class AppAmbitApiService: ApiService, @unchecked Sendable {
     
+    /// Queue for executing API requests.
     private let workerQueue = DispatchQueue(label: "com.appambit.api.worker", qos: .utility)
+    /// Queue for renewing tokens concurrently.
     private let workerRenewToken = DispatchQueue(label: "com.appambit.api.renewtoken", attributes: .concurrent)
+    /// Queue for thread-safe token access.
     private let tokenQueue = DispatchQueue(label: "com.appambit.token.access", attributes: .concurrent)
+    /// Queue for managing pending retry actions.
     private let pendingRetryQueue = DispatchQueue(label: "com.appambit.pending.retry.queue", attributes: .concurrent)
     
+    /// List of actions to retry after token renewal.
     private var pendingRetryActions: [(ApiErrorType) -> Void] = []
+    /// Service for persistent storage.
     private let storageService: StorageService
+    /// Current access token.
     private var _token: String?
+    /// Current token renewal callback.
     private var currentTokenRenewal: ((ApiErrorType) -> Void)?
     
+    /// URLSession instance for network requests.
     private lazy var urlSession: URLSession = {
-        let config = URLSessionConfiguration.default
+        let config: URLSessionConfiguration = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 10
         config.waitsForConnectivity = true
         return URLSession(configuration: config)
     }()
     
+    /// Public getter for the current token (thread-safe).
     var token: String? {
         get { tokenQueue.sync { _token } }
     }
     
+    /// Initializes the API service with a storage service.
     init(storageService: StorageService) {
         self.storageService = storageService
     }
     
+    /// Executes an API request for a given endpoint and decodable response type.
+    /// Returns: Void (calls completion handler with ApiResult)
     func executeRequest<T: Decodable>(
         _ endpoint: Endpoint,
         responseType: T.Type,
@@ -93,6 +106,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Requests a new token from the token service.
+    /// Returns: Void (calls completion handler with ApiErrorType)
     func getNewToken(completion: @escaping @Sendable (ApiErrorType) -> Void) {
         workerQueue.async { [weak self] in
             guard let self = self else { return }
@@ -112,12 +127,15 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Sets the current token value (thread-safe).
     func setToken(_ newToken: String) {
         tokenQueue.async(flags: .barrier) {
             self._token = newToken
         }
     }
     
+    /// Handles token refresh logic and retries the original request if needed.
+    /// Returns: Void (calls completion handler with ApiResult)
     private func handleTokenRefresh<T: Decodable>(
         originalRequest: URLRequest?,
         skipAuth: Bool,
@@ -133,7 +151,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                 }
                 self.processResponse(request: newRequest, responseType: responseType, completion: completion)
             } else {
-                completion(.fail(error, message: "Fallo en la renovación del token"))
+                completion(.fail(error, message: "Token renewal failure"))
             }
         }
         
@@ -164,6 +182,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Handles result when token renewal fails.
+    /// Returns: ApiResult<T>
     private func handleFailedRenewalResult<T>(_ type: T.Type, result: ApiErrorType) -> ApiResult<T> {
         if result == .networkUnavailable {
             debugPrint("Cannot retry request: no internet after token renewal")
@@ -175,20 +195,28 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         return .fail(result, message: "Token renewal failed")
     }
     
+    /// Handles exceptions during token renewal.
+    /// Returns: ApiResult<T>    
     private func handleTokenRenewalException<T>(_ type: T.Type, error: Error) -> ApiResult<T> {
         debugPrint("Error renewing token: \(error)")
         clearToken()
         return .fail(.unknown, message: "Token renewal failed")
     }
     
+    /// Checks if token renewal was successful.
+    /// Returns: Bool    
     private func isRenewSuccess(_ error: ApiErrorType) -> Bool {
         return error == .none
     }
     
+    /// Returns true if a token renewal is in progress.
+    /// Returns: Bool    
     private func isRenewingToken() -> Bool {
         return currentTokenRenewal != nil
     }
     
+    /// Handles GET requests with query parameters.
+    /// Returns: Void (may call completion handler with error)    
     private func handleGETWithQueryParameters<T: Decodable>(
         payload: Any,
         request: inout URLRequest,
@@ -223,12 +251,14 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
 #endif
     }
     
-    /// Determines whether the payload is of the multipart type (Log or LogBatch)
+    /// Checks if the payload is multipart (Log or LogBatch).
+    /// Returns: Bool    
     private func isMultipartPayload(_ payload: Any) -> Bool {
         return payload is Log || payload is LogBatch
     }
     
-    /// Process multipart payloads (Log or LogBatch)
+    /// Processes multipart payloads (Log or LogBatch).
+    /// Returns: Void
     private func handleMultipartPayload(_ payload: Any, request: inout URLRequest) {
         let builder = MultipartFormDataBuilder()
         
@@ -244,7 +274,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         printMultipartRequest(request: request, body: body)
     }
     
-    /// Processes JSON payloads (dictionaries or objects convertible to dictionaries)
+    /// Processes JSON payloads (dictionaries or objects convertible to dictionaries).
+    /// Returns: Void (may call completion handler with error)
     private func handleJSONPayload<T: Decodable>(
         _ payload: Any,
         request: inout URLRequest,
@@ -266,7 +297,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
-    /// Converts the payload to a dictionary [String: Any]
+    /// Converts the payload to a dictionary [String: Any].
+    /// Returns: [String: Any] or throws error
     private func convertToDictionary(payload: Any) throws -> [String: Any] {
         if let convertible = payload as? DictionaryConvertible {
             return convertible.toDictionary()
@@ -276,12 +308,16 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         throw ApiErrorType.unknown
     }
     
+    /// Clears the current token value.
+    /// Returns: Void    
     private func clearToken() {
         self.tokenQueue.async(flags: .barrier) {
             self._token = ""
         }
     }
     
+    /// Fetches a new token using the provided endpoint.
+    /// Returns: Void (calls completion handler with ApiErrorType)    
     private func fetchToken(using endpoint: TokenEndpoint, completion: @escaping @Sendable (ApiErrorType) -> Void) {
         executeRequest(endpoint, responseType: TokenResponse.self) { [weak self] result in
             guard let self = self else { return }
@@ -303,6 +339,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Configures HTTP headers for the request.
+    /// Returns: Void    
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
         if let headers = endpoint.customHeader {
             for (key, value) in headers {
@@ -315,12 +353,16 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         self.addAuthorizationHeaderIfNeeded(for: &request, endpoint: endpoint)
     }
     
+    /// Adds the Authorization header if needed.
+    /// Returns: Void    
     private func addAuthorizationHeaderIfNeeded(for request: inout URLRequest, endpoint: Endpoint) {
         if !endpoint.skipAuthorization, let token = self.token {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
     }
     
+    /// Processes the HTTP response and decodes the result.
+    /// Returns: Void (calls completion handler with ApiResult)    
     private func processResponse<T: Decodable>(
         request: URLRequest,
         responseType: T.Type,
@@ -356,6 +398,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }.resume()
     }
     
+    /// Processes the raw data, response, and error, and decodes the result.
+    /// Returns: T or throws error    
     private func processData<T: Decodable>(_ data: Data?, _ response: URLResponse?, _ error: Error?) throws -> T {
         if let error = error {
             if let urlError = error as? URLError {
@@ -383,7 +427,6 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             }
         }
         
-        
 #if DEBUG
         if let jsonString = String(data: data, encoding: .utf8) {
             print("HTTP RESPONSE BODY:\n\(jsonString)")
@@ -397,10 +440,11 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                 statusCode: -1,
                 message: "Decode: \(error.localizedDescription)"
             )
-        }
-        
+        }        
     }
     
+    /// Checks the HTTP status code from the response.
+    /// Returns: Void (throws error if status code is not successful)    
     private func checkStatusCodeFrom(response: URLResponse) throws {
         if let httpResponse = response as? HTTPURLResponse {
             debugPrint("HTTP RESPONSE - CODE: \(httpResponse.statusCode)")
@@ -420,6 +464,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Handles failure responses and maps errors.
+    /// Returns: Void (calls completion handler with ApiResult)    
     private func handleFailureResponse<T: Decodable>(
         error: Error,
         completion: @escaping @Sendable (ApiResult<T>) -> Void
@@ -431,6 +477,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
     
+    /// Prints debug information for JSON requests.
+    /// Returns: Void    
     private func printJSONRequest(request: URLRequest, jsonData: Data) {
 #if DEBUG
         debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
@@ -444,6 +492,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
 #endif
     }
     
+    /// Prints debug information for multipart requests.
+    /// Returns: Void    
     private func printMultipartRequest(request: URLRequest, body: Data) {
 #if DEBUG
         debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
@@ -456,6 +506,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
 #endif
     }
     
+    /// Extracts the boundary string from a multipart request.
+    /// Returns: String? (boundary or nil)    
     private func extractBoundary(from request: URLRequest) -> String? {
         guard let contentType = request.value(forHTTPHeaderField: "Content-Type") else { return nil }
         let prefix = "boundary="

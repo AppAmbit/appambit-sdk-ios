@@ -32,8 +32,8 @@ public final class Analytics: @unchecked Sendable {
         }
 
         isolationQueue.async(execute: workItem)
-
     }
+    
     public static func setEmail(_ email: String, completion: ((Error?) -> Void)? = nil) {
         let workItem = DispatchWorkItem {
             do {
@@ -45,6 +45,7 @@ public final class Analytics: @unchecked Sendable {
         
         isolationQueue.async(execute: workItem)
     }
+    
     public static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         SessionManager.startSession(completion: completion)
     }
@@ -103,5 +104,4 @@ public final class Analytics: @unchecked Sendable {
                    }
                }
        }
-
 }
