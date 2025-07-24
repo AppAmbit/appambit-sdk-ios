@@ -34,7 +34,7 @@ final class CrashFileGenerator {
             }
             
             log.append("\n\n")
-            addThreads(to: log)
+            addSymbols(to: log)
             
             return log as String
         }
@@ -54,7 +54,7 @@ final class CrashFileGenerator {
         log.append("Date: \(formatter.string(from: Date()))\n")
     }
     
-    private static func addThreads(to log: NSMutableString) {
+    private static func addSymbols(to log: NSMutableString) {
         let symbolsString = Thread.callStackSymbols
         for (index, symbol) in symbolsString.enumerated() {
             log.append("Thread \(index):\n")
