@@ -1,53 +1,107 @@
 import Foundation
 
-public final class Analytics {
-    
-    private nonisolated(unsafe) static var apiService: ApiService?
-    private nonisolated(unsafe) static var storageService: StorageService?
+public final class Analytics: @unchecked Sendable {
+    private var apiService: ApiService?
+    private var storageService: StorageService?
+    static let TAG = "Analytics"
     nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
-    
-    private static let syncQueue = DispatchQueue(label: "com.appambit.analytics.syncQueue")
-    
+
+    static let shared = Analytics()
     private init() {}
-    
+
+    private static let isolationQueue = DispatchQueue(
+        label: "com.appambit.analytics.isolation",
+        qos: .default,
+        attributes: []
+    )
+
     static func initialize(apiService: ApiService, storageService: StorageService) {
-        syncQueue.sync {
-            self.apiService = apiService
-            self.storageService = storageService
-        }
+        shared.apiService = apiService
+        shared.storageService = storageService
     }
     
-    public static func setUserId(_ userId: String) {
-        syncQueue.sync {
+    public static func setUserId(_ userId: String, completion: ((Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
             do {
-                try storageService?.putUserId(userId)
+                try shared.storageService?.putUserId(userId)
+                completion?(nil)
             } catch {
-                debugPrint("Error putting userId: \(error)")
+                AppAmbitLogger.log(error: error, context: "Analytics.setUserId")
+                completion?(error)
             }
         }
+
+        isolationQueue.async(execute: workItem)
     }
     
-    public static func setEmail(_ email: String) {
-        syncQueue.sync {
+    public static func setEmail(_ email: String, completion: ((Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
             do {
-                try storageService?.putUserEmail(email)
+                try shared.storageService?.putUserEmail(email)
             } catch {
                 debugPrint("Error putting email: \(error)")
             }
         }
-    }    
-    public static func startSession() {
-        SessionManager.startSession()
-    }
-
-    public static func endSession() {
-        SessionManager.endSession()
+        
+        isolationQueue.async(execute: workItem)
     }
     
+    public static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+        SessionManager.startSession(completion: completion)
+    }
+
+    public static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+        SessionManager.endSession(completion: completion)
+    }
+
     public static func enableManualSession() {
-        syncQueue.sync {
-            
+        let workItem = DispatchWorkItem {
             isManualSessionEnabled = true
         }
+        
+        isolationQueue.async(execute: workItem)
     }
+    
+    public static func clearToken() {
+           isolationQueue.async {
+               ServiceContainer.shared.apiService.setToken("")
+           }
+       }
+    
+    public static func trackEvent(
+           eventTitle: String,
+           data: [String: String],
+           createdAt: Date? = nil,
+           completion: (@Sendable (Error?) -> Void)? = nil
+       ) {
+           sendOrSaveEvent(
+               eventTitle: eventTitle,
+               data: data,
+               createdAt: createdAt,
+               completion: completion
+           )
+       }
+       
+       private static func sendOrSaveEvent(
+               eventTitle: String,
+               data: [String: String],
+               createdAt: Date?,
+               completion: (@Sendable (Error?) -> Void)? = nil
+           ) {
+               let event = Event(
+                   name: eventTitle,
+                   metadata: data
+               )
+               
+               let endpoint = EventEndpoint(event: event)
+               
+               shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
+                   if resultEvent.errorType != .none {
+                       AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
+                       completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
+                   } else {
+                       completion?(nil)
+                   }
+               }
+       }
 }

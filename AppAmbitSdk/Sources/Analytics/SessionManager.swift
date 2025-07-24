@@ -1,33 +1,32 @@
 import Foundation
 final class SessionManager: @unchecked Sendable {
-    private nonisolated(unsafe) static var _apiService: ApiService?
-    private nonisolated(unsafe) static var _storageService: StorageService?
+    private var apiService: ApiService?
+    private var storageService: StorageService?
     private nonisolated(unsafe) static var _sessionId: String?
     nonisolated(unsafe) static var isSessionActive: Bool = false
+    static let Tag = "SessionManager"
+    
+    static let shared = SessionManager()
+    private init (){ }
 
     private static let syncQueue = DispatchQueue(label: "com.appambit.sessionmanager.operations")
 
     static func initialize(apiService: ApiService, storageService: StorageService) {
-        _apiService = apiService
-        _storageService = storageService
+        shared.apiService = apiService
+        shared.storageService = storageService
     }
 
-    static func startSession() {
+    static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         debugPrint("StartSession called");
-        syncQueue.async(flags: .barrier) {
+        let workItem = DispatchWorkItem {
             if isSessionActive {
                 return;
-            }
-                        
-            guard let storage = _storageService, let api = _apiService else {
-                print("[SessionManager]: Error: Uninitialized Services (Storage or API)")
-                return
             }
             
             let dateUtcNow = DateUtils.utcNow
             
             let startSession = StartSessionEndpoint(utcNow: dateUtcNow)
-            api.executeRequest(
+            shared.apiService?.executeRequest(
                 startSession,
                     responseType: SessionResponse.self
                 ) { response in
@@ -37,25 +36,31 @@ final class SessionManager: @unchecked Sendable {
                     if let sessionIdInt = response.data?.sessionId {
                         sessionId = String(sessionIdInt)
                     }
-                    
+                                                            
                     if response.errorType != .none {
-                        _ = try? storage.putSessionData(SessionData(
+                        _ = try? shared.storageService?.putSessionData(SessionData(
                             id: UUID().uuidString,
                             sessionId: sessionId,
                             timestamp: dateUtcNow,
                             sessionType: .start
                         ))
                         _sessionId = sessionId
+                        AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                        completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
+                    } else {
+                        completion?(nil)
                     }
                 }
             
             isSessionActive = true
         }
+        
+        syncQueue.async(execute: workItem)
     }
     
-    static func endSession() {
+    static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         debugPrint("endSession called");
-        syncQueue.sync {
+        let workItem = DispatchWorkItem {
             if !isSessionActive {
                 return;
             }
@@ -69,22 +74,23 @@ final class SessionManager: @unchecked Sendable {
                 sessionType: .end
             )
             
-            sendEndSessionOrSaveLocally(endSession: sessionData)
-        }
-    }
-    
-    private static func sendEndSessionOrSaveLocally(endSession: SessionData) {
-        guard let storage = _storageService, let api = _apiService else {
-            print("[SessionManager]: Error: Services not initialized")
-            return
+            sendEndSessionOrSaveLocally(endSession: sessionData, completion: completion)
         }
         
-        api.executeRequest(EndSessionEndpoint(endSession: endSession),
+        syncQueue.async(execute: workItem)
+    }
+    
+    private static func sendEndSessionOrSaveLocally(endSession: SessionData, completion: (@Sendable (Error?) -> Void)? = nil) {
+        shared.apiService?.executeRequest(EndSessionEndpoint(endSession: endSession),
                            responseType: EndSessionResponse.self,
-                           completion:  {response in
+                           completion:  { response in
             
             if response.errorType != .none {
-                _ = try? storage.putSessionData(endSession)
+                AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
+                _ = try? shared.storageService?.putSessionData(endSession)
+            } else {
+                completion?(nil)
             }
         })
         
