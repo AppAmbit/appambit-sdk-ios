@@ -49,9 +49,9 @@ struct CrashesView: View {
                 Button("Change user id") {
                     Analytics.setUserId(userId) { error in
                         if let error = error {
-                            print("Failed to set user ID: \(error)")
+                            debugPrint("Failed to set user ID: \(error)")
                         } else {
-                            print("User ID set successfully")
+                            debugPrint("User ID set successfully")
                         }
                     }
                 }

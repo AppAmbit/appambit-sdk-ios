@@ -300,7 +300,7 @@ public class CrashHandler: @unchecked Sendable {
 
     func clearCrashLogs() {
         guard let directory = crashStorageURL else {
-            print("[CrashHandler] ERROR: crashStorageURL is nil")
+            debugPrint("[CrashHandler] ERROR: crashStorageURL is nil")
             return
         }
 
@@ -316,9 +316,9 @@ public class CrashHandler: @unchecked Sendable {
                 try fileManager.removeItem(at: file)
             }
 
-            print("[CrashHandler] Debug: all crashes deleted from \(directory.path)")
+            debugPrint("[CrashHandler] Debug: all crashes deleted from \(directory.path)")
         } catch {
-            print("[CrashHandler] ERROR: Failed to delete crash files — \(error.localizedDescription)")
+            debugPrint("[CrashHandler] ERROR: Failed to delete crash files — \(error.localizedDescription)")
         }
     }
 
