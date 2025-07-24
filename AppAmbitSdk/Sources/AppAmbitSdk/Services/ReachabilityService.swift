@@ -2,7 +2,7 @@ import SystemConfiguration
 import Foundation
 
 final class ReachabilityService: @unchecked Sendable {
-    
+
     public enum ConnectionStatus {
         case connected
         case disconnected
@@ -14,6 +14,7 @@ final class ReachabilityService: @unchecked Sendable {
     
     public var onConnectionChange: (@Sendable (ConnectionStatus) -> Void)?
 
+    
     private var weakifier: ReachabilityWeakifier?
     
     public var isConnected: Bool {

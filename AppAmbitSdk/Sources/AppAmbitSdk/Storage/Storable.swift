@@ -143,7 +143,7 @@ class Storable: StorageService {
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
             
-            bindText(stmt, index: 1, value: event.id.uuidString)
+            bindText(stmt, index: 1, value: event.id)
             bindText(stmt, index: 2, value: event.dataJson)
             bindText(stmt, index: 3, value: event.name)
             bindText(stmt, index: 4, value:  stringFromDateCustom(event.createdAt))
@@ -211,22 +211,24 @@ class Storable: StorageService {
         return try queue.sync {
             var result: [EventEntity] = []
             let sql = """
-            SELECT id, data_json, name, createdAt
+            SELECT id, data_json, name, created_at
             FROM \(EventEntityConfiguration.tableName)
-            ORDER BY createdAt ASC
+            ORDER BY created_at ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
             defer { sqlite3_finalize(stmt) }
             
             while sqlite3_step(stmt) == SQLITE_ROW {
-                guard
-                    let idCStr = sqlite3_column_text(stmt, 0),
-                    let uuid = UUID(uuidString: String(cString: idCStr)),
-                    let createdAtCStr = sqlite3_column_text(stmt, 3),
-                    let createdAt = dateFromStringCustom(String(cString: createdAtCStr))
-                else { continue }
+                let idString = String(cString: sqlite3_column_text(stmt, 0))
+                let createdAtString = String(cString: sqlite3_column_text(stmt, 3))
+                
+                guard let createdAt = dateFromStringCustom(createdAtString) else {
+                    continue
+                }
                 
                 let dataJson = String(cString: sqlite3_column_text(stmt, 1))
                 let name = String(cString: sqlite3_column_text(stmt, 2))
@@ -236,9 +238,9 @@ class Storable: StorageService {
                    let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
                     metadata = dict
                 }
-                
+            
                 let event = EventEntity(
-                    id: uuid,
+                    id: idString,
                     createdAt: createdAt,
                     name: name,
                     metadata: metadata
@@ -263,17 +265,17 @@ class Storable: StorageService {
             defer { sqlite3_finalize(stmt) }
             
             for event in events {
-                let uuidString = event.id.uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
-                debugPrint("Attempting to delete event with id: \(uuidString)")
+                let idString = event.id.trimmingCharacters(in: .whitespacesAndNewlines)
+                debugPrint("Attempting to delete event with id: \(idString)")
                 
-                bindText(stmt, index: 1, value: uuidString)
+                bindText(stmt, index: 1, value: idString)
                 
                 let stepResult = sqlite3_step(stmt)
                 if stepResult != SQLITE_DONE {
-                    debugPrint("sqlite3_step failed for id: \(uuidString) with result \(stepResult)")
+                    debugPrint("sqlite3_step failed for id: \(idString) with result \(stepResult)")
                     throw sqliteError
                 } else {
-                    debugPrint("Deleted (or did not exist): \(uuidString)")
+                    debugPrint("Deleted (or did not exist): \(idString)")
                 }
                 
                 sqlite3_reset(stmt)
@@ -514,7 +516,7 @@ class Storable: StorageService {
         }
     }
 
-    private func insertSecret(column: String, value: String) throws {
+    private func insertSecret(column: String, value: String?) throws {
         let columns = [
             AppSecretsConfiguration.Column.appId.name,
             AppSecretsConfiguration.Column.deviceId.name,
@@ -523,31 +525,26 @@ class Storable: StorageService {
             AppSecretsConfiguration.Column.sessionId.name,
             AppSecretsConfiguration.Column.consumerId.name
         ]
-        
+
         let columnNames = columns.joined(separator: ", ")
         let placeholders = columns.map { $0 == column ? "?" : "NULL" }.joined(separator: ", ")
-        
         let sql = "INSERT INTO \(AppSecretsConfiguration.tableName) (\(columnNames)) VALUES (\(placeholders));"
-        
+
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             throw sqliteError
         }
         defer { sqlite3_finalize(stmt) }
-        
+
         if let index = columns.firstIndex(of: column) {
-            let nsString = value as NSString
-            let cString = nsString.utf8String
-            guard sqlite3_bind_text(stmt, Int32(index + 1), cString, -1, nil) == SQLITE_OK else {
-                throw NSError(domain: "SQLite3", code: Int(sqlite3_errcode(db)),
-                            userInfo: [NSLocalizedDescriptionKey: "Failed to bind text value"])
-            }
+            bindText(stmt, index: Int32(index + 1), value: value)
         }
-        
+
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             throw sqliteError
         }
     }
+
 
     private func getSecret(column: String) throws -> String? {
         let sql = "SELECT \(column) FROM \(AppSecretsConfiguration.tableName) LIMIT 1;"

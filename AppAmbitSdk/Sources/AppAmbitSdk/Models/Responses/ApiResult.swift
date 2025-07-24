@@ -1,4 +1,4 @@
-struct ApiResult<T> {
+struct ApiResult<T>: Sendable where T: Sendable {
     let data: T?
     let errorType: ApiErrorType
     let message: String?

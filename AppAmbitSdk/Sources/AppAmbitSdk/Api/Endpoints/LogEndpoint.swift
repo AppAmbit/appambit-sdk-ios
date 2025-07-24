@@ -1,6 +1,6 @@
 class LogEndpoint: BaseEndpoint {
     
-    init(log: LogEntity) {
+    init(log: Log) {
         super.init()
         url = "/log"
         method = .post
