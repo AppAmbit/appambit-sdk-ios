@@ -7,15 +7,16 @@ final class Logging: @unchecked Sendable {
     static func logEvent(
         message: String?,
         logType: LogType,
-        exception: NSException,
+        exception: Error?,
         properties: [String: String]?,
         classFqn: String?,
         fileName: String?,
         lineNumber: Int64,
-        createdAt: Date?
+        createdAt: Date?,
+        completion: (@Sendable (Error?) -> Void)? = nil
     ) {
-        let exceptionInfo = ExceptionInfo.fromNSException(exception)
-        logEvent(message: message, logType: logType, exceptionInfo: exceptionInfo, properties: properties, classFqn: classFqn, fileName: fileName, lineNumber: lineNumber, createdAt: createdAt)
+        let exception = exception != nil ? ExceptionInfo.fromError(exception!) : nil
+        logEvent(message: message, logType: logType, exceptionInfo: exception, properties: properties, classFqn: classFqn, fileName: fileName, lineNumber: lineNumber, createdAt: createdAt, completion: completion)
     }
         
     static func logEvent(
@@ -26,7 +27,8 @@ final class Logging: @unchecked Sendable {
         classFqn: String?,
         fileName: String?,
         lineNumber: Int64,
-        createdAt: Date?
+        createdAt: Date?,
+        completion: (@Sendable (Error?) -> Void)? = nil
     ) {
         let stackTrace = (exceptionInfo?.stackTrace != nil && !(exceptionInfo?.stackTrace.isEmpty ?? true))
             ? exceptionInfo!.stackTrace
@@ -39,21 +41,30 @@ final class Logging: @unchecked Sendable {
         let log = LogEntity()
         log.id = UUID().uuidString
         log.appVersion = appVersionInfo
-        log.classFQN = (exceptionInfo?.classFullName == "" ? (classFqn == "" ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName)
-        log.fileName = exceptionInfo?.fileNameFromStackTrace == "" ? fileName == "" ? AppConstants.unknownFileName : fileName : exceptionInfo?.fileNameFromStackTrace
-        log.lineNumber = (exceptionInfo?.lineNumberFromStackTrace != 0) ? Int64(exceptionInfo!.lineNumberFromStackTrace) : lineNumber
-        log.message = exceptionInfo?.message ?? (message ?? "")
+        log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true) ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName
+        log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true) ? fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName : exceptionInfo?.fileNameFromStackTrace
+        log.lineNumber = (exceptionInfo != nil && exceptionInfo!.lineNumberFromStackTrace != 0)
+            ? exceptionInfo!.lineNumberFromStackTrace
+            : lineNumber
+        log.message = (exceptionInfo?.message?.isEmpty == false) ? exceptionInfo!.message! : (message ?? "")
         log.stackTrace = stackTrace
         log.context = properties ?? [:]
         log.type = logType
         log.file = logType == .crash ? getFile(exceptionIn: exceptionInfo) : nil
-        log.createdAt = createdAt
+        log.createdAt = createdAt ?? DateUtils.utcNow
         
-        sendOrSaveLogEvent(log)
+        sendOrSaveLogEvent(log) { error in
+            DispatchQueue.main.async {
+                completion?(error)
+            }
+        }
     }
     
     static func getFile(exceptionIn: ExceptionInfo?) -> MultipartFile? {
-               
+        guard exceptionIn != nil else {
+            return nil
+        }
+        
         let fileName = CrashHandler.generateLogFileName()
         let mimeType = "text/plain"
         
@@ -64,42 +75,82 @@ final class Logging: @unchecked Sendable {
         return MultipartFile(fileName: fileName, mimeType: mimeType, data: Data("".utf8))
     }
     
-    private static func sendOrSaveLogEvent(_ logEntity: LogEntity) {
-        queue.sync {
+    
+    private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let localLogEntity = logEntity
+        
+        let workItem = DispatchWorkItem {
             let apiService = ServiceContainer.shared.apiService
-            let logEndpoint = LogEndpoint(log: logEntity)
             
-            let logCopy = Log()
-            logCopy.appVersion = logEntity.appVersion
-            logCopy.classFQN = logEntity.classFQN
-            logCopy.fileName = logEntity.fileName
-            logCopy.lineNumber = logEntity.lineNumber
-            logCopy.message = logEntity.message
-            logCopy.stackTrace = logEntity.stackTrace
-            logCopy.context = logEntity.context
-            logCopy.type = logEntity.type
-            logCopy.file = logEntity.file
+            let endpointLog = Log()
+            endpointLog.appVersion = localLogEntity.appVersion
+            endpointLog.classFQN = localLogEntity.classFQN
+            endpointLog.fileName = localLogEntity.fileName
+            endpointLog.lineNumber = localLogEntity.lineNumber
+            endpointLog.message = localLogEntity.message
+            endpointLog.stackTrace = localLogEntity.stackTrace
+            endpointLog.context = localLogEntity.context
+            endpointLog.type = localLogEntity.type
+            endpointLog.file = localLogEntity.file
             
-            apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { result in
-                
-                if result.errorType != .none {
-                    storeLogInDb(logEntity)
-                    return
-                }
-                debugPrint("\(tag): Log send")
-            }            
+            let logEndpoint = LogEndpoint(log: endpointLog)
+
+            apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
+                handleLogRequestResult(
+                    result: result,
+                    logEntity: localLogEntity,
+                    completion: completion
+                )
+            }
         }
+        
+        queue.async(execute: workItem)
     }
 
-    private static func storeLogInDb(_ log: LogEntity) {
-        queue.async {
-            do {
-                let storable: StorageService = ServiceContainer.shared.storageService
-                try storable.putLogEvent(log)
-                print("\(tag): Log event stored in database")
-            } catch {
-                print("\(tag): Failed to store log event: \(error.localizedDescription)")
+    private static func handleLogRequestResult(
+        result: ApiResult<LogResponse>,
+        logEntity: LogEntity,
+        completion: (@Sendable (Error?) -> Void)?
+    ) {
+        if result.errorType == .none {
+            debugPrint("\(tag): Log sent successfully")
+            DispatchQueue.main.async {
+                completion?(nil)
+            }
+        } else {
+            let error = AppAmbitLogger.buildError(message: result.message ?? "Unknown error", code: 101)
+            AppAmbitLogger.log(message: "Log send failed: \(result.message ?? "")")
+            
+            storeLogInDb(logEntity) { dbError in
+                DispatchQueue.main.async {
+                    if let dbError = dbError {
+                        let message = "Failed to store log: \(dbError.localizedDescription)"
+                        AppAmbitLogger.log(message: message, context: tag)
+                    } else {
+                        debugPrint("\(tag): Log stored in database as fallback")
+                    }
+                    completion?(error)
+                }
             }
         }
     }
+
+    private static func storeLogInDb(_ log: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let localLog = log
+        let workItem = DispatchWorkItem {
+            do {
+                let storable: StorageService = ServiceContainer.shared.storageService
+                try storable.putLogEvent(localLog)
+                DispatchQueue.main.async {
+                    completion?(nil)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion?(error)
+                }
+            }
+        }
+        queue.async(execute: workItem)
+    }
+
 }

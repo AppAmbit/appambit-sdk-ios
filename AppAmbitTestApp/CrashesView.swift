@@ -13,12 +13,13 @@ struct CrashesView: View {
         VStack(spacing: 25) {
             VStack {
                 Button("Did the app crash during your last session?") {
-                    Task {
-                        let didCrash = Crashes.didCrashInLastSession()
-                        alertMessage = didCrash
+                    Crashes.didCrashInLastSession { didCrash in
+                        DispatchQueue.main.async {
+                            self.alertMessage = didCrash
                             ? "Application crashed in the last session"
                             : "Application did not crash in the last session"
-                        showAlert = true
+                            self.showAlert = true
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity)

@@ -52,8 +52,40 @@ public struct ExceptionInfo: Codable {
             fileNameFromStackTrace: fileName ?? AppConstants.unknownClass,
             classFullName: className ?? "UnknownClass",
             lineNumberFromStackTrace: lineNumber ?? 0,
-            crashLogFile: CrashFileGenerator.generateCrashLog(exception: exception, stackTrace: nil),
+            crashLogFile: CrashFileGenerator.generateCrashLog(exception: exception, stackTrace: nil, error: nil),
             createdAt: DateUtils.utcNow
+        )
+    }
+    
+    public static func fromError(_ error: Error) -> ExceptionInfo {
+        let nsError = error as NSError
+        
+        let stackTraceArray = Thread.callStackSymbols
+        let backtraceString = stackTraceArray.joined(separator: "\n")
+
+        let (fileName, className, lineNumber) = parseStackTrace(stackTraceArray)
+        
+        let inner = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError).map { String(describing: $0) }
+
+        let source = stackTraceArray.first.flatMap { line -> String? in
+            let components = line.split(separator: " ")
+            if components.count > 1 {
+                return String(components[1])
+            }
+            return nil
+        }
+
+        return ExceptionInfo(
+            type: nsError.domain,
+            message: nsError.localizedDescription,
+            stackTrace: backtraceString,
+            source: source,
+            innerException: inner,
+            fileNameFromStackTrace: fileName ?? "UnknownFile",
+            classFullName: className ?? "UnknownClass",
+            lineNumberFromStackTrace: lineNumber ?? 0,
+            crashLogFile: CrashFileGenerator.generateCrashLog(exception: nil, stackTrace: backtraceString, error: error),
+            createdAt: Date()
         )
     }
     
@@ -68,7 +100,7 @@ public struct ExceptionInfo: Codable {
             fileNameFromStackTrace: fileNameFromStackTrace,
             classFullName: classFullName,
             lineNumberFromStackTrace: lineNumberFromStackTrace,
-            crashLogFile: CrashFileGenerator.generateCrashLog(exception: nil, stackTrace: stackTrace),
+            crashLogFile: CrashFileGenerator.generateCrashLog(exception: nil, stackTrace: stackTrace, error: nil),
             createdAt: DateUtils.utcNow
         )
     }

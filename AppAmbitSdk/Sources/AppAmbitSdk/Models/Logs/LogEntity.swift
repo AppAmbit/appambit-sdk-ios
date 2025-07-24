@@ -1,6 +1,6 @@
 import Foundation
 
-class LogEntity: Log {
+class LogEntity: Log, @unchecked Sendable {
     var id: String?
     var createdAt: Date?
 

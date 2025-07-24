@@ -6,11 +6,12 @@ public class CrashHandler: @unchecked Sendable {
     // MARK: - Singleton
     static let shared = CrashHandler()
     
-    // MARK: - Type Aliases 
+    // MARK: - Type Aliases
     private typealias ExceptionHandler = @convention(c) (NSException) -> Void
     
     // MARK: - State
     private let isolationQueue = DispatchQueue(label: "com.appambit.crashhandler.queue", attributes: .concurrent)
+    private let filesQueue = DispatchQueue(label: "com.appambit.crashhandler.files", attributes: .concurrent)
     private var _previousHandler: ExceptionHandler?
     
     private var previousHandler: ExceptionHandler? {
@@ -114,7 +115,7 @@ public class CrashHandler: @unchecked Sendable {
             stackTrace: backtraceString,
             fileNameFromStackTrace: stackTraceElements.first?.fileName ?? "",
             classFullName: stackTraceElements.first?.className ?? "",
-            lineNumberFromStackTrace:  stackTraceElements.first?.lineNumber ?? 0
+            lineNumberFromStackTrace: stackTraceElements.first?.lineNumber ?? 0
         )
     }
 
@@ -229,9 +230,6 @@ public class CrashHandler: @unchecked Sendable {
         }
     }
     
-    /// Checks if the app crashed in the last session by looking for the flag file.
-    ///
-    /// - Returns: `true` if the flag file exists, indicating a crash in the last session; otherwise, `false`.
     public static func existCrashFlag() -> Bool {
         guard let flagFileUrl = getCrashFlagFileUrl() else { return false }
         let crashed = FileManager.default.fileExists(atPath: flagFileUrl.path)
@@ -239,10 +237,6 @@ public class CrashHandler: @unchecked Sendable {
         return crashed
     }
 
-    /// Gets the URL for the crash flag file within the 'CrashLogs' subdirectory.
-    /// It relies on `getCrashLogsDirectory()` to ensure the parent directory exists.
-    ///
-    /// - Returns: The URL to the crash flag file, or nil if the directory cannot be accessed.
     private static func getCrashFlagFileUrl() -> URL? {
         guard let crashLogsDir = getCrashLogsDirectory() else {
             return nil
@@ -250,10 +244,6 @@ public class CrashHandler: @unchecked Sendable {
         return crashLogsDir.appendingPathComponent(AppConstants.didAppCrashFlagFileName)
     }
     
-    /// Gets the URL for the 'CrashLogs' subdirectory within the Application Support directory.
-    /// It also ensures that this directory exists, creating it if necessary.
-    ///
-    /// - Returns: The URL to the 'CrashLogs' directory, or nil if it cannot be found or created.
     public static func getCrashLogsDirectory() -> URL? {
         guard let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             debugPrint("[Crashes] ERROR: Could not find Application Support directory.")
@@ -343,16 +333,23 @@ public class CrashHandler: @unchecked Sendable {
         return fileName
     }
     
-    func didAppCrashFileExist() -> Bool {
-        guard let directory = crashStorageURL else {
-            debugPrint("[CrashHandler] ERROR: crashStorageURL is nil")
-            return false
+    func didAppCrashFileExist(completion: @escaping (@Sendable (Result<Bool, Error>) -> Void)) {
+        let workItem = DispatchWorkItem {
+            guard let directory = self.crashStorageURL else {
+                let message = "[CrashHandler] ERROR: crashStorageURL is nil"
+                
+                AppAmbitLogger.log(message: message)
+                return completion(.failure(AppAmbitLogger.buildError(message: message, code: 110)))
+            }
+
+            let fileURL = directory.appendingPathComponent(AppConstants.didAppCrashFlagFileName)
+
+            let exists = FileManager.default.fileExists(atPath: fileURL.path)
+            
+            completion(.success(exists))
         }
-
-        let fileURL = directory.appendingPathComponent(AppConstants.didAppCrashFlagFileName)
-
-        let exists = FileManager.default.fileExists(atPath: fileURL.path)
-        return exists
+        
+        filesQueue.async(execute: workItem)
     }
 }
 

@@ -2,7 +2,7 @@ import Foundation
 
 final class CrashFileGenerator {
     
-    static func generateCrashLog(exception: NSException?, stackTrace: String?) -> String {
+    static func generateCrashLog(exception: NSException?, stackTrace: String?, error: Error?) -> String {
         let log = NSMutableString()
         let services = ServiceContainer.shared
         let appInfo = services.appInfoService
@@ -23,6 +23,11 @@ final class CrashFileGenerator {
         
         if stackTrace != nil {
             log.append("\(stackTrace ?? "")\n")
+        }
+        
+        if let error = error {
+            let symbols = Thread.callStackSymbols.joined(separator: "\n")
+            log.append("\(symbols)\n")
         }
         
         log.append("\n\n")
