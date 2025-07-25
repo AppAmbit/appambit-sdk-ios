@@ -91,7 +91,7 @@ struct AnalyticsView: View {
                 .padding(.horizontal)
 
                 Button("Send Max-20-Properties Event") {
-                    onClickedTestLimitsEvent()
+                    onClickedTestMaxPropertiesEven()                    
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -101,7 +101,7 @@ struct AnalyticsView: View {
                 .padding(.horizontal)
                 
                 Button("Send Max-300-Length Event") {
-                    onClickedTestMaxPropertiesEven()
+                    onClickedTestLimitsEvent()
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
