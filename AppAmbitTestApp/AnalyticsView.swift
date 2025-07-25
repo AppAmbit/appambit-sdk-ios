@@ -190,25 +190,22 @@ struct AnalyticsView: View {
         for i in 1...5 {
             logsGroup.enter()
             concurrentQueue.async {
-                Crashes.logError(
-                    context: nil,
-                    message: "Sending logs 5 after invalid token",
-                    properties: ["user_id": "1"],
-                    classFqn: "AnalyticsView",
-                    exception: nil,
-                    fileName: nil,
-                    lineNumber: 0,
-                    createdAt: Date()
-                ) { error in
+                let message = "Sending logs 5 after invalid token"
+                let classFqn = "AnalyticsView"
+                let properties = ["user_id": "1"]
+                let createdAt = Date()
+                
+                Crashes.logError(message: message, properties: properties, classFqn: classFqn, createdAt: createdAt) { error in
                     if let error = error {
                         debugPrint("Failed to log error \(i): \(error.localizedDescription)")
                     } else {
                         debugPrint("Log \(i) recorded successfully")
                     }
                     logsGroup.leave()
-                }
+                }            
             }
         }
+
         
         // 2. Event phase (They are executed one after the other)
         logsGroup.notify(queue: concurrentQueue) {
