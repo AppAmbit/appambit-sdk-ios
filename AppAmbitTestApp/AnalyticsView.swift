@@ -100,7 +100,7 @@ struct AnalyticsView: View {
                 .cornerRadius(8)
                 .padding(.horizontal)
                 
-                Button("Send Max-20-Properties Event") {
+                Button("Send Max-300-Length Event") {
                     onClickedTestMaxPropertiesEven()
                 }
                 .frame(maxWidth: .infinity)
@@ -130,7 +130,7 @@ struct AnalyticsView: View {
             _300Characters2: _300Characters2
         ]
         
-        Analytics.trackEvent(eventTitle: "TestMaxProperties", data: properties) { response in
+        Analytics.trackEvent(eventTitle: _300Characters, data: properties) { response in
             if let response = response {
                 debugPrint("Error Track Event: \(response.localizedDescription)")
             } else {
