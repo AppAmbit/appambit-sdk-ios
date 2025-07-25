@@ -3,68 +3,176 @@ import AppAmbit
 
 struct AnalyticsView: View {
     @State private var showCompletionAlert = false
-    
+    @State private var messageAlert = ""
     var body: some View {
-        VStack(spacing: 25) {
-            Button("Invalidate Token") {
-                Analytics.clearToken()
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-            .padding(.horizontal)
-            
-            Button("Token refresh test") {
-                onTokenRefreshTest()
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-            .padding(.horizontal)
-            Button("Start Session") {
-                Analytics.startSession { error in
-                    if let error = error {
-                        debugPrint("Error Start Session: \(error.localizedDescription)")
-                    } else {
-                        debugPrint("Successful Start Session")
+        ScrollView {
+            VStack(spacing: 25) {
+                Button("Invalidate Token") {
+                    Analytics.clearToken()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button("Token refresh test") {
+                    onTokenRefreshTest()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                Button("Start Session") {
+                    Analytics.startSession { error in
+                        if let error = error {
+                            debugPrint("Error Start Session: \(error.localizedDescription)")
+                        } else {
+                            debugPrint("Successful Start Session")
+                        }
                     }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-            .padding(.horizontal)
-            
-            Button("End Session") {
-                Analytics.endSession { response in
-                    if let response = response {
-                        debugPrint("Error Start Session: \(response.localizedDescription)")
-                    } else {
-                        debugPrint("Successful End Session")
-                    }                    
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button("End Session") {
+                    Analytics.endSession { response in
+                        if let response = response {
+                            debugPrint("Error Start Session: \(response.localizedDescription)")
+                        } else {
+                            debugPrint("Successful End Session")
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button("Send 'Button Clicked' Event w/ property") {
+                    Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
+                        if let response = response {
+                            debugPrint("Error Track Event: \(response.localizedDescription)")
+                        } else {
+                            debugPrint("Event sent successfully")
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                            
+                Button("Send Default Event w/ property") {
+                    Analytics.generateTestEvent() { response in
+                        if let response = response {
+                            debugPrint("Error Track Event: \(response.localizedDescription)")
+                        } else {
+                            debugPrint("Event sent successfully")
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+
+                Button("Send Max-20-Properties Event") {
+                    onClickedTestLimitsEvent()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button("Send Max-20-Properties Event") {
+                    onClickedTestMaxPropertiesEven()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
             }
-            .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-            .padding(.horizontal)
-            
+            .alert(isPresented: $showCompletionAlert) {
+                Alert(
+                    title: Text("Info"),
+                    message: Text(messageAlert),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
-        .padding()
-        .alert(isPresented: $showCompletionAlert) {
-            Alert(
-                title: Text("Info"),
-                message: Text("5 events and 5 errors sent"),
-                dismissButton: .default(Text("OK"))
-            )
+    }
+    
+    private func onClickedTestLimitsEvent() {
+        let _300Characters = "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890";
+        let _300Characters2 = "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678902";
+        
+        let properties = [
+            _300Characters: _300Characters,
+            _300Characters2: _300Characters2
+        ]
+        
+        Analytics.trackEvent(eventTitle: "TestMaxProperties", data: properties) { response in
+            if let response = response {
+                debugPrint("Error Track Event: \(response.localizedDescription)")
+            } else {
+                debugPrint("Event sent successfully")
+            }
+        }
+    }
+    
+    private func onClickedTestMaxPropertiesEven() {
+        let properties = [
+            "01": "01",
+            "02": "02",
+            "03": "03",
+            "04": "04",
+            "05": "05",
+            "06": "06",
+            "07": "07",
+            "08": "08",
+            "09": "09",
+            "10": "10",
+            "11": "11",
+            "12": "12",
+            "13": "13",
+            "14": "14",
+            "15": "15",
+            "16": "16",
+            "17": "17",
+            "18": "18",
+            "19": "19",
+            "20": "20",
+            "21": "21",
+            "22": "22",
+            "23": "23",
+            "24": "24",
+            "25": "25",
+        ]
+        Analytics.trackEvent(eventTitle: "TestMaxProperties", data: properties) { response in
+            if let response = response {
+                debugPrint("Error Track Event: \(response.localizedDescription)")
+            } else {
+                debugPrint("Event sent successfully")
+            }
         }
     }
     
@@ -130,6 +238,7 @@ struct AnalyticsView: View {
             eventsGroup.notify(queue: .main) {
                 debugPrint("[AnalyticsView] All operations completed successfully")
                 showCompletionAlert = true
+                messageAlert = "5 events and 5 errors sent"
                 overallGroup.leave()
             }
         }
