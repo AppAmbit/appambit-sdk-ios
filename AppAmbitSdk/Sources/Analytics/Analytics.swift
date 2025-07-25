@@ -81,27 +81,96 @@ public final class Analytics: @unchecked Sendable {
                completion: completion
            )
        }
-       
-       private static func sendOrSaveEvent(
-               eventTitle: String,
-               data: [String: String],
-               createdAt: Date?,
-               completion: (@Sendable (Error?) -> Void)? = nil
-           ) {
-               let event = Event(
-                   name: eventTitle,
-                   metadata: data
-               )
-               
-               let endpoint = EventEndpoint(event: event)
-               
-               shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
-                   if resultEvent.errorType != .none {
-                       AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
-                       completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
-                   } else {
-                       completion?(nil)
-                   }
-               }
-       }
+    
+    public static func generateTestEvent(completion: (@Sendable (Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
+            sendOrSaveEvent(
+                eventTitle: "Test Event",
+                data: ["Event": "Custom Event"],
+                createdAt: nil,
+                completion: completion)
+        }
+        
+        isolationQueue.async(execute: workItem)
+    }
+    
+    private static func sendOrSaveEvent(
+        eventTitle: String,
+        data: [String: String],
+        createdAt: Date?,
+        completion: (@Sendable (Error?) -> Void)? = nil
+    ) {
+        if !SessionManager.isSessionActive {
+            let message = "There is no active session"
+            AppAmbitLogger.log(message: message)
+            completion?(AppAmbitLogger.buildError(message: message, code: 200));
+            return
+        }
+        
+        let truncatedData = Dictionary(
+            data
+                .map { key, value in
+                    (
+                        truncate(value: key, maxLength: AppConstants.trackEventPropertyMaxCharacters),
+                        truncate(value: value, maxLength: AppConstants.trackEventPropertyMaxCharacters)
+                    )
+                }
+                .prefix(AppConstants.trackEventMaxPropertyLimit),
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        let eventTitleTruncate = truncate(value: eventTitle, maxLength: AppConstants.trackEventNameMaxLimit)
+
+        let event = Event(
+            name: eventTitleTruncate,
+            metadata: truncatedData
+        )
+
+        let endpoint = EventEndpoint(event: event)
+
+        shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
+            if resultEvent.errorType != .none {
+                AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
+
+                let entity = EventEntity(
+                    id: UUID().uuidString,
+                    createdAt: DateUtils.utcNow,
+                    name: eventTitleTruncate,
+                    metadata: truncatedData
+                )
+
+                storeLogInDb(eventEntity: entity) { error in
+                    DispatchQueue.main.async {
+                        completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
+                    }
+                }
+
+            } else {
+                DispatchQueue.main.async {
+                    completion?(nil)
+                }
+            }
+        }
+    }
+
+    private static func truncate(value: String, maxLength: Int) -> String {
+        guard !value.isEmpty else { return value }
+        return String(value.prefix(maxLength))
+    }
+    
+    private static func storeLogInDb(eventEntity: EventEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let workItem = DispatchWorkItem {
+            do {
+                try shared.storageService?.putLogAnalyticsEvent(eventEntity)
+                DispatchQueue.main.async {
+                    completion?(nil)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion?(error)
+                }
+            }
+        }
+        isolationQueue.async(execute: workItem)
+    }
 }
