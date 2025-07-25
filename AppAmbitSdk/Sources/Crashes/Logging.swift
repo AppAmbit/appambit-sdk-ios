@@ -1,64 +1,156 @@
 import Foundation
 
 final class Logging: @unchecked Sendable {
-    
     private static let queue = DispatchQueue(label: "com.appambit.logging.queue", qos: .utility)
     private static let tag = "Logging"
-    
+        
     static func logEvent(
-        context: Any?,
         message: String?,
         logType: LogType,
-        exception: NSException? = nil,
-        properties: [String: String]? = nil,
-        classFqn: String? = nil,
-        fileName: String? = nil,
-        lineNumber: Int64 = #line,
-        createdAt: Date? = nil,
+        exception: Error?,
+        properties: [String: String]?,
+        classFqn: String?,
+        fileName: String?,
+        lineNumber: Int64,
+        createdAt: Date?,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
-        let file = (logType == .crash) ?
-            MultipartFile(
-                fileName: "crash_log.txt",
-                mimeType: "text/plain",
-                data: Data("Crash report content".utf8)
-            ) : nil
+        let exception = exception != nil ? ExceptionInfo.fromError(exception!) : nil
+        logEvent(message: message, logType: logType, exceptionInfo: exception, properties: properties, classFqn: classFqn, fileName: fileName, lineNumber: lineNumber, createdAt: createdAt, completion: completion)
+    }
         
-        let appVersion = "\(ServiceContainer.shared.appInfoService.appVersion ?? "") (\(ServiceContainer.shared.appInfoService.build ?? ""))"
-        
+    static func logEvent(
+        message: String?,
+        logType: LogType,
+        exceptionInfo: ExceptionInfo?,
+        properties: [String: String]?,
+        classFqn: String?,
+        fileName: String?,
+        lineNumber: Int64,
+        createdAt: Date?,
+        completion: (@Sendable (Error?) -> Void)? = nil
+    ) {
+        let stackTrace = (exceptionInfo?.stackTrace != nil && !(exceptionInfo?.stackTrace.isEmpty ?? true))
+            ? exceptionInfo!.stackTrace
+        : AppConstants.noStackTraceAvailable
 
-        let log = Log()
-        log.appVersion = appVersion
-        log.classFQN = classFqn ?? AppConstants.unknownClass
-        log.fileName = fileName ?? AppConstants.unknownFileName
-        log.lineNumber = lineNumber
-        log.message = message ?? ""
-        log.stackTrace = exception?.callStackSymbols.joined(separator: "\n") ?? AppConstants.noStackTraceAvailable
+        let version = ServiceContainer.shared.appInfoService.appVersion ?? ""
+        let build = ServiceContainer.shared.appInfoService.build ?? ""
+        let appVersionInfo = "\(version) (\(build))"
+        
+        let log = LogEntity()
+        log.id = UUID().uuidString
+        log.appVersion = appVersionInfo
+        log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true) ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName
+        log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true) ? fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName : exceptionInfo?.fileNameFromStackTrace
+        log.lineNumber = (exceptionInfo != nil && exceptionInfo!.lineNumberFromStackTrace != 0)
+            ? exceptionInfo!.lineNumberFromStackTrace
+            : lineNumber
+        log.message = (exceptionInfo?.message?.isEmpty == false) ? exceptionInfo!.message! : (message ?? "")
+        log.stackTrace = stackTrace
         log.context = properties ?? [:]
         log.type = logType
-        log.file = file
+        log.file = logType == .crash ? getFile(exceptionIn: exceptionInfo) : nil
+        log.createdAt = createdAt ?? DateUtils.utcNow
         
-        sendOrSaveLogEventAsync(log) { error in
+        sendOrSaveLogEvent(log) { error in
             DispatchQueue.main.async {
                 completion?(error)
             }
         }
     }
     
-    private static func sendOrSaveLogEventAsync(_ log: Log, completion: (@Sendable (Error?) -> Void)? = nil) {
+    static func getFile(exceptionIn: ExceptionInfo?) -> MultipartFile? {
+        guard exceptionIn != nil else {
+            return nil
+        }
+        
+        let fileName = CrashHandler.generateLogFileName()
+        let mimeType = "text/plain"
+        
+        if let content = exceptionIn?.crashLogFile {
+            return MultipartFile(fileName: fileName, mimeType: mimeType, data: Data(content.utf8))
+        }
+        
+        return MultipartFile(fileName: fileName, mimeType: mimeType, data: Data("".utf8))
+    }
+    
+    
+    private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let localLogEntity = logEntity
+        
         let workItem = DispatchWorkItem {
-            let logEndpoint = LogEndpoint(log: log)
-            
             let apiService = ServiceContainer.shared.apiService
+            
+            let endpointLog = Log()
+            endpointLog.appVersion = localLogEntity.appVersion
+            endpointLog.classFQN = localLogEntity.classFQN
+            endpointLog.fileName = localLogEntity.fileName
+            endpointLog.lineNumber = localLogEntity.lineNumber
+            endpointLog.message = localLogEntity.message
+            endpointLog.stackTrace = localLogEntity.stackTrace
+            endpointLog.context = localLogEntity.context
+            endpointLog.type = localLogEntity.type
+            endpointLog.file = localLogEntity.file
+            
+            let logEndpoint = LogEndpoint(log: endpointLog)
+
             apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
-                if result.errorType != .none {
-                    AppAmbitLogger.log(message: result.message ?? "Unknown")
-                    completion?(AppAmbitLogger.buildError(message: result.message ?? "", code: 101))
-                } else {
+                handleLogRequestResult(
+                    result: result,
+                    logEntity: localLogEntity,
+                    completion: completion
+                )
+            }
+        }
+        
+        queue.async(execute: workItem)
+    }
+
+    private static func handleLogRequestResult(
+        result: ApiResult<LogResponse>,
+        logEntity: LogEntity,
+        completion: (@Sendable (Error?) -> Void)?
+    ) {
+        if result.errorType == .none {
+            debugPrint("\(tag): Log sent successfully")
+            DispatchQueue.main.async {
+                completion?(nil)
+            }
+        } else {
+            let error = AppAmbitLogger.buildError(message: result.message ?? "Unknown error", code: 101)
+            AppAmbitLogger.log(message: "Log send failed: \(result.message ?? "")")
+            
+            storeLogInDb(logEntity) { dbError in
+                DispatchQueue.main.async {
+                    if let dbError = dbError {
+                        let message = "Failed to store log: \(dbError.localizedDescription)"
+                        AppAmbitLogger.log(message: message, context: tag)
+                    } else {
+                        debugPrint("\(tag): Log stored in database as fallback")
+                    }
+                    completion?(error)
+                }
+            }
+        }
+    }
+
+    private static func storeLogInDb(_ log: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
+        let localLog = log
+        let workItem = DispatchWorkItem {
+            do {
+                let storable: StorageService = ServiceContainer.shared.storageService
+                try storable.putLogEvent(localLog)
+                DispatchQueue.main.async {
                     completion?(nil)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion?(error)
                 }
             }
         }
         queue.async(execute: workItem)
     }
+
 }

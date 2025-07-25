@@ -20,6 +20,7 @@ final class SessionManager: @unchecked Sendable {
         debugPrint("StartSession called");
         let workItem = DispatchWorkItem {
             if isSessionActive {
+                completion?(AppAmbitLogger.buildError(message: "There is already an active session"))
                 return;
             }
             
@@ -62,6 +63,7 @@ final class SessionManager: @unchecked Sendable {
         debugPrint("endSession called");
         let workItem = DispatchWorkItem {
             if !isSessionActive {
+                completion?(AppAmbitLogger.buildError(message: "There is no active section to end"))
                 return;
             }
     

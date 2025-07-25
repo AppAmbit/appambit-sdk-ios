@@ -1,17 +1,19 @@
+import Foundation
+
 struct LogResponse: Decodable {
-    let id: Int
-    let hash: String
-    let appVersions: String
-    let classFQN: String
-    let context: [String: String]
-    let fileName: String
-    let lineNumber: String
-    let lastSeenAt: String
-    let message: String
-    let stackTrace: String
-    let type: String
-    let occurrences: Int
-    let usersAffected: Int
+    let id: Int?
+    let hash: String?
+    let appVersions: String?
+    let classFQN: String?
+    let context: [String: String]?
+    let fileName: String?
+    let lineNumber: String?
+    let lastSeenAt: String?
+    let message: String?
+    let stackTrace: String?
+    let type: String?
+    let occurrences: Int?
+    let usersAffected: Int?
 
     private enum CodingKeys: String, CodingKey {
         case id

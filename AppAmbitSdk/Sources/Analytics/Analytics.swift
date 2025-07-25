@@ -19,7 +19,7 @@ public final class Analytics: @unchecked Sendable {
         shared.apiService = apiService
         shared.storageService = storageService
     }
-
+    
     public static func setUserId(_ userId: String, completion: ((Error?) -> Void)? = nil) {
         let workItem = DispatchWorkItem {
             do {

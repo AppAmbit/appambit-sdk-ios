@@ -1,6 +1,6 @@
 import Foundation
 
-class Log: Codable {
+class Log: Codable, @unchecked Sendable {
     var appVersion: String?
     var classFQN: String?
     var fileName: String?
