@@ -100,6 +100,13 @@ public final class Analytics: @unchecked Sendable {
         createdAt: Date?,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
+        if !SessionManager.isSessionActive {
+            let message = "There is no active session"
+            AppAmbitLogger.log(message: message)
+            completion?(AppAmbitLogger.buildError(message: message, code: 200));
+            return
+        }
+        
         let truncatedData = Dictionary(
             data
                 .map { key, value in
