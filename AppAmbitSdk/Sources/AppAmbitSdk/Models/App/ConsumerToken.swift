@@ -12,6 +12,5 @@ struct ConsumerToken: DictionaryConvertible {
             "app_key": appKey,
             "consumer_id": consumerId
         ]
-        
     }
 }

@@ -127,7 +127,6 @@ public final class AppAmbit: @unchecked Sendable {
 
         reachabilityService.onConnectionChange = handleConnectionChange
         try? reachabilityService.initialize()
-       
     }
     
     @Sendable
@@ -135,6 +134,8 @@ public final class AppAmbit: @unchecked Sendable {
         switch status {
         case .connected:
             debugPrint("Access to a red")
+            Crashes.shared.loadCrashFileIfExists()
+            self.sendAllPendingData()
         case .disconnected:
             debugPrint("There is no access to a red")
         }
@@ -232,15 +233,14 @@ public final class AppAmbit: @unchecked Sendable {
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
-        }
-        
+        }        
         sendAllPendingData();
     }
 
     private func sendAllPendingData() {
         self.sendPendingLogs()
         self.sendPendingEvents()
-        self.sendPendingSessiones()
+        SessionManager.sendBatchSessions()
     }
     
     
@@ -262,10 +262,6 @@ public final class AppAmbit: @unchecked Sendable {
     
     private func sendPendingEvents() {
         debugPrint("[AppAmbit] Sending pending events...")
-    }
-    
-    private func sendPendingSessiones() {
-        debugPrint("[AppAmbit] Sending pending sessions...")
     }
     
     private func tokenIsValid() -> Bool {
