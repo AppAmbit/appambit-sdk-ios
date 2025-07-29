@@ -30,6 +30,14 @@ final class Logging: @unchecked Sendable {
         createdAt: Date?,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
+        
+        if !SessionManager.isSessionActive {
+            let message = "There is no active session"
+            AppAmbitLogger.log(message: message)
+            completion?(AppAmbitLogger.buildError(message: message))
+            return
+         }
+        
         let stackTrace = (exceptionInfo?.stackTrace != nil && !(exceptionInfo?.stackTrace.isEmpty ?? true))
             ? exceptionInfo!.stackTrace
         : AppConstants.noStackTraceAvailable
@@ -78,6 +86,7 @@ final class Logging: @unchecked Sendable {
     
     private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
         let localLogEntity = logEntity
+        let localTag = tag
         
         let workItem = DispatchWorkItem {
             let apiService = ServiceContainer.shared.apiService
@@ -94,11 +103,12 @@ final class Logging: @unchecked Sendable {
             endpointLog.file = localLogEntity.file
             
             let logEndpoint = LogEndpoint(log: endpointLog)
-
+            
             apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
                 handleLogRequestResult(
                     result: result,
                     logEntity: localLogEntity,
+                    tag: localTag,
                     completion: completion
                 )
             }
@@ -110,6 +120,7 @@ final class Logging: @unchecked Sendable {
     private static func handleLogRequestResult(
         result: ApiResult<LogResponse>,
         logEntity: LogEntity,
+        tag: String,
         completion: (@Sendable (Error?) -> Void)?
     ) {
         if result.errorType == .none {
@@ -136,11 +147,10 @@ final class Logging: @unchecked Sendable {
     }
 
     private static func storeLogInDb(_ log: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
-        let localLog = log
         let workItem = DispatchWorkItem {
             do {
                 let storable: StorageService = ServiceContainer.shared.storageService
-                try storable.putLogEvent(localLog)
+                try storable.putLogEvent(log)
                 DispatchQueue.main.async {
                     completion?(nil)
                 }
@@ -152,5 +162,4 @@ final class Logging: @unchecked Sendable {
         }
         queue.async(execute: workItem)
     }
-
 }

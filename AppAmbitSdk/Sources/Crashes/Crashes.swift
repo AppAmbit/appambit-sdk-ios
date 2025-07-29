@@ -130,6 +130,12 @@ public class Crashes: @unchecked Sendable {
     
     func loadCrashFileIfExists() {
         let workItem = DispatchWorkItem {
+            
+            if !SessionManager.isSessionActive {
+                 AppAmbitLogger.log(message: "There is no active session")
+                 return
+             }
+            
             let crashesFiles = CrashHandler.shared.loadCrashInfos()
             let crashFilesCount = crashesFiles.count
             

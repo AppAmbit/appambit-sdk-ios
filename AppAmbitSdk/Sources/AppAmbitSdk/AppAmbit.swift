@@ -145,16 +145,16 @@ public final class AppAmbit: @unchecked Sendable {
 
         getNewToken { [weak self] _ in
             guard let self = self else { return }
-            
-            Crashes.shared.loadCrashFileIfExists()
-
+                    
             if Analytics.isManualSessionEnabled {
                 debugPrint("[AppAmbit] Manual session enabled")
                 return
             }
             
             SessionManager.sendEndSessionIfExists()
-            SessionManager.startSession()
+            SessionManager.startSession() {error in
+                Crashes.shared.loadCrashFileIfExists()
+            }
         }
     }
 
