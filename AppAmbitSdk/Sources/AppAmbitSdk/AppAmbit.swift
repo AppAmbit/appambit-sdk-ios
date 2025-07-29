@@ -134,7 +134,7 @@ public final class AppAmbit: @unchecked Sendable {
     func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
         switch status {
         case .connected:
-            debugPrint("Access to a red")
+            self.sendAllPendingData()
         case .disconnected:
             debugPrint("There is no access to a red")
         }
@@ -239,7 +239,7 @@ public final class AppAmbit: @unchecked Sendable {
 
     private func sendAllPendingData() {
         self.sendPendingLogs()
-        self.sendPendingEvents()
+        Crashes.sendBatchLogs()
         self.sendPendingSessiones()
     }
     
