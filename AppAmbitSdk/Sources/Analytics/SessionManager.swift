@@ -139,7 +139,6 @@ final class SessionManager: @unchecked Sendable {
                 debugPrint("[\(Tag)]: SendBatchSessions skipped: already in progress")
                 return
             }
-
             shared.isSendingBatch = true
             debugPrint("\(Tag) SendBatchSessions started")
 
