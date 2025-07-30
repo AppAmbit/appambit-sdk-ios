@@ -128,11 +128,12 @@ public class Crashes: @unchecked Sendable {
     }
     
     
-    func loadCrashFileIfExists() {
+    func loadCrashFileIfExists(completion: (@Sendable (Error?) -> Void)? = nil) {
         let workItem = DispatchWorkItem {
             
             if !SessionManager.isSessionActive {
                  AppAmbitLogger.log(message: "There is no active session")
+                 completion?(AppAmbitLogger.buildError(message: "There is no active session"))
                  return
              }
             
@@ -141,6 +142,7 @@ public class Crashes: @unchecked Sendable {
             
             guard crashFilesCount > 0 else {
                 CrashHandler.setCrashFlag(false)
+                completion?(nil)
                 return
             }
             
@@ -154,10 +156,12 @@ public class Crashes: @unchecked Sendable {
                         debugPrint("Error logging crash: \(error.localizedDescription)")
                     }
                     CrashHandler.shared.clearCrashLogs()
+                    completion?(nil)
                 }
             } else {
                 self.storeBatchCrashesLog(files: crashesFiles)
                 CrashHandler.shared.clearCrashLogs()
+                completion?(nil)
             }
         }
         workQueue.async(execute: workItem)
@@ -192,7 +196,8 @@ public class Crashes: @unchecked Sendable {
                 shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self ) { response in
                 
                     if response.errorType != .none {
-                        AppAmbitLogger.log(message: "Sessions were not sent: \(response.message ?? "")", context: tag)
+                        AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")", context: tag)
+                        finish()
                         return
                     }
                     
@@ -203,6 +208,8 @@ public class Crashes: @unchecked Sendable {
                     } catch {
                         AppAmbitLogger.log(message: error.localizedDescription, context: tag)
                     }
+                    
+                    finish()
                     
                 }
             }

@@ -372,7 +372,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             guard let self = self else { return }
             
             self.workerQueue.async {
-                let result = Result<T, Error> { try self.processData(data, response, error) }
+                let result = Result<T, Error> { try self.checkStatusCodeFrom(data, response, error) }
                 
                 switch result {
                 case .success(let decoded):
@@ -400,7 +400,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     
     /// Processes the raw data, response, and error, and decodes the result.
     /// Returns: T or throws error    
-    private func processData<T: Decodable>(_ data: Data?, _ response: URLResponse?, _ error: Error?) throws -> T {
+    private func checkStatusCodeFrom<T: Decodable>(_ data: Data?, _ response: URLResponse?, _ error: Error?) throws -> T {
         if let error = error {
             if let urlError = error as? URLError {
                 throw ApiExceptions.networkError(urlError)
@@ -442,28 +442,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
             )
         }        
     }
-    
-    /// Checks the HTTP status code from the response.
-    /// Returns: Void (throws error if status code is not successful)    
-    private func checkStatusCodeFrom(response: URLResponse) throws {
-        if let httpResponse = response as? HTTPURLResponse {
-            debugPrint("HTTP RESPONSE - CODE: \(httpResponse.statusCode)")
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw URLError(.badServerResponse)
-            }
-            
-            switch httpResponse.statusCode {
-            case 401:
-                throw ApiExceptions.unauthorized
-            case 200..<300:
-                break
-            default:
-                throw ApiExceptions.httpError(statusCode: httpResponse.statusCode, message: "Unexpected error during request")
-            }
-        }
-    }
-    
+
     /// Handles failure responses and maps errors.
     /// Returns: Void (calls completion handler with ApiResult)    
     private func handleFailureResponse<T: Decodable>(
