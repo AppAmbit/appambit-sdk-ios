@@ -6,7 +6,7 @@ final class SessionManager: @unchecked Sendable {
 
     private nonisolated(unsafe) static var _sessionId: String?
     nonisolated(unsafe) static var isSessionActive: Bool = false
-    static let Tag = "SessionManager"
+    static let tag = "SessionManager"
     
     static let shared = SessionManager()
     private init (){ }
@@ -20,7 +20,7 @@ final class SessionManager: @unchecked Sendable {
     }
 
     static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
-        debugPrint("\(Tag) StartSession called");
+        debugPrint("\(tag) StartSession called");
         let workItem = DispatchWorkItem {
             if isSessionActive {
                 completion?(AppAmbitLogger.buildError(message: "There is already an active session"))
@@ -34,7 +34,7 @@ final class SessionManager: @unchecked Sendable {
                 startSession,
                     responseType: SessionResponse.self
                 ) { response in
-                    debugPrint("[\(Tag)]: Start Session with Error Type: \(response.errorType.rawValue)")
+                    debugPrint("[\(tag)]: Start Session with Error Type: \(response.errorType.rawValue)")
                                 
                     var sessionId = ""
                     if let sessionIdInt = response.data?.sessionId {
@@ -49,7 +49,7 @@ final class SessionManager: @unchecked Sendable {
                             sessionType: .start
                         ))
                         _sessionId = sessionId
-                        AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                        AppAmbitLogger.log(message: response.message ?? "", context: tag)
                         completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
                     } else {
                         completion?(nil)
@@ -63,7 +63,7 @@ final class SessionManager: @unchecked Sendable {
     }
     
     static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
-        debugPrint("[\(Tag)]: End Session called");
+        debugPrint("[\(tag)]: End Session called");
         let workItem = DispatchWorkItem {
             if !isSessionActive {
                 completion?(AppAmbitLogger.buildError(message: "There is no active section to end"))
@@ -91,7 +91,7 @@ final class SessionManager: @unchecked Sendable {
                            completion:  { response in
             
             if response.errorType != .none {
-                AppAmbitLogger.log(message: response.message ?? "", context: Tag)
+                AppAmbitLogger.log(message: response.message ?? "", context: tag)
                 completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
                 _ = try? shared.storageService?.putSessionData(endSession)
             } else {
@@ -136,42 +136,46 @@ final class SessionManager: @unchecked Sendable {
     static func sendBatchSessions() {
         let workItem = DispatchWorkItem {
             guard !shared.isSendingBatch else {
-                debugPrint("[\(Tag)]: SendBatchSessions skipped: already in progress")
+                AppAmbitLogger.log(message: "SendBatchSessions skipped: already in progress", context: tag)
                 return
             }
             shared.isSendingBatch = true
-            debugPrint("\(Tag) SendBatchSessions started")
-
-            getSessionsInDb { sessions, error in
-                if let error = error {
-                    AppAmbitLogger.log(message: "Error getting sessions: \(error.localizedDescription)", context: Tag)
-                    finish()
-                    return
-                }
-
-                guard let sessions = sessions, !sessions.isEmpty else {
-                    AppAmbitLogger.log(message: "There are no sessions to send", context: Tag)
-                    finish()
-                    return
-                }
-
-                let sessionsBatch = SessionsPayload(sessions: sessions)
-                let sessionBatchEndpoint = SessionBatchEndpoint(batchSession: sessionsBatch)
-
-                shared.apiService?.executeRequest(sessionBatchEndpoint, responseType: BatchResponse.self) { resultApi in
-                    if resultApi.errorType != .none {
-                        AppAmbitLogger.log(message: "Sessions were not sent: \(resultApi.message ?? "")", context: Tag)
-                        
-                    }  else {
-                        debugPrint("[\(Tag)]: Sessions sent successfully")
-                        do {
-                            try shared.storageService?.deleteSessionList(sessions)
-                        } catch {
-                            AppAmbitLogger.log(message: "Failed to delete sessions from DB: \(error.localizedDescription)", context: Tag)
-                        }
+            AppAmbitLogger.log(message: "SendBatchSessions started", context: tag)
+            
+            do {
+                getSessionsInDb { sessions, error in
+                    if let error = error {
+                        AppAmbitLogger.log(message: "Error getting sessions: \(error.localizedDescription)", context: tag)
+                        finish()
+                        return
                     }
-                    finish()
+
+                    guard let sessions = sessions, !sessions.isEmpty else {
+                        AppAmbitLogger.log(message: "There are no sessions to send", context: tag)
+                        finish()
+                        return
+                    }
+
+                    let sessionsBatch = SessionsPayload(sessions: sessions)
+                    let sessionBatchEndpoint = SessionBatchEndpoint(batchSession: sessionsBatch)
+
+                    shared.apiService?.executeRequest(sessionBatchEndpoint, responseType: BatchResponse.self) { resultApi in
+                        if resultApi.errorType != .none {
+                            AppAmbitLogger.log(message: "Sessions were not sent: \(resultApi.message ?? "")", context: tag)
+                        } else {
+                            AppAmbitLogger.log(message: "Sessions sent successfully", context: tag)
+                            do {
+                                try shared.storageService?.deleteSessionList(sessions)
+                            } catch {
+                                AppAmbitLogger.log(message: "Failed to delete sessions from DB: \(error.localizedDescription)", context: tag)
+                            }
+                        }
+                        finish()
+                    }
                 }
+            } catch {
+                AppAmbitLogger.log(message: "Unexpected error in sendBatchSessions: \(error.localizedDescription)", context: tag)
+                finish()
             }
 
             @Sendable func finish() {
@@ -180,8 +184,10 @@ final class SessionManager: @unchecked Sendable {
                 }
             }
         }
+
         syncQueueBatch.async(execute: workItem)
     }
+
     
     private static func getSessionsInDb(completion: @escaping @Sendable (_ sessions: [SessionBatch]?, _ error: Error?) -> Void) {
         let workItem = DispatchWorkItem {
