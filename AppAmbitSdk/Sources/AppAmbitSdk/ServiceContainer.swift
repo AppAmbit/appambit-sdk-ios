@@ -14,9 +14,19 @@ final class ServiceContainer {
         do {
             dataStore = try DataStore()
             storageService = try Storable(ds: dataStore)
-            reachabilityService = try ReachabilityService()
+
+            guard let reachability = ReachabilityService() else {
+                throw NSError(
+                    domain: "ServiceContainer",
+                    code: 1001,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to initialize ReachabilityService"]
+                )
+            }
+
+            reachabilityService = reachability
+
         } catch {
-            debugPrint("Error initializing DataStore or ReachabilityService: \(error)")
+            debugPrint("Error initializing ServiceContainer: \(error.localizedDescription)")
             fatalError("Failed to initialize ServiceContainer")
         }
 
@@ -27,8 +37,7 @@ final class ServiceContainer {
             reachabilityService: reachabilityService
         )
     }()
-    
-    
+
     private static let accessQueue = DispatchQueue(
         label: "com.appambit.sdk.service.container",
         attributes: .concurrent
@@ -39,7 +48,7 @@ final class ServiceContainer {
             _instance
         }
     }
-    
+
     private init(
         apiService: ApiService,
         appInfoService: AppInfoService,

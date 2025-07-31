@@ -62,6 +62,7 @@ public final class AppAmbit: @unchecked Sendable {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        reachability?.stop()
         debugPrint("[AppAmbit] Deinit called - Observers removed")
     }
     
@@ -121,32 +122,41 @@ public final class AppAmbit: @unchecked Sendable {
         _ = ServiceContainer.shared.appInfoService
         let storageService = ServiceContainer.shared.storageService
         let reachabilityService = ServiceContainer.shared.reachabilityService
-        
+
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
-        
-        reachabilityService.onConnectionChange = handleConnectionChange
-        try? reachabilityService.initialize()
-        
-    }
-    
-    @Sendable
-    func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
-        switch status {
-        case .connected:
-            debugPrint("Access to a red")
-            if !tokenIsValid() {
-                getNewToken { [weak self] _ in
-                    guard let self = self else { return }
-                    self.sendAllPendingData()
-                }
-            } else {
-                self.sendAllPendingData()
-            }                                
-        case .disconnected:
-            debugPrint("There is no access to a red")
+
+        self.reachability = reachabilityService
+
+        do {
+            try reachabilityService.startMonitoring { [weak self] status in
+                self?.handleConnectionChange(status: status)
+            }
+        } catch {
+            debugPrint("[AppAmbit] Error starting network monitoring: \(error.localizedDescription)")
         }
     }
+
+    
+    @Sendable
+    func handleConnectionChange(status: ReachabilityService.NetworkStatus) {
+        switch status {
+        case .connected(let type):
+            debugPrint("[AppAmbit] Connected via \(type.rawValue)")
+
+            if !tokenIsValid() {
+                getNewToken { [weak self] _ in
+                    self?.sendAllPendingData()
+                }
+            } else {
+                sendAllPendingData()
+            }
+
+        case .disconnected:
+            debugPrint("[AppAmbit] No network connection")
+        }
+    }
+
     
     private func initializeConsumer() {
         debugPrint("[AppAmbit] Initializing consumer with appKey: \(appKey)")

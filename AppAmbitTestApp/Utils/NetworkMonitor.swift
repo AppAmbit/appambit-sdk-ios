@@ -16,7 +16,7 @@ class NetworkMonitor {
             reachabilityService = try ReachabilityService()
         } catch {
             reachabilityService = nil
-            debugPrint("Error inicializando ReachabilityService: \(error.localizedDescription)")
+            debugPrint("Error initializing ReachabilityServic: \(error.localizedDescription)")
         }
     }
 }
