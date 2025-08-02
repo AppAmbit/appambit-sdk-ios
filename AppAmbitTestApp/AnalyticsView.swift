@@ -58,6 +58,16 @@ struct AnalyticsView: View {
                 .cornerRadius(8)
                 .padding(.horizontal)
                 
+                Button("Generate the last 30 daily sessions") {
+                    generateTestSessionsForLast30Days()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
                 Button("Send 'Button Clicked' Event w/ property") {
                     Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
                         if let response = response {
@@ -244,5 +254,49 @@ struct AnalyticsView: View {
         overallGroup.notify(queue: .main) {
             debugPrint("[AnalyticsView] Full test sequence completed")
         }
+    }
+    
+    func generateTestSessionsForLast30Days() {
+        if NetworkMonitor.shared.isConnected {
+            self.messageAlert = "Turn off internet and try again"
+            self.showCompletionAlert = true
+             return
+         }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        let startDate = calendar.date(byAdding: .day, value: -30, to: now)!
+        let sessionCount = 30
+        let randomMinutesRange = 21...120
+        for i in 0..<sessionCount {
+            
+            guard let sessionDay = calendar.date(byAdding: .day, value: i, to: startDate) else { continue }
+            
+            let randomHour = Int.random(in: 0..<23)
+            let randomMinute = Int.random(in: 0..<60)
+            let startSessionDate = calendar.date(bySettingHour: randomHour, minute: randomMinute, second: 0, of: sessionDay)!
+
+            do {
+                try StorableApp.shared.putSessionData(timestamp: startSessionDate, sessionType: "start")
+            } catch {
+                print("Error inserting start session: \(error)")
+            }
+
+            let randomDurationMinutes = Int.random(in: randomMinutesRange)
+            let endSessionDate = startSessionDate.addingTimeInterval(TimeInterval(randomDurationMinutes * 60))
+
+            do {
+                try StorableApp.shared.putSessionData(timestamp: endSessionDate, sessionType: "end")
+            } catch {
+                print("Error inserting end session: \(error)")
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.messageAlert = "Sessions generated, turn on internet"
+            self.showCompletionAlert = true
+        }
+
+        print("\(sessionCount) test sessions were inserted.")
     }
 }
