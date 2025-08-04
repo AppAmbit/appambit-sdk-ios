@@ -414,6 +414,11 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         
         if let httpResponse = response as? HTTPURLResponse {
             debugPrint("HTTP RESPONSE CODE: \(httpResponse.statusCode)")
+    #if DEBUG
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("HTTP RESPONSE BODY:\n\(jsonString)")
+            }
+    #endif
             switch httpResponse.statusCode {
             case 401:
                 throw ApiExceptions.unauthorized
@@ -426,12 +431,6 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                 )
             }
         }
-        
-#if DEBUG
-        if let jsonString = String(data: data, encoding: .utf8) {
-            print("HTTP RESPONSE BODY:\n\(jsonString)")
-        }
-#endif
         
         do {
             return try JSONDecoder().decode(T.self, from: data)

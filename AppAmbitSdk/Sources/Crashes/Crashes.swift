@@ -168,15 +168,23 @@ public class Crashes: @unchecked Sendable {
     }
     
     static func sendBatchLogs() {
-        let workItem = DispatchWorkItem {
-            guard !shared.isSendingBatch else {
-                AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress", context: tag)
-                return
+        let canSend = syncQueueBatch.sync { () -> Bool in
+            if shared.isSendingBatch {
+                return false
+            } else {
+                shared.isSendingBatch = true
+                return true
             }
-            
-            shared.isSendingBatch = true
+        }
+
+        guard canSend else {
+            AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress", context: tag)
+            return
+        }
+
+        let workItem = DispatchWorkItem {
             AppAmbitLogger.log(message: "SendBatchLogs", context: tag)
-            
+
             getLogsInDb { logs, error in
                 if let error = error {
                     AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)", context: tag)
@@ -190,30 +198,28 @@ public class Crashes: @unchecked Sendable {
                     return
                 }
 
-                
                 let logBatch = LogBatch(logs: logs)
                 let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
-                shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self ) { response in
-                
+
+                shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
                     if response.errorType != .none {
                         AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")", context: tag)
                         finish()
                         return
                     }
-                    
+
                     AppAmbitLogger.log(message: "Logs sent successfully", context: tag)
-                    
+
                     do {
                         try shared.storageService?.deleteLogList(logs)
                     } catch {
                         AppAmbitLogger.log(message: error.localizedDescription, context: tag)
                     }
-                    
+
                     finish()
-                    
                 }
             }
-            
+
             @Sendable func finish() {
                 syncQueueBatch.async {
                     shared.isSendingBatch = false
@@ -223,6 +229,7 @@ public class Crashes: @unchecked Sendable {
         
         syncQueueBatch.async(execute: workItem)
     }
+
     
     private static func getLogsInDb(completion: @escaping @Sendable (_ logs: [LogEntity]?, _ error: Error?) -> Void) {
         syncQueueBatch.async {
