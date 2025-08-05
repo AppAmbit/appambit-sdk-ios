@@ -1,6 +1,7 @@
 name: Build iOS IPA TestApp
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
 
 env:
   BUNDLE_IDENTIFIER: com.AppAmbit.TestApp
