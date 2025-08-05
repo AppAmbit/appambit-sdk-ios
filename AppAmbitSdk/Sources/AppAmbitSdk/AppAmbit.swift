@@ -4,11 +4,11 @@ import Foundation
 public final class AppAmbit: @unchecked Sendable {
     private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.instance.queue")
-
+    
     public static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
     }
-
+    
     private let appKey: String
     private let workerQueue = DispatchQueue(label: "com.appambit.workerQueue")
     private let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
@@ -16,7 +16,7 @@ public final class AppAmbit: @unchecked Sendable {
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
     private static let consumerCreationQueue = DispatchQueue(label: "com.appambit.consumerCreationQueue")
     private var reachability: ReachabilityService?
-
+    
     private init(appKey: String) {
         debugPrint("[AppAmbit] - INIT")
         self.appKey = appKey
@@ -24,7 +24,7 @@ public final class AppAmbit: @unchecked Sendable {
         setupLifecycleObservers()
         onStart()
     }
-
+    
     public static func start(appKey: String) {
         instanceQueue.async {
             if _instance == nil {
@@ -59,12 +59,13 @@ public final class AppAmbit: @unchecked Sendable {
                        name: UIApplication.willTerminateNotification,
                        object: nil)
     }
-
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
+        reachability?.stop()
         debugPrint("[AppAmbit] Deinit called - Observers removed")
     }
-
+    
     @objc private func appDidBecomeActive() {
         debugPrint("[AppAmbit] appDidBecomeActive")
         workerQueue.async { [weak self] in
@@ -80,7 +81,7 @@ public final class AppAmbit: @unchecked Sendable {
             self.onSleep()
         }
     }
-
+    
     @objc private func appDidEnterBackground() {
         debugPrint("[AppAmbit] appDidEnterBackground")
         workerQueue.async { [weak self] in
@@ -88,14 +89,14 @@ public final class AppAmbit: @unchecked Sendable {
             self.onSleep()
         }
     }
-
+    
     @objc private func appWillEnterForeground() {
         debugPrint("[AppAmbit] appWillEnterForeground")
         workerQueue.async { [weak self] in
             debugPrint("[AppAmbit] onResume: GetNewToken, removeSavedEndSession, SendBatchLogs, SendBatchEvents")
             
             guard let self = self else { return }
-
+            
             if !tokenIsValid() {
                 self.getNewToken { success in
                     if success {
@@ -107,7 +108,7 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
+    
     @objc private func appWillTerminate() {
         debugPrint("[AppAmbit] appWillTerminate")
         workerQueue.async { [weak self] in
@@ -115,37 +116,54 @@ public final class AppAmbit: @unchecked Sendable {
             self.onEnd()
         }
     }
-
+    
     private func initializeServices() {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
         let storageService = ServiceContainer.shared.storageService
         let reachabilityService = ServiceContainer.shared.reachabilityService
-        
+
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
 
-        reachabilityService.onConnectionChange = handleConnectionChange
-        try? reachabilityService.initialize()
-       
-    }
-    
-    @Sendable
-    func handleConnectionChange(status: ReachabilityService.ConnectionStatus) {
-        switch status {
-        case .connected:
-            debugPrint("Access to a red")
-        case .disconnected:
-            debugPrint("There is no access to a red")
+        self.reachability = reachabilityService
+
+        do {
+            try reachabilityService.startMonitoring { [weak self] status in
+                self?.handleConnectionChange(status: status)
+            }
+        } catch {
+            debugPrint("[AppAmbit] Error starting network monitoring: \(error.localizedDescription)")
         }
     }
 
+    
+    @Sendable
+    func handleConnectionChange(status: ReachabilityService.NetworkStatus) {
+        switch status {
+        case .connected(let type):
+            debugPrint("[AppAmbit] Connected via \(type.rawValue)")
+
+            if !tokenIsValid() {
+                getNewToken { [weak self] _ in
+                    self?.sendAllPendingData()
+                }
+            } else {
+                sendAllPendingData()
+            }
+
+        case .disconnected:
+            debugPrint("[AppAmbit] No network connection")
+        }
+    }
+
+    
     private func initializeConsumer() {
         debugPrint("[AppAmbit] Initializing consumer with appKey: \(appKey)")
-
+        
         getNewToken { [weak self] _ in
             guard let self = self else { return }
-                    
+            
             if Analytics.isManualSessionEnabled {
                 debugPrint("[AppAmbit] Manual session enabled")
                 return
@@ -157,7 +175,7 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
+    
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
             if self.isCreatingConsumer {
@@ -171,7 +189,7 @@ public final class AppAmbit: @unchecked Sendable {
             
             do {
                 _ = ConsumerService.shared.buildRegisterEndpoint(appKey: self.appKey)
-
+                
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
                     debugPrint("Consumer ID exists (\(consumerId)), renewing token...")
                     
@@ -191,7 +209,7 @@ public final class AppAmbit: @unchecked Sendable {
             }
         }
     }
-
+    
     private func handleTokenResult(errorType: ApiErrorType) {
         DispatchQueue.main.async {
             let success = (errorType == .none)
@@ -217,7 +235,7 @@ public final class AppAmbit: @unchecked Sendable {
     
     private func onResume() {
         debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
-
+        
         if !tokenIsValid() {
             getNewToken { [weak self] success in
                 guard let self = self else { return }
@@ -236,10 +254,11 @@ public final class AppAmbit: @unchecked Sendable {
         
         sendAllPendingData();
     }
-
+    
     private func sendAllPendingData() {
-        self.sendPendingLogs()
-        self.sendPendingEvents()
+        Crashes.shared.loadCrashFileIfExists() {error in
+            Crashes.sendBatchLogs()
+        }
         self.sendPendingSessiones()
     }
     
