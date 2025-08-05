@@ -26,9 +26,13 @@ struct SessionData: Codable, DictionaryConvertible {
     }
     
     func toDictionary() -> [String: Any] {
-        let dict: [String: Any] = [
+        var dict: [String: Any] = [
             "timestamp": DateUtils.utcIsoFormatString(from: timestamp)
         ]
+        
+        if let sessionId = sessionId, let intSessionId = Int(sessionId) {
+            dict["session_id"] = intSessionId
+        }
         
         return dict
     }

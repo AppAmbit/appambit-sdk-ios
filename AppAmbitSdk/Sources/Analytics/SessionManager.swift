@@ -18,52 +18,57 @@ final class SessionManager: @unchecked Sendable {
         shared.apiService = apiService
         shared.storageService = storageService
     }
-
+    
     static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
-        debugPrint("\(tag) StartSession called");
+        AppAmbitLogger.log(message: "StartSession called", context: tag)
+
         let workItem = DispatchWorkItem {
             if isSessionActive {
                 completion?(AppAmbitLogger.buildError(message: "There is already an active session"))
-                return;
+                return
             }
-            
+
             let dateUtcNow = DateUtils.utcNow
-            
-            let startSession = StartSessionEndpoint(utcNow: dateUtcNow)
-            shared.apiService?.executeRequest(
-                startSession,
-                    responseType: SessionResponse.self
-                ) { response in
-                    debugPrint("[\(tag)]: Start Session with Error Type: \(response.errorType.rawValue)")
-                                
-                    var sessionId = ""
-                    if let sessionIdInt = response.data?.sessionId {
-                        sessionId = String(sessionIdInt)
-                    }
-                                                            
-                    if response.errorType != .none {
-                        _ = try? shared.storageService?.putSessionData(SessionData(
-                            id: UUID().uuidString,
-                            sessionId: sessionId,
-                            timestamp: dateUtcNow,
-                            sessionType: .start
-                        ))
-                        _sessionId = sessionId
-                        AppAmbitLogger.log(message: response.message ?? "", context: tag)
-                        completion?(AppAmbitLogger.buildError(message: response.message ?? ""))
-                    } else {
-                        completion?(nil)
-                    }
+
+            sendStartSession(dateUtcNow: dateUtcNow) { errorType, data in
+                AppAmbitLogger.log(message: "Start Session with Error Type: \(errorType.rawValue)", context: tag)
+
+                if let sessionIdInt = data?.sessionId {
+                    _sessionId = String(sessionIdInt)
                 }
-            
+
+                if errorType != .none {
+                    _ = try? shared.storageService?.putSessionData(SessionData(
+                        id: UUID().uuidString,
+                        sessionId: _sessionId,
+                        timestamp: dateUtcNow,
+                        sessionType: .start
+                    ))
+
+                    completion?(AppAmbitLogger.buildError(message: "Start session failed with errorType: \(errorType)"))
+                } else {
+                    completion?(nil)
+                }
+            }
+
             isSessionActive = true
         }
-        
+
         syncQueue.async(execute: workItem)
     }
     
+    private static func sendStartSession(dateUtcNow: Date, completion: @escaping @Sendable (ApiErrorType, SessionResponse?) -> Void) {
+        let startSession = StartSessionEndpoint(utcNow: dateUtcNow)
+        shared.apiService?.executeRequest(
+            startSession,
+            responseType: SessionResponse.self
+        ) { response in
+            completion(response.errorType, response.data)
+        }
+    }
+    
     static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
-        debugPrint("[\(tag)]: End Session called");
+        AppAmbitLogger.log(message: "End Session called", context: tag);
         let workItem = DispatchWorkItem {
             if !isSessionActive {
                 completion?(AppAmbitLogger.buildError(message: "There is no active section to end"))
@@ -142,7 +147,7 @@ final class SessionManager: @unchecked Sendable {
             shared.isSendingBatch = true
             AppAmbitLogger.log(message: "SendBatchSessions started", context: tag)
             
-            do {
+            sendSessionsWithSessionId { _ in
                 getSessionsInDb { sessions, error in
                     if let error = error {
                         AppAmbitLogger.log(message: "Error getting sessions: \(error.localizedDescription)", context: tag)
@@ -173,9 +178,6 @@ final class SessionManager: @unchecked Sendable {
                         finish()
                     }
                 }
-            } catch {
-                AppAmbitLogger.log(message: "Unexpected error in sendBatchSessions: \(error.localizedDescription)", context: tag)
-                finish()
             }
 
             @Sendable func finish() {
@@ -187,7 +189,86 @@ final class SessionManager: @unchecked Sendable {
 
         syncQueueBatch.async(execute: workItem)
     }
+    
+    private static func sendSessionsWithSessionId(completion: @escaping @Sendable (_ error: Error?) -> Void) {
+        getSessionBySessionId { session, error in
+            if let error = error {
+                AppAmbitLogger.log(message: error.localizedDescription, context: tag)
+                completion(error)
+                return
+            }
 
+            guard let session = session else {
+                let err = AppAmbitLogger.buildError(message: "Session not found for current sessionId")
+                completion(err)
+                return
+            }
+
+            sendSession(session, completion: completion)
+        }
+    }
+
+    
+    private static func sendSession(_ session: SessionData, completion: @escaping @Sendable (_ error: Error?) -> Void) {
+        if session.sessionType == .end {
+            sendEndSession(endSession: session) { errorType, error in
+                if errorType != ApiErrorType.none {
+                    completion(error)
+                    return
+                }
+
+                do {
+                    try shared.storageService?.deleteSessionById(session.id ?? "")
+                    AppAmbitLogger.log(message: "Session \(session.id ?? "") deleted successfully", context: tag)
+                    completion(nil)
+                } catch {
+                    AppAmbitLogger.log(message: "Failed to delete end session: \(error.localizedDescription)", context: tag)
+                    completion(error)
+                }
+            }
+        } else {
+            sendStartSession(dateUtcNow: session.timestamp) { errorType, data in
+                if errorType != ApiErrorType.none {
+                    completion(AppAmbitLogger.buildError(message: "Failed to delete Send Start Session"))
+                    return
+                }
+
+                do {
+                    try shared.storageService?.deleteSessionById(session.id ?? "")
+                    AppAmbitLogger.log(message: "Session \(session.id ?? "") deleted successfully", context: tag)
+                    completion(nil)
+                } catch {
+                    AppAmbitLogger.log(message: "Failed to delete start session: \(error.localizedDescription)", context: tag)
+                    completion(error)
+                }
+            }
+        }
+    }
+
+
+    private static func sendEndSession(endSession: SessionData, completion: @escaping @Sendable (_ errorType: ApiErrorType?, _ error: Error?) -> Void) {
+        shared.apiService?.executeRequest(
+            EndSessionEndpoint(endSession: endSession),
+            responseType: EndSessionResponse.self,
+            completion: { (response: ApiResult<EndSessionResponse>) in
+                completion(response.errorType, response.errorType == .none ? nil : AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
+            }
+        )
+    }
+    
+    private static func getSessionBySessionId(completion: @escaping @Sendable (_ session: SessionData?, _ error: Error?) -> Void) {
+        let workItem = DispatchWorkItem {
+            do {
+                let session = try shared.storageService?.getSessionById()
+                completion(session, nil)
+            } catch {
+                completion(nil, AppAmbitLogger.buildError(message: error.localizedDescription))
+            }
+        }
+        
+        syncQueueBatch.async(execute: workItem)
+    }
+    
     
     private static func getSessionsInDb(completion: @escaping @Sendable (_ sessions: [SessionBatch]?, _ error: Error?) -> Void) {
         let workItem = DispatchWorkItem {

@@ -389,19 +389,21 @@ class Storable: StorageService {
             let sql = """
             SELECT id, startSessionDate, endSessionDate
             FROM \(SessionsConfiguration.tableName)
-            WHERE sessionId IS NULL OR sessionId = ''
+            WHERE (sessionId IS NULL OR sessionId = '')
+            AND startSessionDate IS NOT NULL
+            AND endSessionDate IS NOT NULL
             ORDER BY startSessionDate ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
-            
+
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = String(cString: sqlite3_column_text(stmt, 0))
                 let startDate = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
                 let endDate = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
-                
+
                 result.append(SessionBatch(
                     id: id,
                     startedAt: startDate,
@@ -411,6 +413,7 @@ class Storable: StorageService {
             return result
         }
     }
+
     
     func deleteSessionList(_ sessions: [SessionBatch]) throws {
         try queue.sync {
@@ -544,7 +547,6 @@ class Storable: StorageService {
             throw sqliteError
         }
     }
-
 
     private func getSecret(column: String) throws -> String? {
         let sql = "SELECT \(column) FROM \(AppSecretsConfiguration.tableName) LIMIT 1;"
