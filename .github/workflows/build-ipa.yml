@@ -118,6 +118,8 @@ jobs:
           ORIGINAL_IPA=$(find $RUNNER_TEMP/build -name "*.ipa" | head -n 1)
           echo "IPA found: $ORIGINAL_IPA"
           DIR=$(dirname "$ORIGINAL_IPA")
+          cd $RUNNER_TEMP
+          mkdir -p artifact
           cp "$ORIGINAL_IPA" "$RUNNER_TEMP/artifact/${IPA_NAME}_${TYPE_RELEASE}.ipa"
 
       - name: Upload IPA
