@@ -123,5 +123,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: $IPA_NAME_$TYPE_RELEASE.ipa
-          path: $RUNNER_TEMP/build/*.ipa
+          name: ${IPA_NAME}_${TYPE_RELEASE}.ipa
+          path: ./build/**/*.ipa
