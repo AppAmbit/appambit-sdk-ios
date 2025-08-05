@@ -20,6 +20,8 @@ variables:
     value: AppAmbit-Testing-App-Info.plist
   - name: BUNDLE_IDENTIFIER
     value: 'com.AppAmbit.TestApp'
+  - name: XCODE_VERSION
+    value: Xcode_16.2
 
 pool:
   vmImage: 'macos-latest'
@@ -53,8 +55,8 @@ jobs:
         fi
 
   - script: |
-        if [ -d "/Applications/Xcode_16.2.app" ]; then
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+        if [ -d "/Applications/$(XCODE_VERSION).app" ]; then
+          sudo xcode-select -s /Applications/$(XCODE_VERSION).app/Contents/Developer
         else
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
         fi
