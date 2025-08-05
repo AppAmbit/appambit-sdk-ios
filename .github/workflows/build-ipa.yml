@@ -117,11 +117,10 @@ jobs:
         run: |
           ORIGINAL_IPA=$(find $RUNNER_TEMP/build -name "*.ipa" | head -n 1)
           echo "IPA found: $ORIGINAL_IPA"
-          DIR=$(dirname "$ORIGINAL_IPA")
-          cp "$ORIGINAL_IPA" "$RUNNER_TEMP/build/$IPA_NAME_$TYPE_RELEASE.ipa"
+          cp "$ORIGINAL_IPA" "$RUNNER_TEMP/artifact/$IPA_NAME_$TYPE_RELEASE.ipa"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.IPA_NAME }}_${{ env.TYPE_RELEASE }}
-          path: ${{ runner.temp }}/build/**/*.ipa
+          path: ${{ runner.temp }}/artifact/**/*.ipa
