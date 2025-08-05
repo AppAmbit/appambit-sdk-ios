@@ -6,7 +6,9 @@ on:
       - alpha/ios-testapp-pipeline
 
 env:
-  CONFIGURATION: Debug
+  BUNDLE_IDENTIFIER: com.AppAmbit.TestApp
+  IPA_NAME: app_appambit_testapp
+  CONFIGURATION: Release
   SDK: iphoneos
   DESTINATION: generic/platform=iOS
   XCODE-VERSION: 16.2
@@ -100,7 +102,7 @@ jobs:
               <key>stripSwiftSymbols</key>
               <true/>
               <key>teamID</key>
-              <string>{{ secrets.IOS_APPLE_TEAM_ID }}</string>
+              <string>${{ secrets.IOS_APPLE_TEAM_ID }}</string>
               <key>thinning</key>
               <string>&lt;none&gt;</string>
             </dict>
@@ -110,3 +112,16 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           xcodebuild -exportArchive -archivePath $RUNNER_TEMP/$ARCHIVE_PATH -exportOptionsPlist $IOS_INFO_PLIST -exportPath $RUNNER_TEMP/build
+      
+      - name: Rename IPA output
+        run: |
+          ORIGINAL_IPA=$(find $RUNNER_TEMP/build -name "*.ipa" | head -n 1)
+          echo "IPA found: $ORIGINAL_IPA"
+          DIR=$(dirname "$ORIGINAL_IPA")
+          cp "$ORIGINAL_IPA" "$RUNNER_TEMP/build/$IPA_NAME_$TYPE_RELEASE.ipa"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: $IPA_NAME_$TYPE_RELEASE.ipa
+          path: $RUNNER_TEMP/build/*.ipa
