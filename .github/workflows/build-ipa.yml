@@ -3,7 +3,7 @@ name: Build iOS IPA TestApp
 on:
   push:
     branches:
-      - feature/added-ios-testapp-pipeline
+      - alpha/ios-testapp-pipeline
 
 env:
   CONFIGURATION: Debug
