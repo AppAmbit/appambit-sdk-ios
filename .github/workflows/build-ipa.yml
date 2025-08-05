@@ -65,7 +65,7 @@ jobs:
           UUID=$(security cms -D -i profile.mobileprovision | plutil -extract UUID xml1 -o - - | xmllint --xpath "string(//string)" -)
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
           echo "UUID=$UUID" >> $GITHUB_ENV
-        
+
       - name: build archive
         run: |
           cd ${{ github.workspace }}
@@ -90,8 +90,8 @@ jobs:
               <string>release-testing</string>
               <key>provisioningProfiles</key>
               <dict>
-                <key>$(BUNDLE_IDENTIFIER)</key>
-                <string>$(IOS_ADHOC_PROFILE)</string>
+                <key>$BUNDLE_IDENTIFIER</key>
+                <string>${{ secrets.IOS_ADHOC_PROFILE}}</string>
               </dict>
               <key>signingCertificate</key>
               <string>iPhone Distribution</string>
@@ -100,7 +100,7 @@ jobs:
               <key>stripSwiftSymbols</key>
               <true/>
               <key>teamID</key>
-              <string>$(IOS_APPLE_TEAM_ID)</string>
+              <string>{{ secrets.IOS_APPLE_TEAM_ID }}</string>
               <key>thinning</key>
               <string>&lt;none&gt;</string>
             </dict>
