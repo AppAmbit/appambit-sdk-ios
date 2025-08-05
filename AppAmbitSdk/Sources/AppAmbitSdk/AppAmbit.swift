@@ -250,8 +250,7 @@ public final class AppAmbit: @unchecked Sendable {
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
-        }
-        
+        }        
         sendAllPendingData();
     }
     
@@ -259,7 +258,8 @@ public final class AppAmbit: @unchecked Sendable {
         Crashes.shared.loadCrashFileIfExists() {error in
             Crashes.sendBatchLogs()
         }
-        self.sendPendingSessiones()
+       
+        SessionManager.sendBatchSessions()
     }
     
     
@@ -281,10 +281,6 @@ public final class AppAmbit: @unchecked Sendable {
     
     private func sendPendingEvents() {
         debugPrint("[AppAmbit] Sending pending events...")
-    }
-    
-    private func sendPendingSessiones() {
-        debugPrint("[AppAmbit] Sending pending sessions...")
     }
     
     private func tokenIsValid() -> Bool {

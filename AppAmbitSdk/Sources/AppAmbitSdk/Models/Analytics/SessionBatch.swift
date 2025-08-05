@@ -1,17 +1,24 @@
 import Foundation
 
-struct SessionsPayload: Codable {
+struct SessionsPayload: Codable, DictionaryConvertible {
     let sessions: [SessionBatch]
+    
+    public func toDictionary() -> [String: Any] {
+        return [
+            "sessions": sessions.map { $0.toDictionary() }
+        ]
+    }
 }
 
-struct SessionBatch: Codable {
+struct SessionBatch: Codable, DictionaryConvertible {
     let id: String
     let startedAt: Date?
     let endedAt: Date?
-
-    enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case startedAt = "started_at"
-        case endedAt = "ended_at"
+    
+    func toDictionary() -> [String: Any] {
+        return [
+            "started_at": startedAt.map { DateUtils.utcIsoFormatString(from: $0) } ?? NSNull(),
+            "ended_at": endedAt.map { DateUtils.utcIsoFormatString(from: $0) } ?? NSNull()
+        ]
     }
 }

@@ -284,19 +284,23 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     ) {
         do {
             let payloadDict = try convertToDictionary(payload: payload)
+
+            guard JSONSerialization.isValidJSONObject(payloadDict) else {
+                return completion(.fail(.unknown, message: "The payload object is not a valid JSON"))
+            }
+
             let jsonData = try JSONSerialization.data(withJSONObject: payloadDict, options: [.prettyPrinted])
-            
             request.httpBody = jsonData
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             printJSONRequest(request: request, jsonData: jsonData)
-            
+
         } catch let error as ApiErrorType {
             completion(.fail(error, message: "Payload no convertible"))
         } catch {
             completion(.fail(.unknown, message: "Error serializando payload: \(error.localizedDescription)"))
         }
     }
-    
+
     /// Converts the payload to a dictionary [String: Any].
     /// Returns: [String: Any] or throws error
     private func convertToDictionary(payload: Any) throws -> [String: Any] {
