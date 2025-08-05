@@ -1,136 +1,141 @@
-import SystemConfiguration
 import Foundation
+import SystemConfiguration
 
-public final class ReachabilityService: @unchecked Sendable {
+public final class ReachabilityService {
 
-    public enum ConnectionStatus {
-        case connected
+    public enum ConnectionType: String {
+        case wifi
+        case cellular
+        case unavailable
+    }
+
+    public enum NetworkStatus {
+        case connected(ConnectionType)
         case disconnected
     }
-    
-    private var reachabilityRef: SCNetworkReachability
-    private let queue = DispatchQueue(label: "com.appambit.simplereachability")
-    private var previousFlags: SCNetworkReachabilityFlags?
-    
-    public var onConnectionChange: (@Sendable (ConnectionStatus) -> Void)?
 
-    
-    private var weakifier: ReachabilityWeakifier?
-    
-    public var isConnected: Bool {
-        queue.sync {
-            guard let flags = currentFlags else { return false }
-            return isNetworkReachable(with: flags)
-        }
-    }
-    
-    private var currentFlags: SCNetworkReachabilityFlags? {
-        var flags = SCNetworkReachabilityFlags()
-        return SCNetworkReachabilityGetFlags(reachabilityRef, &flags) ? flags : nil
-    }
-    
-    // MARK: - Initialization
-    
-    public init() throws {
+    public typealias StatusChangeHandler = @Sendable (NetworkStatus) -> Void
+
+    private var reachabilityRef: SCNetworkReachability?
+    private let monitorQueue = DispatchQueue(label: "com.appambit.networkmonitor")
+    private var previousFlags: SCNetworkReachabilityFlags?
+    private var _callback: StatusChangeHandler?
+
+    public init?() {
         var zeroAddress = sockaddr()
         zeroAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
         zeroAddress.sa_family = sa_family_t(AF_INET)
-        
+
         guard let ref = SCNetworkReachabilityCreateWithAddress(nil, &zeroAddress) else {
-            throw NSError(domain: "SimpleReachability", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to create reachability reference"])
+            return nil
         }
-        
+
         self.reachabilityRef = ref
     }
-    
+
     deinit {
-        stopMonitoring()
+        stop()
     }
-    
-    // MARK: - Public Methods
-    
-    public func initialize() throws {
-        try queue.sync {
-            guard weakifier == nil else { return }
-            
-            let weakifier = ReachabilityWeakifier(reachability: self)
-            self.weakifier = weakifier
 
-            let opaqueWeakifier = Unmanaged.passUnretained(weakifier).toOpaque()
-            
-            let callback: SCNetworkReachabilityCallBack = { (_, flags, info) in
-                guard let info = info else { return }
+    public func startMonitoring(_ onStatusChange: @escaping StatusChangeHandler) throws {
+        guard let ref = reachabilityRef else { return }
 
-                let weakifier = Unmanaged<ReachabilityWeakifier>.fromOpaque(info).takeUnretainedValue()
-                weakifier.reachability?.queue.async {
-                    weakifier.reachability?.notifyConnectionChange(flags: flags)
-                }
-            }
-            
-            var context = SCNetworkReachabilityContext(
-                version: 0,
-                info: opaqueWeakifier,
-                retain: { info in
-                    let unmanaged = Unmanaged<ReachabilityWeakifier>.fromOpaque(info)
-                    _ = unmanaged.retain()
-                    return UnsafeRawPointer(unmanaged.toOpaque())
-                },
-                release: { info in
-                    let unmanaged = Unmanaged<ReachabilityWeakifier>.fromOpaque(info)
-                    unmanaged.release()
-                },
-                copyDescription: nil
-            )
-            
-            if !SCNetworkReachabilitySetCallback(reachabilityRef, callback, &context) {
-                throw NSError(domain: "SimpleReachability", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to set reachability callback"])
-            }
-            
-            if !SCNetworkReachabilitySetDispatchQueue(reachabilityRef, queue) {
-                throw NSError(domain: "SimpleReachability", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to set reachability queue"])
-            }
-            
-            if let flags = currentFlags {
-                notifyConnectionChange(flags: flags)
-            }
+        monitorQueue.sync {
+            self._callback = onStatusChange
+        }
+
+        var context = SCNetworkReachabilityContext(
+            version: 0,
+            info: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
+            retain: { info in UnsafeRawPointer(info) },
+            release: { _ in },
+            copyDescription: nil
+        )
+
+        let callback: SCNetworkReachabilityCallBack = { (_, flags, info) in
+            guard let info = info else { return }
+            let monitor = Unmanaged<ReachabilityService>.fromOpaque(info).takeUnretainedValue()
+            monitor.flagsDidChange(flags)
+        }
+
+        if !SCNetworkReachabilitySetCallback(ref, callback, &context) {
+            throw NSError(domain: "NetworkMonitor", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to set callback"])
+        }
+
+        if !SCNetworkReachabilitySetDispatchQueue(ref, monitorQueue) {
+            throw NSError(domain: "NetworkMonitor", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to set dispatch queue"])
+        }
+
+        // Emit initial status
+        var initialFlags = SCNetworkReachabilityFlags()
+        if SCNetworkReachabilityGetFlags(ref, &initialFlags) {
+            flagsDidChange(initialFlags)
         }
     }
-    
-    public func stopMonitoring() {
-        queue.sync {
-            SCNetworkReachabilitySetCallback(reachabilityRef, nil, nil)
-            SCNetworkReachabilitySetDispatchQueue(reachabilityRef, nil)
-            weakifier = nil
+
+    public func stop() {
+        guard let ref = reachabilityRef else { return }
+        SCNetworkReachabilitySetCallback(ref, nil, nil)
+        SCNetworkReachabilitySetDispatchQueue(ref, nil)
+
+        monitorQueue.sync {
+            _callback = nil
         }
     }
-    
-    // MARK: - Private Methods
-    
-    private func isNetworkReachable(with flags: SCNetworkReachabilityFlags) -> Bool {
-        let isReachable = flags.contains(.reachable)
-        let needsConnection = flags.contains(.connectionRequired)
-        let canConnectAutomatically = flags.contains(.connectionOnDemand) || flags.contains(.connectionOnTraffic)
-        let canConnectWithoutUserInteraction = canConnectAutomatically && !flags.contains(.interventionRequired)
-        
-        return isReachable && (!needsConnection || canConnectWithoutUserInteraction)
+
+    public var isConnected: Bool {
+        guard let flags = currentFlags else { return false }
+        return Self.isReachable(flags)
     }
-    
-    private func notifyConnectionChange(flags: SCNetworkReachabilityFlags) {
+
+    public var connectionType: ConnectionType {
+        guard let flags = currentFlags, Self.isReachable(flags) else {
+            return .unavailable
+        }
+        return Self.mapConnectionType(from: flags)
+    }
+
+    private var currentFlags: SCNetworkReachabilityFlags? {
+        guard let ref = reachabilityRef else { return nil }
+        var flags = SCNetworkReachabilityFlags()
+        return SCNetworkReachabilityGetFlags(ref, &flags) ? flags : nil
+    }
+
+    private static func isReachable(_ flags: SCNetworkReachabilityFlags) -> Bool {
+        guard flags.contains(.reachable) else { return false }
+
+        if flags.contains(.connectionRequired) &&
+            !(flags.contains(.connectionOnTraffic) || flags.contains(.connectionOnDemand)) {
+            return false
+        }
+
+        if flags.contains(.interventionRequired) {
+            return false
+        }
+
+        return true
+    }
+
+    private static func mapConnectionType(from flags: SCNetworkReachabilityFlags) -> ConnectionType {
+        #if os(iOS)
+        return flags.contains(.isWWAN) ? .cellular : .wifi
+        #else
+        return .wifi
+        #endif
+    }
+
+    private func flagsDidChange(_ flags: SCNetworkReachabilityFlags) {
         guard flags != previousFlags else { return }
         previousFlags = flags
-        
-        let isConnected = isNetworkReachable(with: flags)
-        let status: ConnectionStatus = isConnected ? .connected : .disconnected
-        
-        DispatchQueue.main.async { [onConnectionChange] in
-            onConnectionChange?(status)
-        }
-    }
-}
 
-private class ReachabilityWeakifier {
-    weak var reachability: ReachabilityService?
-    init(reachability: ReachabilityService) {
-        self.reachability = reachability
+        let connection = Self.isReachable(flags)
+            ? NetworkStatus.connected(Self.mapConnectionType(from: flags))
+            : .disconnected
+
+        let callbackCopy = _callback
+
+        DispatchQueue.main.async {
+            callbackCopy?(connection)
+        }
     }
 }

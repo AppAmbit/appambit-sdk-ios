@@ -142,6 +142,25 @@ struct CrashesView: View {
                 .cornerRadius(8)
                 .padding(.horizontal)
                 
+                Button("Generate the last 30 daily errors") {
+                    onGenerate30daysTestErrors()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button("Generates the last 30 daily crashes") {
+                    onGenerate30daysTestCrash()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
                 
                 Button("Throw new Crash") {
                     let array = NSArray()
@@ -244,4 +263,109 @@ struct CrashesView: View {
         }
     }
     
+    func onGenerate30daysTestErrors() {
+        if NetworkMonitor.shared.isConnected {
+            self.alertMessage = "Turn off internet and try again"
+            self.showAlert = true
+            return
+        }
+        
+        let totalDays = 30
+        var completedCount = 0
+        
+        for index in 1...totalDays {
+            let delay = Double(index) * 0.5
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let daysToSubtract = totalDays - index
+                let errorDate = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: Date()) ?? Date()
+                
+                debugPrint("DEBUG TIME ERROR: \(errorDate) : Index: \(index)")
+                
+                Crashes.logError(message: "Test 30 Last Days Errors", createdAt: errorDate) { error in
+                    completedCount += 1
+                    
+                    if completedCount == totalDays {
+                        DispatchQueue.main.async {
+                            self.alertMessage = "Logs generated, turn on internet"
+                            self.showAlert = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    func onGenerate30daysTestCrash() {
+        if NetworkMonitor.shared.isConnected {
+            self.alertMessage = "Turn off internet and try again"
+            self.showAlert = true
+            return
+        }
+        
+        let totalDays = 30
+        var completedCount = 0
+        
+        guard let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            self.alertMessage = "Failed to access Application Support directory"
+            self.showAlert = true
+            return
+        }
+        
+        let crashLogsDir = appSupportDirectory.appendingPathComponent("CrashLogs")
+        
+        if !FileManager.default.fileExists(atPath: crashLogsDir.path) {
+            do {
+                try FileManager.default.createDirectory(at: crashLogsDir, withIntermediateDirectories: true)
+            } catch {
+                debugPrint("\(error.localizedDescription)")
+                return
+            }
+        }
+        
+        var exception: Error
+        do {
+            throw NSError(domain: "com.appambit.crashview", code: 1234, userInfo: [NSLocalizedDescriptionKey: "Error crash 30 daily"])
+        } catch {
+            exception = error
+        }
+        
+        for index in 1...totalDays {
+            let delay = Double(index) * 0.1
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                                
+                var exceptionInfo = ExceptionInfo.fromError(exception)
+                
+                let daysToSubtract = totalDays - index
+                let crashDate = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: Date()) ?? Date()
+                
+                exceptionInfo.createdAt = crashDate
+                exceptionInfo.crashLogFile = crashDate.ISO8601Format() + "_\(index)"
+                
+                do {
+                    let encoder = JSONEncoder()
+                    encoder.dateEncodingStrategy = .iso8601
+                    encoder.outputFormatting = .prettyPrinted
+                    
+                    let fileName = "crash_\(crashDate.formatted(.iso8601.dateSeparator(.omitted).timeSeparator(.omitted)))_\(index).json"
+                    let fileURL = crashLogsDir.appendingPathComponent(fileName)
+                    
+                    try encoder.encode(exceptionInfo).write(to: fileURL)
+                    debugPrint("Crash file saved: \(fileURL.lastPathComponent)")
+                    
+                    completedCount += 1
+                    
+                    if completedCount == totalDays {
+                        DispatchQueue.main.async {
+                            self.alertMessage = "Crashes generated, turn on internet"
+                            self.showAlert = true
+                        }
+                    }
+                } catch {
+                    debugPrint("Error saving crash file: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
 }

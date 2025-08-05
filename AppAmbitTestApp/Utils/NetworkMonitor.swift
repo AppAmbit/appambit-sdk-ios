@@ -1,7 +1,5 @@
 import AppAmbit
 
-import AppAmbit
-
 class NetworkMonitor {
     static let shared = NetworkMonitor()
 
@@ -13,7 +11,7 @@ class NetworkMonitor {
 
     private init() {
         do {
-            reachabilityService = try ReachabilityService()
+            reachabilityService = ReachabilityService()
         } catch {
             reachabilityService = nil
             debugPrint("Error initializing ReachabilityServic: \(error.localizedDescription)")
