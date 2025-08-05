@@ -1,9 +1,6 @@
 name: Build iOS IPA TestApp
 
-on:
-  push:
-    branches:
-      - alpha/ios-testapp-pipeline
+on: workflow_dispatch
 
 env:
   BUNDLE_IDENTIFIER: com.AppAmbit.TestApp
