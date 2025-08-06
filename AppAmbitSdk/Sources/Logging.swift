@@ -2,7 +2,6 @@ import Foundation
 
 final class Logging: @unchecked Sendable {
     private static let queue = DispatchQueue(label: "com.appambit.logging.queue", qos: .utility)
-    private static let tag = "Logging"
         
     static func logEvent(
         message: String?,
@@ -86,7 +85,6 @@ final class Logging: @unchecked Sendable {
     
     private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
         let localLogEntity = logEntity
-        let localTag = tag
         
         let workItem = DispatchWorkItem {
             let apiService = ServiceContainer.shared.apiService
@@ -108,7 +106,6 @@ final class Logging: @unchecked Sendable {
                 handleLogRequestResult(
                     result: result,
                     logEntity: localLogEntity,
-                    tag: localTag,
                     completion: completion
                 )
             }
@@ -120,11 +117,10 @@ final class Logging: @unchecked Sendable {
     private static func handleLogRequestResult(
         result: ApiResult<LogResponse>,
         logEntity: LogEntity,
-        tag: String,
         completion: (@Sendable (Error?) -> Void)?
     ) {
         if result.errorType == .none {
-            debugPrint("\(tag): Log sent successfully")
+            AppAmbitLogger.log(message: "Log sent successfully")
             DispatchQueue.main.async {
                 completion?(nil)
             }
@@ -136,9 +132,9 @@ final class Logging: @unchecked Sendable {
                 DispatchQueue.main.async {
                     if let dbError = dbError {
                         let message = "Failed to store log: \(dbError.localizedDescription)"
-                        AppAmbitLogger.log(message: message, context: tag)
+                        AppAmbitLogger.log(message: message)
                     } else {
-                        debugPrint("\(tag): Log stored in database as fallback")
+                        AppAmbitLogger.log(message: "Log stored in database as fallback")
                     }
                     completion?(error)
                 }

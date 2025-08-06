@@ -9,7 +9,6 @@ public class Crashes: @unchecked Sendable {
     private static let syncQueueBatch = DispatchQueue(label: "com.appambit.crashes.batch", attributes: .concurrent)
     private var crashStorageURL: URL?
     private var isSendingBatch = false
-    static let tag = "Crashes"
     
     // MARK: - Singleton
     static let shared = Crashes()
@@ -178,22 +177,22 @@ public class Crashes: @unchecked Sendable {
         }
 
         guard canSend else {
-            AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress", context: tag)
+            AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress")
             return
         }
 
         let workItem = DispatchWorkItem {
-            AppAmbitLogger.log(message: "SendBatchLogs", context: tag)
+            AppAmbitLogger.log(message: "SendBatchLogs")
 
             getLogsInDb { logs, error in
                 if let error = error {
-                    AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)", context: tag)
+                    AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)")
                     finish()
                     return
                 }
 
                 guard let logs = logs, !logs.isEmpty else {
-                    AppAmbitLogger.log(message: "There are no logs to send", context: tag)
+                    AppAmbitLogger.log(message: "There are no logs to send")
                     finish()
                     return
                 }
@@ -203,17 +202,17 @@ public class Crashes: @unchecked Sendable {
 
                 shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
                     if response.errorType != .none {
-                        AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")", context: tag)
+                        AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
                         finish()
                         return
                     }
 
-                    AppAmbitLogger.log(message: "Logs sent successfully", context: tag)
+                    AppAmbitLogger.log(message: "Logs sent successfully")
 
                     do {
                         try shared.storageService?.deleteLogList(logs)
                     } catch {
-                        AppAmbitLogger.log(message: error.localizedDescription, context: tag)
+                        AppAmbitLogger.log(message: error.localizedDescription)
                     }
 
                     finish()

@@ -3,7 +3,6 @@ import Foundation
 public final class Analytics: @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
-    static let TAG = "Analytics"
     nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
 
     static let shared = Analytics()
@@ -26,7 +25,7 @@ public final class Analytics: @unchecked Sendable {
                 try shared.storageService?.putUserId(userId)
                 completion?(nil)
             } catch {
-                AppAmbitLogger.log(error: error, context: "Analytics.setUserId")
+                AppAmbitLogger.log(error: error)
                 completion?(error)
             }
         }
@@ -39,7 +38,7 @@ public final class Analytics: @unchecked Sendable {
             do {
                 try shared.storageService?.putUserEmail(email)
             } catch {
-                debugPrint("Error putting email: \(error)")
+                AppAmbitLogger.log(message: "Error putting email: \(error)")
             }
         }
         

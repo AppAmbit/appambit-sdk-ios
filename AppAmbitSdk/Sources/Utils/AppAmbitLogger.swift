@@ -1,23 +1,28 @@
 import Foundation
 
+
 public final class AppAmbitLogger {
-    public static func log(error: Error, context: String? = nil) {
-        if let context = context {
-            debugPrint("\(context): \(error.localizedDescription)")
-        } else {
-            debugPrint("Error: \(error.localizedDescription)")
-        }
+    
+    public static func log(
+        error: Error,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        let className = (file as NSString).lastPathComponent.replacingOccurrences(of: ".swift", with: "")
+        debugPrint("[\(className).\(function):\(line)]: \(error.localizedDescription)")
     }
     
-    public static func log(message: String, context: String? = nil) {
-        if let context = context {
-            debugPrint("\(context): \(message)")
-        } else {
-            debugPrint("Message: \(message)")
-        }
+    public static func log(
+        message: String,
+        file: String = #file,
+        function: String = #function
+    ) {
+        let className = (file as NSString).lastPathComponent.replacingOccurrences(of: ".swift", with: "")
+        debugPrint("[\(className).\(function)]: \(message)")
     }
-    
-    public static func buildError(message:String, code: Int = 0) -> NSError {
+
+    public static func buildError(message: String, code: Int = 0) -> NSError {
         return NSError(
             domain: "com.appambit.sdk",
             code: code,
