@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-class Storable: StorageService {
+class StorableService: StorageService {
     private let db: OpaquePointer?
     private let queue = DispatchQueue(label: "com.appambit.storage.service", qos: .utility)
     let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
