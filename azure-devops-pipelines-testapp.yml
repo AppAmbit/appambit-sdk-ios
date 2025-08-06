@@ -22,6 +22,10 @@ variables:
     value: 'com.AppAmbit.TestApp'
   - name: XCODE_VERSION
     value: Xcode_16.2
+  - name: COMMAND_CONFIGURATION
+    value: '-sdk $(sdkOption) -configuration $(configurationOption) -project $(workspaceName) -scheme $(schemeName)'
+  - name: ARTIFACT_NAME
+    value: 'alpha-ipa'
 
 pool:
   vmImage: 'macos-latest'
@@ -84,12 +88,13 @@ jobs:
     displayName: 'Ensure iOS SDK and Xcode CLI tools'
 
   - script: |
-      security delete-keychain build.keychain || true
+      security delete-keychain build.keychain || echo "No keychain to delete"
       security create-keychain -p "" build.keychain
       security default-keychain -s build.keychain
       security unlock-keychain -p "" build.keychain
       security set-keychain-settings -t 3600 -l build.keychain
     displayName: 'Reset Keychain'
+    condition: always()
 
   - task: InstallAppleCertificate@2
     displayName: 'Install Certificates'
@@ -140,7 +145,7 @@ jobs:
       script: |
         echo "Clean iOS app build folder"
         cd $(Build.SourcesDirectory)
-        xcodebuild -sdk $(sdkOption) -configuration $(configurationOption) -project $(workspaceName) -scheme "$(schemeName)" clean
+        xcodebuild $COMMAND_CONFIGURATION clean
     displayName: 'Xcode Clean'
 
   - task: CmdLine@2
@@ -149,7 +154,7 @@ jobs:
         echo "Build iOS app"
         cd $(Build.SourcesDirectory)
         
-        xcodebuild -sdk $(sdkOption) -configuration $(configurationOption) -project $(workspaceName) -scheme "$(schemeName)" build -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)"
+        xcodebuild $COMMAND_CONFIGURATION build -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)"
     displayName: 'Xcode Build'
 
   - task: CmdLine@2
@@ -158,7 +163,7 @@ jobs:
         echo "Archive the iOS app"
         cd $(Build.SourcesDirectory)
         
-        xcodebuild -sdk $(sdkOption) -configuration $(configurationOption) -project $(workspaceName) -scheme "$(schemeName)" archive -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)" -archivePath $(ArchivePath)
+        xcodebuild $COMMAND_CONFIGURATION archive -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)" -archivePath $(ArchivePath)
     displayName: 'Xcode Archive'
 
   - task: CmdLine@2
@@ -187,5 +192,5 @@ jobs:
   - task: PublishBuildArtifacts@1
     inputs:
       pathtoPublish: '$(build.artifactStagingDirectory)'
-      artifactName: 'alpha-ipa'
+      artifactName: '$(ARTIFACT_NAME)'
       publishLocation: 'Container'
