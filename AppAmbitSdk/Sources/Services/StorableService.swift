@@ -211,9 +211,9 @@ class StorableService: StorageService {
         return try queue.sync {
             var result: [EventEntity] = []
             let sql = """
-            SELECT id, data_json, name, created_at
+            SELECT id, data_json, name, createdAt
             FROM \(EventEntityConfiguration.tableName)
-            ORDER BY created_at ASC
+            ORDER BY createdAt ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?

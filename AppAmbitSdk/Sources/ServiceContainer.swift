@@ -24,6 +24,7 @@ final class ServiceContainer {
             }
 
             reachabilityService = reachability
+            NetworkState.shared.configure(with: reachability)
 
         } catch {
             debugPrint("Error initializing ServiceContainer: \(error.localizedDescription)")

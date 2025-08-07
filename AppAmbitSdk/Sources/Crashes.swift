@@ -115,11 +115,10 @@ public class Crashes: @unchecked Sendable {
             if let classFqn = classFqn {
                 callLogEvent(with: classFqn)
             } else {
-       
-                
+
                 if let caller = StackUtils.getCallerClassName() {
                     callLogEvent(with: caller)
-                        }
+                }
             }
         }
         
