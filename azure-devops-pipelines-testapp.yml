@@ -8,7 +8,7 @@ variables:
     value: 'iphoneos'
   - name: configurationOption
     value: 'Release'
-  - name: workspaceName
+  - name: projectName
     value: 'AppAmbitTestingApp.xcodeproj'
   - name: schemeName
     value: 'AppAmbitTestingApp'
@@ -23,7 +23,7 @@ variables:
   - name: XCODE_VERSION
     value: Xcode_16.2
   - name: COMMAND_CONFIGURATION
-    value: '-sdk $(sdkOption) -configuration $(configurationOption) -project $(workspaceName) -scheme $(schemeName)'
+    value: '-sdk $(sdkOption) -configuration $(configurationOption) -project $(projectName) -scheme $(schemeName)'
   - name: ARTIFACT_NAME
     value: 'alpha-ipa'
 
@@ -182,12 +182,18 @@ jobs:
       script: |
         cd $(Build.SourcesDirectory)
 
-        ORIGINAL_NAME="build/AppAmbitTestingApp.ipa"
-
+        ORIGINAL_NAME="build/$(schemeName).ipa"
         FINAL_NAME="$(ExportIpaPath)_$(typeRelease).ipa"
 
-        echo "Renaming $ORIGINAL_NAME to $FINAL_NAME"
-        cp "$ORIGINAL_NAME" "$(build.artifactStagingDirectory)/$FINAL_NAME"
+        if [ -f "$ORIGINAL_NAME" ]; then
+          echo "File found: $ORIGINAL_NAME"
+          echo "Renaming $ORIGINAL_NAME to $FINAL_NAME"
+          cp "$ORIGINAL_NAME" "$(build.artifactStagingDirectory)/$FINAL_NAME"
+        else
+          echo "File not found: $ORIGINAL_NAME"
+          echo "##vso[task.logissue type=error]IPA file not found. Canceling pipeline."
+          exit 1
+        fi
 
   - task: PublishBuildArtifacts@1
     inputs:
