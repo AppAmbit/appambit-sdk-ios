@@ -107,7 +107,7 @@ public final class Analytics: @unchecked Sendable {
           }
           
           guard canSend else {
-              AppAmbitLogger.log(message: "SedndBatchEvents skipped: already in progress")
+              AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
               return
           }
           
