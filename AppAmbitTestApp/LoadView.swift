@@ -152,7 +152,7 @@ struct LoadView: View {
 
         Task { @MainActor in
             for counter in 1...total {
-                // 1) Start session
+
                 Analytics.startSession { error in
                     if let error = error {
                         debugPrint("Error Start Session: \(error.localizedDescription)")
@@ -161,13 +161,10 @@ struct LoadView: View {
                     }
                 }
 
-                // Progreso en UI
                 self.sessionsLabel = "Sending session: \(counter) of \(total)"
 
-                // 2) Espera entre start y end
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 5s
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
 
-                // 3) End session
                 Analytics.endSession { error in
                     if let error = error {
                         debugPrint("Error End Session: \(error.localizedDescription)")
@@ -176,15 +173,11 @@ struct LoadView: View {
                     }
                 }
 
-                // (Opcional) log
                 print("Session \(counter) sent")
 
-                // 4) GAP entre el end actual y el siguiente start
-                //    Ajusta a 0.1s si manejas milisegundos; a 1s si el backend redondea a segundos.
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 0.1s
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
-
-            // Final
+            
             self.showMessageProgressSessions = false
             self.alertMessage = "\(total) Sessions generated"
             self.showAlert = true
