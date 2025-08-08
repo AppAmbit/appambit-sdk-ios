@@ -3,6 +3,7 @@ name: Build iOS Library
 on: 
   push:
     branches:
+      - main
       - feature/add-ios-library
 
 env:
