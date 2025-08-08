@@ -1,11 +1,11 @@
 import UIKit
 import Foundation
 
-public final class AppAmbit: @unchecked Sendable {
-    private nonisolated(unsafe) static var _instance: AppAmbit?
+public final class Core: @unchecked Sendable {
+    private nonisolated(unsafe) static var _instance: Core?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.instance.queue")
     
-    public static var shared: AppAmbit? {
+    public static var shared: Core? {
         instanceQueue.sync { _instance }
     }
     
@@ -28,7 +28,7 @@ public final class AppAmbit: @unchecked Sendable {
     public static func start(appKey: String) {
         instanceQueue.async {
             if _instance == nil {
-                _instance = AppAmbit(appKey: appKey)
+                _instance = Core(appKey: appKey)
                 debugPrint("[AppAmbit] SDK started with appKey: \(appKey)")
             } else {
                 debugPrint("[AppAmbit] SDK already started")
