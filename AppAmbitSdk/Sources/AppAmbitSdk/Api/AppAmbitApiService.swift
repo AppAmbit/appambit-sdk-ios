@@ -26,6 +26,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 10
         config.waitsForConnectivity = true
+        config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
     }()
     

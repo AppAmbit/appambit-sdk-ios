@@ -30,8 +30,8 @@ struct SessionData: Codable, DictionaryConvertible {
             "timestamp": DateUtils.utcIsoFormatString(from: timestamp)
         ]
         
-        if let sessionId = sessionId, let intSessionId = Int(sessionId) {
-            dict["session_id"] = intSessionId
+        if let sessionId = sessionId {
+            dict["session_id"] = sessionId
         }
         
         return dict
