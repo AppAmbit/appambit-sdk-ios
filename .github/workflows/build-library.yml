@@ -11,6 +11,7 @@ env:
   APP_XCFRAMEWORK: AppAmbit.xcframework
   XCODE-VERSION: 16.2
   FOLDER_PATH: build
+  INITIAL_VERSION: "0.0.0"
   
 jobs:
   ios-library:
@@ -32,6 +33,7 @@ jobs:
 
       - name: Build Library for iOS
         run: |
+          set -euo pipefail
           xcodebuild archive \
           -scheme $SCHEME \
           -destination 'generic/platform=iOS' \
@@ -41,6 +43,7 @@ jobs:
 
       - name: Build Library for iOS Simulator
         run: |
+          set -euo pipefail
           xcodebuild archive \
           -scheme $SCHEME \
           -destination 'generic/platform=iOS Simulator' \
@@ -50,17 +53,111 @@ jobs:
 
       - name: Create XCFramework
         run: |
+          set -euo pipefail
           xcodebuild -create-xcframework \
-          -framework ./$FOLDER_PATH/ios_devices.xcarchive/Products/Library/Frameworks/AppAmbit.framework \
-          -framework ./$FOLDER_PATH/ios_simulator.xcarchive/Products/Library/Frameworks/AppAmbit.framework \
+          -framework ./$FOLDER_PATH/ios_devices.xcarchive/Products/Library/Frameworks/${{ env.PROJECT_NAME }}.framework \
+          -framework ./$FOLDER_PATH/ios_simulator.xcarchive/Products/Library/Frameworks/${{ env.PROJECT_NAME }}.framework \
           -output ./$APP_XCFRAMEWORK
+
+      - name: Validation of the XCFramework
+        run: |
+          if [ -d "$APP_XCFRAMEWORK" ]; then
+            echo "$APP_XCFRAMEWORK was created successfully."
+            ls -l $APP_XCFRAMEWORK
+          else
+            echo "Error: $APP_XCFRAMEWORK was not created."
+            exit 1
+          fi
+
+      - name: Calculate Next Version
+        id: version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$INITIAL_VERSION"
+          # Get all the tags that match the pattern v*.*.*
+          TAGS=$(git tag -l "v*.*.*" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+          if [ -n "$TAGS" ]; then
+            LATEST_TAG=$(echo "$TAGS" | sort -V | tail -n1)
+            CURRENT_VERSION="${LATEST_TAG#v}"
+            echo "Latest tag found: $LATEST_TAG"
+          else
+            echo "No valid tags found. Using initial version: $CURRENT_VERSION"
+          fi
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MESSAGE"
+          INCREMENT_TYPE="patch"
+          if [[ "$COMMIT_MESSAGE" =~ (\[major\]|BREAKING CHANGE|breaking) ]]; then
+            INCREMENT_TYPE="major"
+          elif [[ "$COMMIT_MESSAGE" =~ (\[minor\]|feat|feature) ]]; then
+            INCREMENT_TYPE="minor"
+          fi
+          case "$INCREMENT_TYPE" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          NEW_VERSION="${major}.${minor}.${patch}"
+          NEW_TAG="v${NEW_VERSION}"
+          # Verify if the new tag already exists
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEW_TAG already exists. Incrementing patch again."
+            patch=$((patch + 1))
+            NEW_VERSION="${major}.${minor}.${patch}"
+            NEW_TAG="v${NEW_VERSION}"
+          fi
+          IS_PRERELEASE="false"
+          if [[ "${GITHUB_REF##*/}" != "main" ]]; then
+            IS_PRERELEASE="true"
+          fi
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "increment_type=$INCREMENT_TYPE" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "=== VERSION CALCULATION ==="
+          echo "Current Version: $CURRENT_VERSION"
+          echo "New Version: $NEW_VERSION"
+          echo "New Tag: $NEW_TAG"
+          echo "Increment Type: $INCREMENT_TYPE"
+          echo "Is Prerelease: $IS_PRERELEASE"
 
       - name: Packing XCFramework
         run: |
-          zip -r $APP_XCFRAMEWORK.zip $APP_XCFRAMEWORK
+          zip -r ${{ env.APP_XCFRAMEWORK }}-${{ steps.version.outputs.new_version }}.zip $APP_XCFRAMEWORK
 
       - name: Upload XCFramework as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_XCFRAMEWORK }}.zip
-          path: ${{ env.APP_XCFRAMEWORK }}.zip
+          name: ${{ env.APP_XCFRAMEWORK }}-${{ steps.version.outputs.new_version }}.zip
+          path: ${{ env.APP_XCFRAMEWORK }}-${{ steps.version.outputs.new_version }}.zip
+    
+      - name: Create GitHub Release
+        if: ${{ github.ref_name == 'main' || github.ref_name == 'feature/add-ios-library' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new_tag }}
+          name: ${{ steps.version.outputs.new_tag }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ${{ env.APP_XCFRAMEWORK }}-${{ steps.version.outputs.new_version }}.zip
+          body: |
+            ## AppAmbit SDK ${{ steps.version.outputs.new_version }}
+            AppAmbit iOS package for analytics, crash tracking, and usage monitoring
+            - **Previous Version**: v${{ steps.version.outputs.current_version }}
+            - **New Version**: ${{ steps.version.outputs.new_tag }}
+            - **Increment Type**: ${{ steps.version.outputs.increment_type }}
+            - **Branch**: `${{ github.ref_name }}`
+            - **Commit**: `${{ github.sha }}`
+            
+            ---
+            **Build**: #${{ github.run_number }} | **Workflow**: ${{ github.workflow }}
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
