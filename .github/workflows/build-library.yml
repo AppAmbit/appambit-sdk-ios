@@ -147,7 +147,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.new_tag }}
           name: ${{ steps.version.outputs.new_tag }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN_RELEASE }}
           files: ${{ env.APP_XCFRAMEWORK }}-${{ steps.version.outputs.new_version }}.zip
           body: |
             ## AppAmbit SDK ${{ steps.version.outputs.new_version }}
