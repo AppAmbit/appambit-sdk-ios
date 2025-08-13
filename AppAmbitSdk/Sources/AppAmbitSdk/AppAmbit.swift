@@ -1,13 +1,9 @@
 import UIKit
 import Foundation
 
-public final class Core: @unchecked Sendable {
-    private nonisolated(unsafe) static var _instance: Core?
+public final class AppAmbit: @unchecked Sendable {
+    private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.instance.queue")
-    
-    public static var shared: Core? {
-        instanceQueue.sync { _instance }
-    }
     
     private let appKey: String
     private let workerQueue = DispatchQueue(label: "com.appambit.workerQueue")
@@ -28,7 +24,7 @@ public final class Core: @unchecked Sendable {
     public static func start(appKey: String) {
         instanceQueue.async {
             if _instance == nil {
-                _instance = Core(appKey: appKey)
+                _instance = AppAmbit(appKey: appKey)
                 debugPrint("[AppAmbit] SDK started with appKey: \(appKey)")
             } else {
                 debugPrint("[AppAmbit] SDK already started")
@@ -59,13 +55,7 @@ public final class Core: @unchecked Sendable {
                        name: UIApplication.willTerminateNotification,
                        object: nil)
     }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-        reachability?.stop()
-        debugPrint("[AppAmbit] Deinit called - Observers removed")
-    }
-    
+
     @objc private func appDidBecomeActive() {
         debugPrint("[AppAmbit] appDidBecomeActive")
         workerQueue.async { [weak self] in
