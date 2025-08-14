@@ -26,6 +26,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 10
         config.waitsForConnectivity = true
+        config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
     }()
     
@@ -47,7 +48,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         completion: @Sendable @escaping (ApiResult<T>) -> Void
     ) {
         workerQueue.async { [completion] in
-            if !ServiceContainer.shared.reachabilityService.isConnected {
+            if !ServiceContainer.shared.reachabilityService.isConnected() {
                 completion(.fail(.unknown, message: "No internet connection"))
                 return
             }

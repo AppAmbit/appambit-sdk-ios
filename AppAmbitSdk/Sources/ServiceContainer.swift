@@ -13,7 +13,7 @@ final class ServiceContainer {
 
         do {
             dataStore = try DataStore()
-            storageService = try Storable(ds: dataStore)
+            storageService = try StorableService(ds: dataStore)
 
             guard let reachability = ReachabilityService() else {
                 throw NSError(
@@ -24,6 +24,7 @@ final class ServiceContainer {
             }
 
             reachabilityService = reachability
+            NetworkState.shared.configure(with: reachability)
 
         } catch {
             debugPrint("Error initializing ServiceContainer: \(error.localizedDescription)")

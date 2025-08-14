@@ -99,6 +99,16 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+                
+                Button("Send Max-300-Length Event") {
+                    onClickedTestLimitsEvent()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
 
                 Button("Send Max-20-Properties Event") {
                     onClickedTestMaxPropertiesEven()                    
@@ -110,8 +120,8 @@ struct AnalyticsView: View {
                 .cornerRadius(8)
                 .padding(.horizontal)
                 
-                Button("Send Max-300-Length Event") {
-                    onClickedTestLimitsEvent()
+                Button("Send Batch of 220 Events") {
+                    onGenerateBatchEvents()
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -119,6 +129,7 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+                
             }
             .padding()
             .alert(isPresented: $showCompletionAlert) {
@@ -279,7 +290,7 @@ struct AnalyticsView: View {
             do {
                 try StorableApp.shared.putSessionData(timestamp: startSessionDate, sessionType: "start")
             } catch {
-                print("Error inserting start session: \(error)")
+                debugPrint("Error inserting start session: \(error)")
             }
 
             let randomDurationMinutes = Int.random(in: randomMinutesRange)
@@ -288,7 +299,7 @@ struct AnalyticsView: View {
             do {
                 try StorableApp.shared.putSessionData(timestamp: endSessionDate, sessionType: "end")
             } catch {
-                print("Error inserting end session: \(error)")
+                debugPrint("Error inserting end session: \(error)")
             }
         }
         
@@ -297,6 +308,32 @@ struct AnalyticsView: View {
             self.showCompletionAlert = true
         }
 
-        print("\(sessionCount) test sessions were inserted.")
+        debugPrint("\(sessionCount) test sessions were inserted.")
+    }
+    
+    func onGenerateBatchEvents() {
+        if NetworkMonitor.shared.isConnected {
+            self.messageAlert = "Turn off internet and try again"
+            self.showCompletionAlert = true
+            return
+        }
+        let limit:Int = 220
+        for index in 1...limit {
+           
+            Analytics.trackEvent(eventTitle: "Test Batch TrackEvent", data: ["test1":"test1"]) { response in
+                if let response = response {
+                    debugPrint("[AnalyticsView] Error Track Event: \(response.localizedDescription)")
+                } else {
+                    debugPrint("[AnalyticsView] Event sent successfully")
+                }
+                
+                if index == limit {
+                    DispatchQueue.main.async {
+                        self.messageAlert = "Events generated, turn on internet"
+                        self.showCompletionAlert = true
+                    }
+                }
+            }
+        }
     }
 }
