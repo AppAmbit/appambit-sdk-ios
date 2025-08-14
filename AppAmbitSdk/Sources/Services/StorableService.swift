@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-class Storable: StorageService {
+class StorableService: StorageService {
     private let db: OpaquePointer?
     private let queue = DispatchQueue(label: "com.appambit.storage.service", qos: .utility)
     let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -211,9 +211,9 @@ class Storable: StorageService {
         return try queue.sync {
             var result: [EventEntity] = []
             let sql = """
-            SELECT id, data_json, name, created_at
+            SELECT id, data_json, name, createdAt
             FROM \(EventEntityConfiguration.tableName)
-            ORDER BY created_at ASC
+            ORDER BY createdAt ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?

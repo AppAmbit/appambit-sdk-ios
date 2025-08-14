@@ -1,6 +1,6 @@
 import Foundation
 
-class EventEntity: Event {
+class EventEntity: Event, @unchecked Sendable {
     // MARK: - Properties
     
     /// A unique identifier for the event.

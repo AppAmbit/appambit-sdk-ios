@@ -47,7 +47,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         completion: @Sendable @escaping (ApiResult<T>) -> Void
     ) {
         workerQueue.async { [completion] in
-            if !ServiceContainer.shared.reachabilityService.isConnected {
+            if !ServiceContainer.shared.reachabilityService.isConnected() {
                 completion(.fail(.unknown, message: "No internet connection"))
                 return
             }
