@@ -17,7 +17,7 @@ final class ConsumerService: @unchecked Sendable {
         self.storageService = storageService
     }
 
-    func buildRegisterEndpoint() -> RegisterEndpoint {
+    private func buildRegisterEndpoint() -> RegisterEndpoint {
         let info = appInfoQueue.sync {
             (
                 os: appInfoService.os ?? "iOS",
