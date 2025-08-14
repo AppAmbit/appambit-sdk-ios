@@ -17,7 +17,7 @@ final class ConsumerService: @unchecked Sendable {
         self.storageService = storageService
     }
 
-    func buildRegisterEndpoint(appKey: String?) -> RegisterEndpoint {
+    func buildRegisterEndpoint() -> RegisterEndpoint {
         let info = appInfoQueue.sync {
             (
                 os: appInfoService.os ?? "iOS",
@@ -34,23 +34,8 @@ final class ConsumerService: @unchecked Sendable {
             userId = try storageService.getUserId()
             userEmail = try storageService.getUserEmail()
             
-            let storedAppKey = try storageService.getAppId()
-
-            let incomingAppKey = appKey?.isEmpty ?? true ? nil : appKey
-
-            if storedAppKey != incomingAppKey {
-                try storageService.putConsumerId("")
-            }
-
-            if let newAppKey = incomingAppKey {
-                try storageService.putAppId(newAppKey)
-            }
-
-            if incomingAppKey == nil, let fallbackAppKey = storedAppKey {
-                appId = fallbackAppKey
-            } else {
-                appId = incomingAppKey
-            }
+            appId = try storageService.getAppId()
+                        
                         
             if deviceId?.isEmpty ?? true {
                 deviceId = UUID().uuidString
@@ -78,13 +63,12 @@ final class ConsumerService: @unchecked Sendable {
     }
     
     func createConsumer(
-        appKey: String,
         completion: @escaping @Sendable (ApiErrorType) -> Void
     ) {
         consumerQueue.async { [weak self] in
             guard let self = self else { return }
 
-            let endpoint = self.buildRegisterEndpoint(appKey: appKey)
+            let endpoint = self.buildRegisterEndpoint()
 
             ServiceContainer.shared.apiService.executeRequest(
                 endpoint,
@@ -111,4 +95,36 @@ final class ConsumerService: @unchecked Sendable {
             }
         }
     }
+    
+    func updateAppKeyIfNeeded(_ appKey: String?) {
+        let newKey = appKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if isBlank(newKey) {
+            return
+        }
+
+        do {
+            let storedKey = try storageService.getAppId()
+
+            if equalsNullable(storedKey, newKey) {
+                return
+            }
+
+            try storageService.putConsumerId("")
+            try storageService.putAppId(newKey)
+
+        } catch {
+            debugPrint("updateAppKeyIfNeeded error: \(error)")
+        }
+    }
+
+    private func equalsNullable(_ a: String?, _ b: String?) -> Bool {
+        return a == b
+    }
+
+    private func isBlank(_ s: String?) -> Bool {
+        guard let s = s else { return true }
+        return s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
 }
