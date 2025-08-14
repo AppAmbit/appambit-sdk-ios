@@ -137,6 +137,7 @@ public final class AppAmbit: @unchecked Sendable {
         }
     }
 
+
     
     @Sendable
     func handleConnectionChange(status: ReachabilityService.NetworkStatus) {
@@ -260,6 +261,7 @@ public final class AppAmbit: @unchecked Sendable {
         }
        
         SessionManager.sendBatchSessions()
+        Analytics.sendBatchEvents()
     }
     
     
@@ -273,14 +275,6 @@ public final class AppAmbit: @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
         }
-    }
-    
-    private func sendPendingLogs() {
-        debugPrint("[AppAmbit] Sending pending logs...")
-    }
-    
-    private func sendPendingEvents() {
-        debugPrint("[AppAmbit] Sending pending events...")
     }
     
     private func tokenIsValid() -> Bool {

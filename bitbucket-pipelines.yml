@@ -1,0 +1,161 @@
+pipelines:
+  branches:
+    develop:
+      - step:
+          name: Build iOS IPA
+          max-time: 30
+          runs-on:
+            - self.hosted
+            - macos
+          script:
+            - |
+              export FULL_BRANCH="${BITBUCKET_BRANCH}"
+              echo "Current branch: $FULL_BRANCH"
+
+              if [[ "$FULL_BRANCH" == alpha/* || "$FULL_BRANCH" == beta/* || "$FULL_BRANCH" == production/* ]]; then
+                export TYPE_RELEASE="${FULL_BRANCH%%/*}"
+                echo "TYPE_RELEASE=$TYPE_RELEASE"
+              else
+                echo "Branch '$FULL_BRANCH' must start with alpha/, beta/ or production/. Exiting..."
+                exit 1
+              fi
+
+            - |
+              echo "Cleaning up previous builds"
+              if [ -d "./build" ]; then
+                rm -rf ./build
+                echo "Found './build' directory and deleted it."
+              else
+                echo "'./build' directory does not exist. Nothing to delete."
+              fi
+
+              if [ -d "./AppAmbitTestingApp.xcarchive" ]; then
+                rm -rf ./AppAmbitTestingApp.xcarchive
+                echo "Found './AppAmbitTestingApp.xcarchive' and deleted it."
+              else
+                echo "'./AppAmbitTestingApp.xcarchive' does not exist. Nothing to delete."
+              fi
+
+            - |
+              echo "Configuring Xcode"
+              sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+              export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+              xcrun --sdk iphoneos --show-sdk-version
+              xcrun --sdk iphoneos --show-sdk-path
+
+            - |
+              echo "Downloading iOS platform"
+              sudo xcodebuild -downloadPlatform iOS
+
+            - |
+              echo "Installing certificate and provisioning profile"
+              export HOME=/var/root
+              mkdir -p "$HOME/Library/Keychains"
+              mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+              KC="$HOME/Library/Keychains/build.keychain"
+
+              echo "$IOS_P12_CERTIFICATE_BASE64" | tr -d '\n' | base64 --decode > cert.p12
+              echo "$IOS_PROVISIONING_PROFILE_BASE64"  | tr -d '\n' | base64 --decode > profile.mobileprovision
+
+              security delete-keychain "$KC" || true
+              security create-keychain -p "" "$KC"
+              security list-keychains -s "$KC" "$HOME/Library/Keychains/login.keychain-db"
+              security default-keychain -s "$KC"
+              security unlock-keychain -p "" "$KC"
+              security set-keychain-settings -t 3600 -l "$KC"
+
+              security import cert.p12 \
+                -k "$KC" \
+                -P "$IOS_APPLE_P12_PASSWORD" \
+                -T /usr/bin/codesign \
+                -A
+
+              security set-key-partition-list \
+                -S apple-tool:,apple: \
+                -s \
+                -k "" \
+                "$KC"
+
+              mv profile.mobileprovision \
+                "$HOME/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision"
+
+              echo "Code-signing identities in keychain:"
+              security find-identity -v -p codesigning "$KC"
+
+            - |
+              echo "Building the plist file"
+              cat > $IOS_INFO_PLIST <<EOF
+              <?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0">
+              <dict>
+                <key>compileBitcode</key>
+                <true/>
+                <key>method</key>
+                <string>release-testing</string>
+                <key>provisioningProfiles</key>
+                <dict>
+                  <key>${BUNDLE_IDENTIFIER}</key>
+                  <string>${IOS_ADHOC_PROFILE}</string>
+                </dict>
+                <key>signingCertificate</key>
+                <string>iPhone Distribution</string>
+                <key>signingStyle</key>
+                <string>manual</string>
+                <key>stripSwiftSymbols</key>
+                <true/>
+                <key>teamID</key>
+                <string>${IOS_APPLE_TEAM_ID}</string>
+                <key>thinning</key>
+                <string>&lt;none&gt;</string>
+              </dict>
+              </plist>
+              EOF
+
+            - |
+              echo "Building the IPA file"
+              xcodebuild -scheme $SCHEME \
+                -archivePath ./$ARCHIVE_PATH \
+                -sdk $SDK \
+                -configuration $CONFIGURATION \
+                -destination $DESTINATION \
+                clean archive
+
+            - |
+              echo "Exporting the archive to an IPA"
+              xcodebuild -exportArchive -archivePath ./$ARCHIVE_PATH \
+                -exportOptionsPlist $IOS_INFO_PLIST \
+                -exportPath ./build
+
+            - |
+              echo "Packaging artifacts"
+
+              IPA_PATH=$(find build -type f -name "*.ipa" | head -n 1)
+              if [ -f "$IPA_PATH" ]; then
+                echo "IPA file found: $IPA_PATH"
+              else
+                echo "IPA file not found in build directory."
+                echo "##vso[task.logissue type=error]IPA file not found. Canceling pipeline."
+                exit 1
+              fi
+
+              mkdir -p artifacts
+              IPA_NAME="${APP_NAME_BASE}_${TYPE_RELEASE}.ipa"
+              cp build/*.ipa "artifacts/$IPA_NAME"
+              zip -j "artifacts/${APP_NAME_BASE}_${TYPE_RELEASE}.zip" "artifacts/$IPA_NAME"
+
+          artifacts:
+            - artifacts/*.zip
+      - step:
+          name: Upload IPA
+          max-time: 10
+          image: atlassian/default-image:4
+          script:
+            - IPA_NAME="${APP_NAME_BASE}_${TYPE_RELEASE}.ipa"
+            - pipe: atlassian/bitbucket-upload-file:0.7.4
+              variables:
+                BITBUCKET_USERNAME:     $BITBUCKET_USERNAME
+                BITBUCKET_APP_PASSWORD: $BITBUCKET_APP_PASSWORD
+                FILENAME:               "artifacts/*.zip"
+          artifacts:
+            - artifacts/*.zip

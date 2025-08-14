@@ -3,8 +3,10 @@ import Foundation
 public final class Analytics: @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
-    static let TAG = "Analytics"
     nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
+    
+    private static let syncQueueBatch = DispatchQueue(label: "com.appambit.crashes.batch", attributes: .concurrent)
+    private var isSendingBatch = false
 
     static let shared = Analytics()
     private init() {}
@@ -26,7 +28,7 @@ public final class Analytics: @unchecked Sendable {
                 try shared.storageService?.putUserId(userId)
                 completion?(nil)
             } catch {
-                AppAmbitLogger.log(error: error, context: "Analytics.setUserId")
+                AppAmbitLogger.log(error: error)
                 completion?(error)
             }
         }
@@ -39,7 +41,7 @@ public final class Analytics: @unchecked Sendable {
             do {
                 try shared.storageService?.putUserEmail(email)
             } catch {
-                debugPrint("Error putting email: \(error)")
+                AppAmbitLogger.log(message: "Error putting email: \(error)")
             }
         }
         
@@ -92,6 +94,80 @@ public final class Analytics: @unchecked Sendable {
         }
         
         isolationQueue.async(execute: workItem)
+    }
+    
+    static func sendBatchEvents() {
+          let canSend = syncQueueBatch.sync {
+              if shared.isSendingBatch {
+                  return false
+              } else {
+                  shared.isSendingBatch = true
+                  return true
+              }
+          }
+          
+          guard canSend else {
+              AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
+              return
+          }
+          
+        let workItem = DispatchWorkItem {
+            AppAmbitLogger.log(message: "SendBatchEvents")
+                               
+            getEventsIndb {events, error in
+                if let error = error {
+                    AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
+                    finish()
+                    return
+                }
+                
+                guard let events = events, !events.isEmpty else {
+                    AppAmbitLogger.log(message: "There are no events to send")
+                    finish()
+                    return
+                }
+                
+                let eventBatch = EventBatchEndpoint(eventBatch: events)
+                
+                shared.apiService?.executeRequest(eventBatch, responseType: BatchResponse.self) { response in
+                    
+                    if response.errorType != .none {
+                        AppAmbitLogger.log(message: "Events were no sent: \(response.message ?? "")")
+                        finish()
+                        return
+                    }
+                    
+                    AppAmbitLogger.log(message: "Events sent successfully")
+                    do {
+                        try shared.storageService?.deleteEventList(events)
+                    } catch {
+                        AppAmbitLogger.log(message: error.localizedDescription)
+                    }
+                    
+                    finish()
+                }
+            }
+         
+           @Sendable func finish() {
+               syncQueueBatch.async {
+                   shared.isSendingBatch = false
+               }
+           }
+        }
+          
+          syncQueueBatch.async(execute: workItem)
+      }
+    
+    
+    private static func getEventsIndb(completion: @escaping @Sendable (_ logs: [EventEntity]?, _ error: Error?) -> Void) {
+        syncQueueBatch.async {
+            do {
+                let events = try shared.storageService?.getOldest100Events()
+                completion(events, nil)
+            } catch {
+                completion(nil, AppAmbitLogger.buildError(message: error.localizedDescription))
+            }
+        }
     }
     
     private static func sendOrSaveEvent(
