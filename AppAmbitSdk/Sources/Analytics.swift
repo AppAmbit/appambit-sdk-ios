@@ -7,16 +7,18 @@ public final class Analytics: @unchecked Sendable {
     
     private static let syncQueueBatch = DispatchQueue(label: "com.appambit.crashes.batch", attributes: .concurrent)
     private var isSendingBatch = false
-
+    private static let batchLock = NSLock()
+    private static let batchSendTimeout: TimeInterval = 30
+    
     static let shared = Analytics()
     private init() {}
-
+    
     private static let isolationQueue = DispatchQueue(
         label: "com.appambit.analytics.isolation",
         qos: .default,
         attributes: []
     )
-
+    
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.apiService = apiService
         shared.storageService = storageService
@@ -32,7 +34,7 @@ public final class Analytics: @unchecked Sendable {
                 completion?(error)
             }
         }
-
+        
         isolationQueue.async(execute: workItem)
     }
     
@@ -51,11 +53,11 @@ public final class Analytics: @unchecked Sendable {
     public static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         SessionManager.startSession(completion: completion)
     }
-
+    
     public static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         SessionManager.endSession(completion: completion)
     }
-
+    
     public static func enableManualSession() {
         let workItem = DispatchWorkItem {
             isManualSessionEnabled = true
@@ -65,24 +67,24 @@ public final class Analytics: @unchecked Sendable {
     }
     
     public static func clearToken() {
-           isolationQueue.async {
-               ServiceContainer.shared.apiService.setToken("")
-           }
-       }
+        isolationQueue.async {
+            ServiceContainer.shared.apiService.setToken("")
+        }
+    }
     
     public static func trackEvent(
-           eventTitle: String,
-           data: [String: String],
-           createdAt: Date? = nil,
-           completion: (@Sendable (Error?) -> Void)? = nil
-       ) {
-           sendOrSaveEvent(
-               eventTitle: eventTitle,
-               data: data,
-               createdAt: createdAt,
-               completion: completion
-           )
-       }
+        eventTitle: String,
+        data: [String: String],
+        createdAt: Date? = nil,
+        completion: (@Sendable (Error?) -> Void)? = nil
+    ) {
+        sendOrSaveEvent(
+            eventTitle: eventTitle,
+            data: data,
+            createdAt: createdAt,
+            completion: completion
+        )
+    }
     
     public static func generateTestEvent(completion: (@Sendable (Error?) -> Void)? = nil) {
         let workItem = DispatchWorkItem {
@@ -96,68 +98,74 @@ public final class Analytics: @unchecked Sendable {
         isolationQueue.async(execute: workItem)
     }
     
+    
     static func sendBatchEvents() {
-          let canSend = syncQueueBatch.sync {
-              if shared.isSendingBatch {
-                  return false
-              } else {
-                  shared.isSendingBatch = true
-                  return true
-              }
-          }
-          
-          guard canSend else {
-              AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
-              return
-          }
-          
-        let workItem = DispatchWorkItem {
-            AppAmbitLogger.log(message: "SendBatchEvents")
-                               
-            getEventsIndb {events, error in
-                if let error = error {
-                    AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
-                    finish()
-                    return
-                }
+        batchLock.lock()
+        if shared.isSendingBatch {
+            batchLock.unlock()
+            AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
+            return
+        }
+        
+        shared.isSendingBatch = true
+        batchLock.unlock()
                 
-                guard let events = events, !events.isEmpty else {
-                    AppAmbitLogger.log(message: "There are no events to send")
-                    finish()
-                    return
-                }
-                
-                let eventBatch = EventBatchEndpoint(eventBatch: events)
-                
-                shared.apiService?.executeRequest(eventBatch, responseType: BatchResponse.self) { response in
-                    
-                    if response.errorType != .none {
-                        AppAmbitLogger.log(message: "Events were no sent: \(response.message ?? "")")
-                        finish()
-                        return
-                    }
-                    
-                    AppAmbitLogger.log(message: "Events sent successfully")
-                    do {
-                        try shared.storageService?.deleteEventList(events)
-                    } catch {
-                        AppAmbitLogger.log(message: error.localizedDescription)
-                    }
-                    
-                    finish()
+        
+        let finish: @Sendable () -> Void = {
+            batchLock.lock()
+            let wasSending = shared.isSendingBatch
+            shared.isSendingBatch = false
+            batchLock.unlock()
+            if wasSending {
+                AppAmbitLogger.log(message: "SendBatchEvents: released")
+            }
+        }
+        
+        DispatchQueue.main.async {
+            Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
+                batchLock.lock()
+                let needsRelease = shared.isSendingBatch
+                shared.isSendingBatch = false
+                batchLock.unlock()
+                if needsRelease {
+                    AppAmbitLogger.log(message: "SendBatchEvents timeout: releasing lock")
                 }
             }
-         
-           @Sendable func finish() {
-               syncQueueBatch.async {
-                   shared.isSendingBatch = false
-               }
-           }
         }
-          
-          syncQueueBatch.async(execute: workItem)
-      }
-    
+        
+        getEventsIndb { events, error in
+            if let error = error {
+                AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
+                finish()
+                return
+            }
+            
+            guard let events = events, !events.isEmpty else {
+                AppAmbitLogger.log(message: "There are no events to send")
+                finish()
+                return
+            }
+            
+            let endpoint = EventBatchEndpoint(eventBatch: events)
+            
+            shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
+                defer { finish() }
+                
+                if response.errorType != .none {
+                    AppAmbitLogger.log(message: "Events were not sent: \(response.message ?? "")")
+                    return
+                }
+                
+                AppAmbitLogger.log(message: "Events sent successfully")
+                do {
+                    try shared.storageService?.deleteEventList(events)
+                    AppAmbitLogger.log(message: "END ---> SendBatchEvents")
+                } catch {
+                    AppAmbitLogger.log(message: error.localizedDescription)
+                }
+            }
+        }
+    }
     
     private static func getEventsIndb(completion: @escaping @Sendable (_ logs: [EventEntity]?, _ error: Error?) -> Void) {
         syncQueueBatch.async {
@@ -194,33 +202,33 @@ public final class Analytics: @unchecked Sendable {
                 .prefix(AppConstants.trackEventMaxPropertyLimit),
             uniquingKeysWith: { first, _ in first }
         )
-
+        
         let eventTitleTruncate = truncate(value: eventTitle, maxLength: AppConstants.trackEventNameMaxLimit)
-
+        
         let event = Event(
             name: eventTitleTruncate,
             metadata: truncatedData
         )
-
+        
         let endpoint = EventEndpoint(event: event)
-
+        
         shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
             if resultEvent.errorType != .none {
                 AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
-
+                
                 let entity = EventEntity(
                     id: UUID().uuidString,
                     createdAt: DateUtils.utcNow,
                     name: eventTitleTruncate,
                     metadata: truncatedData
                 )
-
+                
                 storeLogInDb(eventEntity: entity) { error in
                     DispatchQueue.main.async {
                         completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
                     }
                 }
-
+                
             } else {
                 DispatchQueue.main.async {
                     completion?(nil)
@@ -228,7 +236,7 @@ public final class Analytics: @unchecked Sendable {
             }
         }
     }
-
+    
     private static func truncate(value: String, maxLength: Int) -> String {
         guard !value.isEmpty else { return value }
         return String(value.prefix(maxLength))

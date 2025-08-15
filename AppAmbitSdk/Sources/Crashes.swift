@@ -4,11 +4,15 @@ public class Crashes: @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
     // MARK: - State
+    private var crashStorageURL: URL?
     private let workQueue = DispatchQueue(label: "com.appambit.crashes.queue", attributes: .concurrent)
     private static let logErrorQueue = DispatchQueue(label: "com.appambit.crashes.queue", attributes: .concurrent)
     private static let syncQueueBatch = DispatchQueue(label: "com.appambit.crashes.batch", attributes: .concurrent)
-    private var crashStorageURL: URL?
     private var isSendingBatch = false
+    private static let batchLock = NSLock()
+    private static let batchSendTimeout: TimeInterval = 30
+    
+    
     
     // MARK: - Singleton
     static let shared = Crashes()
@@ -166,66 +170,74 @@ public class Crashes: @unchecked Sendable {
     }
     
     static func sendBatchLogs() {
-        let canSend = syncQueueBatch.sync { () -> Bool in
-            if shared.isSendingBatch {
-                return false
-            } else {
-                shared.isSendingBatch = true
-                return true
-            }
-        }
-
-        guard canSend else {
+        
+        batchLock.lock()
+        if shared.isSendingBatch {
+            batchLock.unlock()
             AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress")
             return
         }
-
-        let workItem = DispatchWorkItem {
-            AppAmbitLogger.log(message: "SendBatchLogs")
-
-            getLogsInDb { logs, error in
-                if let error = error {
-                    AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)")
-                    finish()
-                    return
-                }
-
-                guard let logs = logs, !logs.isEmpty else {
-                    AppAmbitLogger.log(message: "There are no logs to send")
-                    finish()
-                    return
-                }
-
-                let logBatch = LogBatch(logs: logs)
-                let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
-
-                shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
-                    if response.errorType != .none {
-                        AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
-                        finish()
-                        return
-                    }
-
-                    AppAmbitLogger.log(message: "Logs sent successfully")
-
-                    do {
-                        try shared.storageService?.deleteLogList(logs)
-                    } catch {
-                        AppAmbitLogger.log(message: error.localizedDescription)
-                    }
-
-                    finish()
-                }
-            }
-
-            @Sendable func finish() {
-                syncQueueBatch.async {
-                    shared.isSendingBatch = false
-                }
+        
+        shared.isSendingBatch = true
+        batchLock.unlock()
+        
+        let finish: @Sendable () -> Void = {
+            batchLock.lock()
+            let wasSending = shared.isSendingBatch
+            shared.isSendingBatch = false
+            batchLock.unlock()
+            if wasSending {
+                AppAmbitLogger.log(message: "SendBatchLogs: released")
             }
         }
         
-        syncQueueBatch.async(execute: workItem)
+        DispatchQueue.main.async {
+            Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
+                batchLock.lock()
+                let needsRelease = shared.isSendingBatch
+                shared.isSendingBatch = false
+                batchLock.unlock()
+                if needsRelease {
+                    AppAmbitLogger.log(message: "SendBatchLogs timeout: releasing lock")
+                }
+            }
+        }
+
+        getLogsInDb { logs, error in
+            if let error = error {
+                AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)")
+                finish()
+                return
+            }
+
+            guard let logs = logs, !logs.isEmpty else {
+                AppAmbitLogger.log(message: "There are no logs to send")
+                finish()
+                return
+            }
+
+            let logBatch = LogBatch(logs: logs)
+            let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
+
+            shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
+                
+                defer { finish() }
+                
+                if response.errorType != .none {
+                    AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
+                    finish()
+                    return
+                }
+
+                AppAmbitLogger.log(message: "Logs sent successfully")
+
+                do {
+                    try shared.storageService?.deleteLogList(logs)
+                } catch {
+                    AppAmbitLogger.log(message: error.localizedDescription)
+                }
+            }
+        }
     }
 
     

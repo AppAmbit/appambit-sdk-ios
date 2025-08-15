@@ -189,7 +189,7 @@ public final class AppAmbit: @unchecked Sendable {
             self.consumerCreationCallbacks.append(completion)
             
             do {
-                _ = ConsumerService.shared.buildRegisterEndpoint(appKey: self.appKey)
+                ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
                     debugPrint("Consumer ID exists (\(consumerId)), renewing token...")
@@ -200,7 +200,7 @@ public final class AppAmbit: @unchecked Sendable {
                 } else {
                     debugPrint("There is no consumerId, creating a new one...")
                     
-                    ConsumerService.shared.createConsumer(appKey: self.appKey) { errorType in
+                    ConsumerService.shared.createConsumer() { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 }
