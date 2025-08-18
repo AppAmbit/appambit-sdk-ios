@@ -1,0 +1,202 @@
+name: Build & Upload IPA to Downloads
+
+trigger: none
+
+variables:
+  - group: iOS VARIABLES
+  - name: sdkOption
+    value: 'iphoneos'
+  - name: configurationOption
+    value: 'Release'
+  - name: projectName
+    value: 'AppAmbitTestingApp.xcodeproj'
+  - name: schemeName
+    value: 'AppAmbitTestingApp'
+  - name: ArchivePath
+    value: 'AppAmbitTestingApp.xcarchive'
+  - name: ExportIpaPath
+    value: 'app_appambit_testapp'
+  - name: IOS_INFO_PLIST
+    value: AppAmbit-Testing-App-Info.plist
+  - name: BUNDLE_IDENTIFIER
+    value: 'com.AppAmbit.TestApp'
+  - name: XCODE_VERSION
+    value: Xcode_16.2
+  - name: COMMAND_CONFIGURATION
+    value: '-sdk $(sdkOption) -configuration $(configurationOption) -project $(projectName) -scheme $(schemeName)'
+  - name: ARTIFACT_NAME
+    value: 'alpha-ipa'
+
+pool:
+  vmImage: 'macos-latest'
+
+jobs:
+- job: BuildiOSIPA
+  displayName: 'Build iOS IPA'
+  timeoutInMinutes: 20
+
+  steps:
+  - checkout: self
+
+  - task: Bash@3
+    displayName: 'Validate and extract release type from branch name'
+    inputs:
+      targetType: 'inline'
+      script: |
+        FULL_REF="$(Build.SourceBranch)"
+        echo "Full ref: $FULL_REF"
+        
+        FULL_BRANCH="${FULL_REF#refs/heads/}"
+        echo "Branch name: $FULL_BRANCH"
+        
+        if [[ "$FULL_BRANCH" == alpha/* || "$FULL_BRANCH" == beta/* || "$FULL_BRANCH" == production/* ]]; then
+          TYPE_RELEASE="${FULL_BRANCH%%/*}"
+          echo "##vso[task.setvariable variable=typeRelease]$TYPE_RELEASE"
+          echo "Valid release type: $TYPE_RELEASE"
+        else
+          echo "Branch '$FULL_BRANCH' does not start with alpha/, beta/ or production/. Exiting..."
+          exit 1
+        fi
+
+  - script: |
+        if [ -d "/Applications/$(XCODE_VERSION).app" ]; then
+          sudo xcode-select -s /Applications/$(XCODE_VERSION).app/Contents/Developer
+        else
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        fi
+        sudo xcodebuild -license accept
+        echo "Xcode path: $(xcode-select -p)"
+        xcodebuild -version
+    displayName: 'Select and confirm Xcode version'
+
+  - script: |
+      if [ ! -d "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform" ]; then
+        echo "Downloading iOS Platform SDK..."
+        sudo xcodebuild -downloadPlatform iOS
+      else
+        echo "iOS Platform SDK already present, skipping download"
+      fi
+
+      if ! xcode-select -p &>/dev/null; then
+        echo "Installing Xcode CLI tools..."
+        sudo xcode-select --install
+      else
+        echo "Xcode CLI tools already installed"
+      fi
+
+      which actool || echo "actool not found"
+    displayName: 'Ensure iOS SDK and Xcode CLI tools'
+
+  - script: |
+      security delete-keychain build.keychain || echo "No keychain to delete"
+      security create-keychain -p "" build.keychain
+      security default-keychain -s build.keychain
+      security unlock-keychain -p "" build.keychain
+      security set-keychain-settings -t 3600 -l build.keychain
+    displayName: 'Reset Keychain'
+    condition: always()
+
+  - task: InstallAppleCertificate@2
+    displayName: 'Install Certificates'
+    inputs:
+      certSecureFile: '$(IOS_P12_CERTIFICATE)'
+      certPwd: '$(IOS_APPLE_P12_PASSWORD)'
+      signingIdentity: '$(IOS_SIGNING_IDENTITY)'
+
+  - task: InstallAppleProvisioningProfile@1
+    displayName: 'Install App provisioning profile'
+    inputs:
+      provisioningProfileLocation: 'secureFiles'
+      provProfileSecureFile: '$(IOS_PROVISIONING_PROFILE_3)'
+  
+  - script: |
+      cd $(Build.SourcesDirectory)
+      cat > $(IOS_INFO_PLIST) <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>compileBitcode</key>
+          <true/>
+          <key>method</key>
+          <string>release-testing</string>
+          <key>provisioningProfiles</key>
+          <dict>
+            <key>$(BUNDLE_IDENTIFIER)</key>
+            <string>$(IOS_ADHOC_PROFILE)</string>
+          </dict>
+          <key>signingCertificate</key>
+          <string>iPhone Distribution</string>
+          <key>signingStyle</key>
+          <string>manual</string>
+          <key>stripSwiftSymbols</key>
+          <true/>
+          <key>teamID</key>
+          <string>$(IOS_APPLE_TEAM_ID)</string>
+          <key>thinning</key>
+          <string>&lt;none&gt;</string>
+        </dict>
+        </plist>
+        EOF
+    displayName: 'Generate plist file for export'
+
+  - task: CmdLine@2
+    inputs:
+      script: |
+        echo "Clean iOS app build folder"
+        cd $(Build.SourcesDirectory)
+        xcodebuild $COMMAND_CONFIGURATION clean
+    displayName: 'Xcode Clean'
+
+  - task: CmdLine@2
+    inputs:    
+      script: |
+        echo "Build iOS app"
+        cd $(Build.SourcesDirectory)
+        
+        xcodebuild $COMMAND_CONFIGURATION build -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)"
+    displayName: 'Xcode Build'
+
+  - task: CmdLine@2
+    inputs:    
+      script: |
+        echo "Archive the iOS app"
+        cd $(Build.SourcesDirectory)
+        
+        xcodebuild $COMMAND_CONFIGURATION archive -allowProvisioningUpdates CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$(IOS_SIGNING_IDENTITY)" APP_PROFILE="$(IOS_APPLE_PROFILE_3)" -archivePath $(ArchivePath)
+    displayName: 'Xcode Archive'
+
+  - task: CmdLine@2
+    inputs:    
+      script: |
+        echo "Export the iOS app"
+        cd $(Build.SourcesDirectory)
+
+        xcodebuild -exportArchive -archivePath $(ArchivePath) -exportOptionsPlist $(IOS_INFO_PLIST) -exportPath build
+    displayName: 'Xcode Export'
+
+  - task: Bash@3
+    displayName: 'Rename IPA file'
+    inputs:
+      targetType: 'inline'
+      script: |
+        cd $(Build.SourcesDirectory)
+
+        ORIGINAL_NAME="build/$(schemeName).ipa"
+        FINAL_NAME="$(ExportIpaPath)_$(typeRelease).ipa"
+
+        if [ -f "$ORIGINAL_NAME" ]; then
+          echo "File found: $ORIGINAL_NAME"
+          echo "Renaming $ORIGINAL_NAME to $FINAL_NAME"
+          cp "$ORIGINAL_NAME" "$(build.artifactStagingDirectory)/$FINAL_NAME"
+        else
+          echo "File not found: $ORIGINAL_NAME"
+          echo "##vso[task.logissue type=error]IPA file not found. Canceling pipeline."
+          exit 1
+        fi
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)'
+      artifactName: '$(ARTIFACT_NAME)'
+      publishLocation: 'Container'

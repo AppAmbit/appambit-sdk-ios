@@ -72,6 +72,19 @@ public final class ReachabilityService {
             flagsDidChange(initialFlags)
         }
     }
+    
+    public func isConnected() -> Bool {
+        var flags = SCNetworkReachabilityFlags()
+        guard let ref = reachabilityRef,
+              SCNetworkReachabilityGetFlags(ref, &flags) else {
+            return false
+        }
+
+        self.flagsDidChange(flags)
+
+        return Self.isReachable(flags)
+    }
+
 
     public func stop() {
         guard let ref = reachabilityRef else { return }
@@ -81,11 +94,6 @@ public final class ReachabilityService {
         monitorQueue.sync {
             _callback = nil
         }
-    }
-
-    public var isConnected: Bool {
-        guard let flags = currentFlags else { return false }
-        return Self.isReachable(flags)
     }
 
     public var connectionType: ConnectionType {

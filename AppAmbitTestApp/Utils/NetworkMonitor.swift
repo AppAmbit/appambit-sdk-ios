@@ -6,15 +6,13 @@ class NetworkMonitor {
     private let reachabilityService: ReachabilityService?
 
     var isConnected: Bool {
-        return reachabilityService?.isConnected ?? false
+        return reachabilityService?.isConnected() ?? false
     }
 
     private init() {
-        do {
-            reachabilityService = ReachabilityService()
-        } catch {
-            reachabilityService = nil
-            debugPrint("Error initializing ReachabilityServic: \(error.localizedDescription)")
+        self.reachabilityService = ReachabilityService()
+        if reachabilityService == nil {
+            debugPrint("Error: ReachabilityService could not be initialized")
         }
     }
 }

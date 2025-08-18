@@ -127,6 +127,7 @@ public final class AppAmbit: @unchecked Sendable {
         }
     }
 
+
     
     @Sendable
     func handleConnectionChange(status: ReachabilityService.NetworkStatus) {
@@ -178,7 +179,7 @@ public final class AppAmbit: @unchecked Sendable {
             self.consumerCreationCallbacks.append(completion)
             
             do {
-                _ = ConsumerService.shared.buildRegisterEndpoint(appKey: self.appKey)
+                ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
                     debugPrint("Consumer ID exists (\(consumerId)), renewing token...")
@@ -189,7 +190,7 @@ public final class AppAmbit: @unchecked Sendable {
                 } else {
                     debugPrint("There is no consumerId, creating a new one...")
                     
-                    ConsumerService.shared.createConsumer(appKey: self.appKey) { errorType in
+                    ConsumerService.shared.createConsumer() { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 }
@@ -250,6 +251,7 @@ public final class AppAmbit: @unchecked Sendable {
         }
        
         SessionManager.sendBatchSessions()
+        Analytics.sendBatchEvents()
     }
     
     
@@ -263,14 +265,6 @@ public final class AppAmbit: @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
         }
-    }
-    
-    private func sendPendingLogs() {
-        debugPrint("[AppAmbit] Sending pending logs...")
-    }
-    
-    private func sendPendingEvents() {
-        debugPrint("[AppAmbit] Sending pending events...")
     }
     
     private func tokenIsValid() -> Bool {
