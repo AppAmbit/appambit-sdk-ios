@@ -12,6 +12,7 @@ struct SessionsPayload: Codable, DictionaryConvertible {
 
 struct SessionBatch: Codable, DictionaryConvertible {
     let id: String
+    let sessionId: String?
     let startedAt: Date?
     let endedAt: Date?
     

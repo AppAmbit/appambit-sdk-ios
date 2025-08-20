@@ -28,7 +28,7 @@ final class CrashFileGenerator {
                 log.append("\(stackTrace ?? "")\n")
             }
             
-            if let error = error {
+            if let _ = error {
                 let symbols = Thread.callStackSymbols.joined(separator: "\n")
                 log.append("\(symbols)\n")
             }

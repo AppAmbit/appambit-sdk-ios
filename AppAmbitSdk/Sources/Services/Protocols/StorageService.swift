@@ -25,10 +25,14 @@ protocol StorageService {
 
     func getOldest100Events() throws -> [EventEntity]
     func deleteEventList(_ events: [EventEntity]) throws
+    
+    func updateSessionsIdsInEvents(_ sessions: [SessionBatch]) throws
+    func updateSessionsIdsInLogs(_ sessions: [SessionBatch]) throws
 
-    func putSessionData(_ session: SessionData) throws
+    func getSessionById(_ sessionLocalId: String) throws -> SessionData?
+    func putSessionData(_ session: SessionData) throws -> Void
     func getOldest100Sessions() throws -> [SessionBatch]
     func deleteSessionList(_ sessions: [SessionBatch]) throws
-    func getSessionById() throws -> SessionData?
+    func getUnpairedSessions() throws -> [SessionData]
     func deleteSessionById(_ idValue: String) throws
 }

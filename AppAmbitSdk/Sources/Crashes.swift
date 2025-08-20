@@ -3,7 +3,6 @@ import Foundation
 public class Crashes: @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
-    // MARK: - State
     private var crashStorageURL: URL?
     private let workQueue = DispatchQueue(label: "com.appambit.crashes.queue", attributes: .concurrent)
     private static let logErrorQueue = DispatchQueue(label: "com.appambit.crashes.queue", attributes: .concurrent)
@@ -11,28 +10,23 @@ public class Crashes: @unchecked Sendable {
     private var isSendingBatch = false
     private static let batchLock = NSLock()
     private static let batchSendTimeout: TimeInterval = 30
-    
-    
-    
-    // MARK: - Singleton
+
     static let shared = Crashes()
     private init() {
         apiService = ServiceContainer.shared.apiService
         storageService = ServiceContainer.shared.storageService
     }
-    
+
     private static func logCrash(exceptionInfo: ExceptionInfo, completion: (@Sendable (Error?) -> Void)? = nil) {
-        
         Logging.logEvent(message: exceptionInfo.message,
                          logType: LogType.crash,
                          exceptionInfo: exceptionInfo,
                          properties: nil, classFqn: exceptionInfo.classFullName, fileName: exceptionInfo.fileNameFromStackTrace, lineNumber: exceptionInfo.lineNumberFromStackTrace, createdAt: exceptionInfo.createdAt, completion: completion )
     }
-    
+
     public static func didCrashInLastSession(completion: @escaping @Sendable (Bool) -> Void) {
         CrashHandler.shared.didAppCrashFileExist { result in
             let isCrash: Bool
-            
             switch result {
             case .success(let didCrash):
                 isCrash = didCrash
@@ -40,13 +34,12 @@ public class Crashes: @unchecked Sendable {
                 AppAmbitLogger.log(message: "Error checking crash: \(error.localizedDescription)")
                 isCrash = false
             }
-            
             DispatchQueue.main.async {
                 completion(isCrash)
             }
         }
     }
-    
+
     public static func generateTestCrash() {
         do {
             throw NSError(domain: "DataStore", code: 2, userInfo: [NSLocalizedDescriptionKey: "some crash"])
@@ -54,7 +47,7 @@ public class Crashes: @unchecked Sendable {
             fatalError("An error was thrown: \(error.localizedDescription)")
         }
     }
-    
+
     public static func logError(
         exception: Error? = nil,
         properties: [String: String]? = nil,
@@ -77,20 +70,17 @@ public class Crashes: @unchecked Sendable {
                     completion: completion
                 )
             }
-            
             if let classFqn = classFqn {
                 callLogEvent(with: classFqn)
             } else {
-                
                 if let caller = StackUtils.getCallerClassName() {
                     callLogEvent(with: caller)
-                        }
+                }
             }
         }
-        
         logErrorQueue.async(execute: workItem)
     }
-    
+
     public static func logError(
         message: String,
         properties: [String: String]? = nil,
@@ -115,42 +105,60 @@ public class Crashes: @unchecked Sendable {
                     completion: completion
                 )
             }
-            
             if let classFqn = classFqn {
                 callLogEvent(with: classFqn)
             } else {
-
                 if let caller = StackUtils.getCallerClassName() {
                     callLogEvent(with: caller)
                 }
             }
         }
-        
         logErrorQueue.async(execute: workItem)
     }
-    
-    
+
     func loadCrashFileIfExists(completion: (@Sendable (Error?) -> Void)? = nil) {
         let workItem = DispatchWorkItem {
-            
+            while true {
+                Self.batchLock.lock()
+                if !Self.shared.isSendingBatch {
+                    Self.shared.isSendingBatch = true
+                    Self.batchLock.unlock()
+                    break
+                }
+                Self.batchLock.unlock()
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+
+            let finish: @Sendable () -> Void = {
+                Self.batchLock.lock()
+                let wasSending = Self.shared.isSendingBatch
+                Self.shared.isSendingBatch = false
+                Self.batchLock.unlock()
+                if wasSending {
+                    AppAmbitLogger.log(message: "loadCrashFileIfExists: released")
+                }
+            }
+
             if !SessionManager.isSessionActive {
-                 AppAmbitLogger.log(message: "There is no active session")
-                 completion?(AppAmbitLogger.buildError(message: "There is no active session"))
-                 return
-             }
-            
+                AppAmbitLogger.log(message: "There is no active session")
+                completion?(AppAmbitLogger.buildError(message: "There is no active session"))
+                finish()
+                return
+            }
+
             let crashesFiles = CrashHandler.shared.loadCrashInfos()
             let crashFilesCount = crashesFiles.count
-            
+
             guard crashFilesCount > 0 else {
                 CrashHandler.setCrashFlag(false)
                 completion?(nil)
+                finish()
                 return
             }
-            
+
             debugPrint("Processing \(crashFilesCount) crash file(s)")
             CrashHandler.setCrashFlag(true)
-            
+
             if crashFilesCount == 1 {
                 let exceptionInfo = crashesFiles[0]
                 Crashes.logCrash(exceptionInfo: exceptionInfo) { error in
@@ -159,28 +167,28 @@ public class Crashes: @unchecked Sendable {
                     }
                     CrashHandler.shared.clearCrashLogs()
                     completion?(nil)
+                    finish()
                 }
             } else {
                 self.storeBatchCrashesLog(files: crashesFiles)
                 CrashHandler.shared.clearCrashLogs()
                 completion?(nil)
+                finish()
             }
         }
         workQueue.async(execute: workItem)
     }
-    
+
     static func sendBatchLogs() {
-        
         batchLock.lock()
         if shared.isSendingBatch {
             batchLock.unlock()
             AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress")
             return
         }
-        
         shared.isSendingBatch = true
         batchLock.unlock()
-        
+
         let finish: @Sendable () -> Void = {
             batchLock.lock()
             let wasSending = shared.isSendingBatch
@@ -190,7 +198,7 @@ public class Crashes: @unchecked Sendable {
                 AppAmbitLogger.log(message: "SendBatchLogs: released")
             }
         }
-        
+
         DispatchQueue.main.async {
             Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
                 batchLock.lock()
@@ -220,17 +228,12 @@ public class Crashes: @unchecked Sendable {
             let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
 
             shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
-                
                 defer { finish() }
-                
                 if response.errorType != .none {
                     AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
-                    finish()
                     return
                 }
-
                 AppAmbitLogger.log(message: "Logs sent successfully")
-
                 do {
                     try shared.storageService?.deleteLogList(logs)
                 } catch {
@@ -240,7 +243,6 @@ public class Crashes: @unchecked Sendable {
         }
     }
 
-    
     private static func getLogsInDb(completion: @escaping @Sendable (_ logs: [LogEntity]?, _ error: Error?) -> Void) {
         syncQueueBatch.async {
             do {
@@ -251,7 +253,7 @@ public class Crashes: @unchecked Sendable {
             }
         }
     }
-    
+
     private func storeBatchCrashesLog(files:[ExceptionInfo]) {
         let storable = ServiceContainer.shared.storageService
         for crash in files {
@@ -263,17 +265,16 @@ public class Crashes: @unchecked Sendable {
             }
         }
     }
-    
+
     private func mapExceptionInfoLogEntity(exceptionInfo: ExceptionInfo) -> LogEntity {
-        
         let stackTrace = exceptionInfo.stackTrace.isEmpty
         ? exceptionInfo.stackTrace
         : AppConstants.noStackTraceAvailable
-        
+
         let version = ServiceContainer.shared.appInfoService.appVersion ?? ""
         let build = ServiceContainer.shared.appInfoService.build ?? ""
         let appVersionInfo = "\(version) (\(build))"
-                
+
         let log = LogEntity()
         log.id = UUID().uuidString
         log.appVersion = appVersionInfo
@@ -289,7 +290,7 @@ public class Crashes: @unchecked Sendable {
         log.type = .crash
         log.file = Logging.getFile(exceptionIn: exceptionInfo)
         log.createdAt = exceptionInfo.createdAt
-        
+
         return log
     }
 }

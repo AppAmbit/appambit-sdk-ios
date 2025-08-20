@@ -6,8 +6,8 @@ struct SessionsConfiguration {
     public enum Column: String {
         case id
         case sessionId
-        case startSessionDate
-        case endSessionDate
+        case startedAt
+        case endedAt
 
         var name: String { rawValue }
     }
@@ -17,8 +17,8 @@ struct SessionsConfiguration {
         CREATE TABLE IF NOT EXISTS \(tableName) (
             \(Column.id.name) TEXT PRIMARY KEY,
             \(Column.sessionId.name) TEXT,
-            \(Column.startSessionDate.name) TEXT,
-            \(Column.endSessionDate.name) TEXT
+            \(Column.startedAt.name) TEXT,
+            \(Column.endedAt.name) TEXT
         );
         """
     }

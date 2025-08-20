@@ -216,8 +216,11 @@ public final class Analytics: @unchecked Sendable {
             if resultEvent.errorType != .none {
                 AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
                 
+                
+                
                 let entity = EventEntity(
                     id: UUID().uuidString,
+                    sessionId: SessionManager.sessionId,
                     createdAt: DateUtils.utcNow,
                     name: eventTitleTruncate,
                     metadata: truncatedData

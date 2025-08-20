@@ -47,6 +47,7 @@ final class Logging: @unchecked Sendable {
         
         let log = LogEntity()
         log.id = UUID().uuidString
+        log.sessionId = exceptionInfo?.sessionId.isEmpty == true ? SessionManager.sessionId : exceptionInfo?.sessionId
         log.appVersion = appVersionInfo
         log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true) ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName
         log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true) ? fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName : exceptionInfo?.fileNameFromStackTrace

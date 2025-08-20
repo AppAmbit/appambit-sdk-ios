@@ -18,7 +18,7 @@ public final class AppAmbit: @unchecked Sendable {
     private var reachability: ReachabilityService?
     
     private init(appKey: String) {
-        debugPrint("[AppAmbit] - INIT")
+        AppAmbitLogger.log(message: "INIT")
         self.appKey = appKey
         CrashHandler.shared.register()
         setupLifecycleObservers()
@@ -29,9 +29,9 @@ public final class AppAmbit: @unchecked Sendable {
         instanceQueue.async {
             if _instance == nil {
                 _instance = AppAmbit(appKey: appKey)
-                debugPrint("[AppAmbit] SDK started with appKey: \(appKey)")
+                AppAmbitLogger.log(message: "SDK started with appKey: \(appKey)")
             } else {
-                debugPrint("[AppAmbit] SDK already started")
+                AppAmbitLogger.log(message: "SDK already started")
             }
         }
     }
@@ -63,11 +63,11 @@ public final class AppAmbit: @unchecked Sendable {
     deinit {
         NotificationCenter.default.removeObserver(self)
         reachability?.stop()
-        debugPrint("[AppAmbit] Deinit called - Observers removed")
+        AppAmbitLogger.log(message: "Deinit called - Observers removed")
     }
     
     @objc private func appDidBecomeActive() {
-        debugPrint("[AppAmbit] appDidBecomeActive")
+        AppAmbitLogger.log(message: "appDidBecomeActive")
         workerQueue.async { [weak self] in
             guard let self = self else { return }
             self.onResume()
@@ -75,7 +75,7 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     @objc private func appWillResignActive() {
-        debugPrint("[AppAmbit] appWillResignActive")
+        AppAmbitLogger.log(message: "appWillResignActive")
         workerQueue.async { [weak self] in
             guard let self = self else { return }
             self.onSleep()
@@ -83,7 +83,7 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     @objc private func appDidEnterBackground() {
-        debugPrint("[AppAmbit] appDidEnterBackground")
+        AppAmbitLogger.log(message: "appDidEnterBackground")
         workerQueue.async { [weak self] in
             guard let self = self else { return }
             self.onSleep()
@@ -91,9 +91,9 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     @objc private func appWillEnterForeground() {
-        debugPrint("[AppAmbit] appWillEnterForeground")
+        AppAmbitLogger.log(message: "appWillEnterForeground")
         workerQueue.async { [weak self] in
-            debugPrint("[AppAmbit] onResume: GetNewToken, removeSavedEndSession, SendBatchLogs, SendBatchEvents")
+            AppAmbitLogger.log(message: "onResume: GetNewToken, removeSavedEndSessionToFile, SendBatchLogs, SendBatchEvents")
             
             guard let self = self else { return }
             
@@ -110,7 +110,7 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     @objc private func appWillTerminate() {
-        debugPrint("[AppAmbit] appWillTerminate")
+        AppAmbitLogger.log(message: "appWillTerminate")
         workerQueue.async { [weak self] in
             guard let self = self else { return }
             self.onEnd()
@@ -133,17 +133,15 @@ public final class AppAmbit: @unchecked Sendable {
                 self?.handleConnectionChange(status: status)
             }
         } catch {
-            debugPrint("[AppAmbit] Error starting network monitoring: \(error.localizedDescription)")
+            AppAmbitLogger.log(message: "Error starting network monitoring: \(error.localizedDescription)")
         }
     }
 
-
-    
     @Sendable
     func handleConnectionChange(status: ReachabilityService.NetworkStatus) {
         switch status {
         case .connected(let type):
-            debugPrint("[AppAmbit] Connected via \(type.rawValue)")
+            AppAmbitLogger.log(message: "Connected via \(type.rawValue)")
 
             if !tokenIsValid() {
                 getNewToken { [weak self] _ in
@@ -154,24 +152,28 @@ public final class AppAmbit: @unchecked Sendable {
             }
 
         case .disconnected:
-            debugPrint("[AppAmbit] No network connection")
+            AppAmbitLogger.log(message: "No network connection")
         }
     }
 
     
     private func initializeConsumer() {
-        debugPrint("[AppAmbit] Initializing consumer with appKey: \(appKey)")
+        AppAmbitLogger.log(message: "Initializing consumer with appKey: \(appKey)")
         
-        getNewToken { [weak self] _ in
-            guard let self = self else { return }
+        if !Analytics.isManualSessionEnabled {
+            SessionManager.saveSessionEndToDatabaseIfExist()
+            _ = SessionManager.initializeStartSession()
             
+        }
+
+        getNewToken { _ in
             if Analytics.isManualSessionEnabled {
-                debugPrint("[AppAmbit] Manual session enabled")
+                AppAmbitLogger.log(message: "Manual session enabled")
                 return
             }
-            
-            SessionManager.sendEndSessionIfExists()
-            SessionManager.startSession() {error in
+
+            SessionManager.sendSessionEndIfExists()
+            SessionManager.startSession() { _ in
                 Crashes.shared.loadCrashFileIfExists()
             }
         }
@@ -180,7 +182,7 @@ public final class AppAmbit: @unchecked Sendable {
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         consumerCreationQueue.async {
             if self.isCreatingConsumer {
-                debugPrint("Token operation already in progress, queuing callback...")
+                AppAmbitLogger.log(message: "Token operation already in progress, queuing callback...")
                 self.consumerCreationCallbacks.append(completion)
                 return
             }
@@ -192,20 +194,20 @@ public final class AppAmbit: @unchecked Sendable {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
-                    debugPrint("Consumer ID exists (\(consumerId)), renewing token...")
+                    AppAmbitLogger.log(message: "Consumer ID exists (\(consumerId)), renewing token...")
                     
                     ServiceContainer.shared.apiService.getNewToken { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 } else {
-                    debugPrint("There is no consumerId, creating a new one...")
+                    AppAmbitLogger.log(message: "There is no consumerId, creating a new one...")
                     
                     ConsumerService.shared.createConsumer() { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 }
             } catch {
-                debugPrint("Error reading consumerId: \(error)")
+                AppAmbitLogger.log(message: "Error reading consumerId: \(error)")
                 self.handleTokenResult(errorType: .unknown)
             }
         }
@@ -214,7 +216,7 @@ public final class AppAmbit: @unchecked Sendable {
     private func handleTokenResult(errorType: ApiErrorType) {
         DispatchQueue.main.async {
             let success = (errorType == .none)
-            debugPrint("[AppAmbit] Operation completed with: \(errorType)")
+            AppAmbitLogger.log(message: "Operation completed with: \(errorType)")
             
             self.consumerCreationQueue.async {
                 self.isCreatingConsumer = false
@@ -229,13 +231,13 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     private func onStart() {
-        debugPrint("[AppAmbit] OnStart")
+        AppAmbitLogger.log(message: "OnStart")
         self.initializeServices()
         self.initializeConsumer()
     }
     
     private func onResume() {
-        debugPrint("[AppAmbit] onResume: GetNewToken, RemoveSavedEndSession, SendBatchLogs, SendBatchEvents")
+        AppAmbitLogger.log(message: "onResume: GetNewToken, RemoveSavedEndSessionToFile, SendBatchLogs, SendBatchEvents")
         
         if !tokenIsValid() {
             getNewToken { [weak self] success in
@@ -267,13 +269,13 @@ public final class AppAmbit: @unchecked Sendable {
     
     private func onSleep() {
         if !Analytics.isManualSessionEnabled {
-            SessionManager.saveEndSession()
+            SessionManager.saveEndSessionToFile()
         }
     }
     
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
-            SessionManager.saveEndSession()
+            SessionManager.saveEndSessionToFile()
         }
     }
     

@@ -10,19 +10,24 @@ class EventEntity: Event, @unchecked Sendable {
     /// - Important: Uses UTC format for serialization.
     public let createdAt: Date
     
+    public let sessionId: String
+    
     private enum CodingKeys: String, CodingKey {
         case id
+        case sessionId = "session_id"
         case createdAt = "created_at"
     }
 
     public init(
         id: String,
+        sessionId: String,
         createdAt: Date,
         name: String,
         metadata: [String: String] = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
+        self.sessionId = sessionId
         super.init(name: name, metadata: metadata)
     }
 
@@ -36,7 +41,11 @@ class EventEntity: Event, @unchecked Sendable {
                 in: container,
                 debugDescription: "Invalid date format: \(dateString)")
         }
+        
+        let sessionIdParsed = try container.decode(String.self, forKey: .sessionId)
+        
         createdAt = parsedDate
+        sessionId = sessionIdParsed
         
         try super.init(from: decoder)
     }
@@ -45,6 +54,7 @@ class EventEntity: Event, @unchecked Sendable {
         try super.encode(to: encoder)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encode(sessionId, forKey: .sessionId)
         let dateString = DateUtils.utcCustomFormatString(from: createdAt)
         try container.encode(dateString, forKey: .createdAt)
     }
