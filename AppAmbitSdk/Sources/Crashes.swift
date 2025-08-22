@@ -205,7 +205,6 @@ public final class Crashes: @unchecked Sendable {
         }
     }
 
-
     private static func getLogsInDb(completion: @escaping @Sendable (_ logs: [LogEntity]?, _ error: Error?) -> Void) {
         syncQueueBatch.async {
             do {

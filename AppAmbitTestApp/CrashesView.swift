@@ -11,11 +11,6 @@ struct CrashesView: View {
     @State private var alertMessage = ""
     @State private var alertTitle = "Info"
     
-    init() {
-
-    }
-
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
@@ -422,5 +417,4 @@ struct CrashesView: View {
             }
         }
     }
-
 }

@@ -428,7 +428,6 @@ class StorableService: StorageService {
         }
     }
 
-    
     func deleteLogList(_ logs: [LogEntity]) throws {
         try queue.sync {
             let sql = "DELETE FROM \(LogEntityConfiguration.tableName) WHERE TRIM(\(LogEntityConfiguration.Column.id.name)) = TRIM(?) COLLATE NOCASE;"
@@ -562,7 +561,6 @@ class StorableService: StorageService {
         }
     }
 
-    
     func getOldest100Sessions() throws -> [SessionBatch] {
         return try queue.sync {
             var result: [SessionBatch] = []
@@ -597,7 +595,6 @@ class StorableService: StorageService {
         }
     }
 
-    
     func deleteSessionList(_ sessions: [SessionBatch]) throws {
         try queue.sync {
             let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE \(SessionsConfiguration.Column.id.name) = ?;"
@@ -674,7 +671,6 @@ class StorableService: StorageService {
         }
     }
 
-    
     func deleteSessionById(_ idValue: String) throws {
         try queue.sync {
             let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE \(SessionsConfiguration.Column.id.name) = ?;"

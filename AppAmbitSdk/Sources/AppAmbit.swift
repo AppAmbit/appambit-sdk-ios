@@ -5,7 +5,7 @@ public final class AppAmbit: @unchecked Sendable {
     private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.instance.queue")
     
-    public static var shared: AppAmbit? {
+    private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
     }
     
