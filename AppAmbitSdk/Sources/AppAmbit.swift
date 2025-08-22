@@ -258,12 +258,12 @@ public final class AppAmbit: @unchecked Sendable {
     }
     
     private func sendAllPendingData() {
-        Crashes.shared.loadCrashFileIfExists() {error in
-            Crashes.sendBatchLogs()
+        SessionManager.sendBatchSessions { _ in
+            Crashes.shared.loadCrashFileIfExists { _ in
+                Analytics.sendBatchEvents()
+                Crashes.sendBatchLogs()
+            }
         }
-       
-        SessionManager.sendBatchSessions()
-        Analytics.sendBatchEvents()
     }
     
     

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ExceptionInfo: Codable {
+struct ExceptionInfo: Codable {
     let type: String
     let sessionId: String
     let message: String?
@@ -80,7 +80,7 @@ public struct ExceptionInfo: Codable {
 
         return ExceptionInfo(
             type: nsError.domain,
-            sessionId: "",
+            sessionId: SessionManager.sessionId,
             message: nsError.localizedDescription,
             stackTrace: backtraceString,
             source: source,

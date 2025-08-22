@@ -1,13 +1,9 @@
 import Foundation
 
 class EventEntity: Event, @unchecked Sendable {
-    // MARK: - Properties
-    
-    /// A unique identifier for the event.
+     
     public let id: String
-    
-    /// The date when the event was created.
-    /// - Important: Uses UTC format for serialization.
+
     public let createdAt: Date
     
     public let sessionId: String
@@ -57,5 +53,14 @@ class EventEntity: Event, @unchecked Sendable {
         try container.encode(sessionId, forKey: .sessionId)
         let dateString = DateUtils.utcCustomFormatString(from: createdAt)
         try container.encode(dateString, forKey: .createdAt)
+    }
+    
+    public override func toDictionary() -> [String: Any] {
+        var dict = super.toDictionary()
+        dict["session_id"] = sessionId
+        
+        dict["created_at"] = DateUtils.utcCustomFormatString(from: createdAt)
+        
+        return dict
     }
 }

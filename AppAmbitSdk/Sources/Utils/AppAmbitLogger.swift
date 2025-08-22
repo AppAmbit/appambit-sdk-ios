@@ -1,7 +1,7 @@
 import Foundation
 
 
-public final class AppAmbitLogger {
+final class AppAmbitLogger {
     
     public static func log(
         error: Error,

@@ -159,7 +159,7 @@ public final class Analytics: @unchecked Sendable {
                 AppAmbitLogger.log(message: "Events sent successfully")
                 do {
                     try shared.storageService?.deleteEventList(events)
-                    AppAmbitLogger.log(message: "END ---> SendBatchEvents")
+                    AppAmbitLogger.log(message: "SendBatchEvents successfully sent")
                 } catch {
                     AppAmbitLogger.log(message: error.localizedDescription)
                 }

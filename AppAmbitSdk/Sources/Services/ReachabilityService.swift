@@ -1,7 +1,7 @@
 import Foundation
 import SystemConfiguration
 
-public final class ReachabilityService {
+final class ReachabilityService {
 
     public enum ConnectionType: String {
         case wifi

@@ -12,7 +12,14 @@ final class SessionManager: @unchecked Sendable {
     private static let stateQueue = DispatchQueue(label: "com.appambit.sessionmanager.state", attributes: .concurrent)
     private static let syncQueue = DispatchQueue(label: "com.appambit.sessionmanager.operations")
     private static let syncQueueBatch = DispatchQueue(label: "com.appambit.sessionmanager.batch")
+    private let firstErrorLock = NSLock()
+    private var firstErrorForBatch: Error?
     
+    private var waiters: [(@Sendable (Error?) -> Void)] = []
+
+    private enum SendBatchError: Error {
+        case timeout
+    }
 
     static let shared = SessionManager()
     private init() {}
@@ -37,7 +44,6 @@ final class SessionManager: @unchecked Sendable {
     static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
         AppAmbitLogger.log(message: "StartSession called")
 
-            
         let workItem = DispatchWorkItem {
             let hasServerId = SessionManager.sessionId.isUInt64Number == true
             
@@ -83,7 +89,6 @@ final class SessionManager: @unchecked Sendable {
         _ = try? shared.storageService?.putSessionData(data)
         return data
     }
-
 
     private static func sendStartSession(
         dateUtcNow: Date,
@@ -177,7 +182,6 @@ final class SessionManager: @unchecked Sendable {
         }
     }
 
-
     static func saveEndSessionToFile() {
         syncQueue.async(flags: .barrier) {
             let sessionData = SessionData(
@@ -214,95 +218,182 @@ final class SessionManager: @unchecked Sendable {
         }
     }
 
-    static func sendBatchSessions() {
+    static func sendBatchSessions(completion: (@Sendable (Error?) -> Void)? = nil) {
         batchLock.lock()
+        if let completion { shared.waiters.append(completion) }
+        
         if shared.isSendingBatch {
             batchLock.unlock()
-            AppAmbitLogger.log(message: "SendBatchSessions skipped: alreadt in progress")
+            AppAmbitLogger.log(message: "SendBatchSessions: en curso, me encolo")
             return
         }
         shared.isSendingBatch = true
         batchLock.unlock()
-
-        let finish: @Sendable () -> Void = {
+        
+        let finish: @Sendable (_ err: Error?) -> Void = { err in
             batchLock.lock()
             let wasSending = shared.isSendingBatch
             shared.isSendingBatch = false
+            let callbacks = shared.waiters
+            shared.waiters.removeAll()
             batchLock.unlock()
+            
             if wasSending {
                 AppAmbitLogger.log(message: "SendBatchSessions: released")
             }
+            
+            for cb in callbacks {
+                DispatchQueue.global().async { cb(err) }
+            }
         }
-
+        
+        
         DispatchQueue.main.async {
             Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
                 batchLock.lock()
-                let needsRelease = shared.isSendingBatch
-                shared.isSendingBatch = false
+                let stillSending = shared.isSendingBatch
                 batchLock.unlock()
-                if needsRelease {
+                if stillSending {
                     AppAmbitLogger.log(message: "SendBatchSessions timeout: releasing lock")
+                    finish(SendBatchError.timeout)
                 }
             }
         }
+        
+        sendUnpairedSessions { _ in
+            getSessionsInDb { sessions, error in
+                if let error = error {
+                    AppAmbitLogger.log(message: "Error getting sessions: \(error.localizedDescription)")
+                    finish(error)
+                    return
+                }
 
-        getSessionsInDb { sessions, error in
-            if let error = error {
-                AppAmbitLogger.log(message: "Error getting sessions: \(error.localizedDescription)")
-                finish()
-                return
-            }
+                guard let sessions = sessions, !sessions.isEmpty else {
+                    AppAmbitLogger.log(message: "There are no sessions to send")
+                    finish(nil)
+                    return
+                }
 
-            guard let sessions = sessions, !sessions.isEmpty else {
-                AppAmbitLogger.log(message: "There are no sessions to send")
-                finish()
-                return
-            }
+                let sessionsBatch = SessionsPayload(sessions: sessions)
+                let sessionBatchEndpoint = SessionBatchEndpoint(batchSession: sessionsBatch)
 
-            let sessionsBatch = SessionsPayload(sessions: sessions)
-            let sessionBatchEndpoint = SessionBatchEndpoint(batchSession: sessionsBatch)
+                shared.apiService?.executeRequest(sessionBatchEndpoint, responseType: [SessionBatch].self) { resultApi in
+                    defer {  }
 
-            shared.apiService?.executeRequest(sessionBatchEndpoint, responseType: BatchResponse.self) { resultApi in
-                defer { finish() }
+                    guard resultApi.errorType == .none else {
+                        AppAmbitLogger.log(message: "Sessions were not sent: \(resultApi.message ?? "")")
+                        finish(NSError(domain: "SendBatchSessions", code: 1, userInfo: [NSLocalizedDescriptionKey: resultApi.message ?? "Unknown error"]))
+                        return
+                    }
 
-                if resultApi.errorType != .none {
-                    AppAmbitLogger.log(message: "Sessions were not sent: \(resultApi.message ?? "")")
-                } else {
-                    AppAmbitLogger.log(message: "Sessions sent successfully")
+                    guard let serverSessions = resultApi.data, !serverSessions.isEmpty else {
+                        AppAmbitLogger.log(message: "Empty sessions response")
+                        finish(nil)
+                        return
+                    }
+
+                    var localIndex: [String: String] = [:]
+                    for local in sessions {
+                        if let fp = local.fingerPrint, !fp.isEmpty {
+                            localIndex[fp] = local.id
+                        } else if let sa = local.startedAt, let ea = local.endedAt {
+                            let a = DateUtils.utcIsoFormatString(from: sa)
+                            let b = DateUtils.utcIsoFormatString(from: ea)
+                            localIndex["\(a)-\(b)"] = local.id
+                        }
+                    }
+
+                    let resolved: [SessionBatch] = serverSessions.compactMap { (remote: SessionBatch) -> SessionBatch? in
+                        guard
+                            let sa  = remote.startedAt,
+                            let ea  = remote.endedAt,
+                            let sid = remote.sessionId, !sid.isEmpty
+                        else { return nil }
+
+                        let key: String
+                        if let fp = remote.fingerPrint, !fp.isEmpty {
+                            key = fp
+                        } else {
+                            let a = DateUtils.utcIsoFormatString(from: sa)
+                            let b = DateUtils.utcIsoFormatString(from: ea)
+                            key = "\(a)-\(b)"
+                        }
+
+                        guard let idLocal = localIndex[key] else { return nil }
+
+                        return SessionBatch(
+                            id: idLocal,
+                            sessionId: sid,
+                            startedAt: sa,
+                            endedAt: ea
+                        )
+                    }
+
+                    let unresolvedCount = sessions.count - resolved.count
+                    if unresolvedCount > 0 {
+                        AppAmbitLogger.log(message: "Sessions sent, matched: \(resolved.count), unmatched: \(unresolvedCount)")
+                    } else {
+                        AppAmbitLogger.log(message: "Sessions sent successfully (all matched)")
+                    }
+
                     do {
-                        try shared.storageService?.updateSessionsIdsInEvents(sessions)
-                        try shared.storageService?.updateSessionsIdsInLogs(sessions)
+                        if !resolved.isEmpty {
+                            try shared.storageService?.updateSessionsIdsInEvents(resolved)
+                            try shared.storageService?.updateSessionsIdsInLogs(resolved)
+                        }
                         try shared.storageService?.deleteSessionList(sessions)
+                        finish(nil)
                     } catch {
-                        AppAmbitLogger.log(message: "Failed to delete sessions from DB: \(error.localizedDescription)")
+                        AppAmbitLogger.log(message: "Failed to persist sessions: \(error.localizedDescription)")
+                        finish(error)
                     }
                 }
             }
         }
     }
 
-    private static func sendSessionsWithSessionId(
+    private static func sendUnpairedSessions(
         completion: @escaping @Sendable (_ error: Error?) -> Void
     ) {
         getUnpairedSessions { sessions, error in
             if let error = error {
-                AppAmbitLogger.log(message: error.localizedDescription)
+                AppAmbitLogger.log(message: "getUnpairedSessions error: \(error.localizedDescription)")
                 completion(error)
                 return
             }
 
-            let sessions = sessions ?? []
-            if sessions.isEmpty {
+            let list = sessions ?? []
+            if list.isEmpty {
+                AppAmbitLogger.log(message: "sendUnpairedSessions: no hay sesiones impares")
                 completion(nil)
                 return
             }
 
-            for session in sessions {
+            shared.firstErrorLock.lock()
+            shared.firstErrorForBatch = nil
+            shared.firstErrorLock.unlock()
+
+            let group = DispatchGroup()
+
+            for session in list {
+                group.enter()
                 sendSession(session) { err in
-                    if let _ = err {
-                        AppAmbitLogger.log(message: "error to send Session \(session.id ?? "")")
+                    if let err = err {
+                        AppAmbitLogger.log(message: "sendSession error \(session.id ?? "-"): \(err.localizedDescription)")
+                        shared.firstErrorLock.lock()
+                        if shared.firstErrorForBatch == nil { shared.firstErrorForBatch = err }
+                        shared.firstErrorLock.unlock()
                     }
+                    group.leave()
                 }
+            }
+
+            group.notify(queue: .global()) {
+                shared.firstErrorLock.lock()
+                let err = shared.firstErrorForBatch
+                shared.firstErrorForBatch = nil
+                shared.firstErrorLock.unlock()
+                completion(err)
             }
         }
     }

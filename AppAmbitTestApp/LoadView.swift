@@ -95,14 +95,14 @@ struct LoadView: View {
                 self.eventsLabel = "Sending event: \(counter) of \(limit)"
 
                 Analytics.trackEvent(eventTitle: testMessage, data: properties) { response in
-                    if let _ = response {
-                        debugPrint("Save Track Event locally")
+                    if let error = response {
+                        debugPrint("Event response with error: \(error.localizedDescription)")
                     } else {
                         debugPrint("Event sent successfully")
                     }
                 }
 
-                let ms: UInt64 = NetworkMonitor.shared.isConnected ? 1000 : 5
+                let ms: UInt64 = NetworkMonitor.isConnected() ? 1000 : 5
                 try? await Task.sleep(nanoseconds: ms * 1_000_000)
             }
 
@@ -120,14 +120,14 @@ struct LoadView: View {
                 self.logsLabel = "Sending Log: \(counter) of \(limit)"
 
                 Crashes.logError(message: testMessage) { response in
-                    if let _ = response {
-                        debugPrint("Save Log locally")
+                    if let error = response {
+                        debugPrint("Log response with error: \(error.localizedDescription)")
                     } else {
                         debugPrint("Log sent successfully")
                     }
                 }
 
-                let ms: UInt64 = NetworkMonitor.shared.isConnected ? 1000 : 5
+                let ms: UInt64 = NetworkMonitor.isConnected() ? 1000 : 5
                 try? await Task.sleep(nanoseconds: ms * 1_000_000)
             }
 
@@ -139,14 +139,6 @@ struct LoadView: View {
     }
     
     func onGenerate500Sessions() {
-        if !NetworkMonitor.shared.isConnected {
-            DispatchQueue.main.async {
-                self.alertMessage = "Turn on internet and try again"
-                self.showAlert = true
-            }
-            return
-        }
-
         showMessageProgressSessions = true
         let total = limit
 

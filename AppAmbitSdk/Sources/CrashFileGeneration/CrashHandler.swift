@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 
 
-public class CrashHandler: @unchecked Sendable {
+class CrashHandler: @unchecked Sendable {
     // MARK: - Singleton
     static let shared = CrashHandler()
     

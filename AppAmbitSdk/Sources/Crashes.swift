@@ -1,6 +1,6 @@
 import Foundation
 
-public class Crashes: @unchecked Sendable {
+public final class Crashes: @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
     private var crashStorageURL: URL?
@@ -10,6 +10,8 @@ public class Crashes: @unchecked Sendable {
     private var isSendingBatch = false
     private static let batchLock = NSLock()
     private static let batchSendTimeout: TimeInterval = 30
+    private static let sendingGate = DispatchSemaphore(value: 1)
+
 
     static let shared = Crashes()
     private init() {
@@ -115,34 +117,16 @@ public class Crashes: @unchecked Sendable {
         }
         logErrorQueue.async(execute: workItem)
     }
-
+    
     func loadCrashFileIfExists(completion: (@Sendable (Error?) -> Void)? = nil) {
-        let workItem = DispatchWorkItem {
-            while true {
-                Self.batchLock.lock()
-                if !Self.shared.isSendingBatch {
-                    Self.shared.isSendingBatch = true
-                    Self.batchLock.unlock()
-                    break
-                }
-                Self.batchLock.unlock()
-                Thread.sleep(forTimeInterval: 0.02)
-            }
-
-            let finish: @Sendable () -> Void = {
-                Self.batchLock.lock()
-                let wasSending = Self.shared.isSendingBatch
-                Self.shared.isSendingBatch = false
-                Self.batchLock.unlock()
-                if wasSending {
-                    AppAmbitLogger.log(message: "loadCrashFileIfExists: released")
-                }
-            }
+        workQueue.async {
+            Crashes.sendingGate.wait()
+            let release: @Sendable () -> Void = { Crashes.sendingGate.signal() }
 
             if !SessionManager.isSessionActive {
                 AppAmbitLogger.log(message: "There is no active session")
                 completion?(AppAmbitLogger.buildError(message: "There is no active session"))
-                finish()
+                release()
                 return
             }
 
@@ -152,7 +136,7 @@ public class Crashes: @unchecked Sendable {
             guard crashFilesCount > 0 else {
                 CrashHandler.setCrashFlag(false)
                 completion?(nil)
-                finish()
+                release()
                 return
             }
 
@@ -167,81 +151,60 @@ public class Crashes: @unchecked Sendable {
                     }
                     CrashHandler.shared.clearCrashLogs()
                     completion?(nil)
-                    finish()
+                    release()
                 }
             } else {
                 self.storeBatchCrashesLog(files: crashesFiles)
                 CrashHandler.shared.clearCrashLogs()
                 completion?(nil)
-                finish()
+                release()
             }
         }
-        workQueue.async(execute: workItem)
     }
-
-    static func sendBatchLogs() {
-        batchLock.lock()
-        if shared.isSendingBatch {
-            batchLock.unlock()
-            AppAmbitLogger.log(message: "SendBatchLogs skipped: already in progress")
-            return
-        }
-        shared.isSendingBatch = true
-        batchLock.unlock()
-
-        let finish: @Sendable () -> Void = {
-            batchLock.lock()
-            let wasSending = shared.isSendingBatch
-            shared.isSendingBatch = false
-            batchLock.unlock()
-            if wasSending {
-                AppAmbitLogger.log(message: "SendBatchLogs: released")
-            }
-        }
-
-        DispatchQueue.main.async {
-            Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
-                batchLock.lock()
-                let needsRelease = shared.isSendingBatch
-                shared.isSendingBatch = false
-                batchLock.unlock()
-                if needsRelease {
-                    AppAmbitLogger.log(message: "SendBatchLogs timeout: releasing lock")
-                }
-            }
-        }
-
-        getLogsInDb { logs, error in
-            if let error = error {
-                AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)")
-                finish()
-                return
+    
+    static func sendBatchLogs(completion: (@Sendable () -> Void)? = nil) {
+        DispatchQueue.global(qos: .utility).async {
+            Crashes.sendingGate.wait()
+            let release: @Sendable () -> Void = {
+                Crashes.sendingGate.signal()
+                completion?()
             }
 
-            guard let logs = logs, !logs.isEmpty else {
-                AppAmbitLogger.log(message: "There are no logs to send")
-                finish()
-                return
-            }
-
-            let logBatch = LogBatch(logs: logs)
-            let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
-
-            shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
-                defer { finish() }
-                if response.errorType != .none {
-                    AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
+            getLogsInDb { logs, error in
+                if let error = error {
+                    AppAmbitLogger.log(message: "Error getting logs: \(error.localizedDescription)")
+                    release()
                     return
                 }
-                AppAmbitLogger.log(message: "Logs sent successfully")
-                do {
-                    try shared.storageService?.deleteLogList(logs)
-                } catch {
-                    AppAmbitLogger.log(message: error.localizedDescription)
+
+                guard let logs = logs, !logs.isEmpty else {
+                    AppAmbitLogger.log(message: "There are no logs to send")
+                    release()
+                    return
+                }
+
+                let logBatch = LogBatch(logs: logs)
+                let logBatchEndpoint = LogBatchEndpoint(logBatch: logBatch)
+
+                shared.apiService?.executeRequest(logBatchEndpoint, responseType: BatchResponse.self) { response in
+                    defer { release() }
+
+                    if response.errorType != .none {
+                        AppAmbitLogger.log(message: "Logs were not sent: \(response.message ?? "")")
+                        return
+                    }
+
+                    AppAmbitLogger.log(message: "Logs sent successfully")
+                    do {
+                        try shared.storageService?.deleteLogList(logs)
+                    } catch {
+                        AppAmbitLogger.log(message: error.localizedDescription)
+                    }
                 }
             }
         }
     }
+
 
     private static func getLogsInDb(completion: @escaping @Sendable (_ logs: [LogEntity]?, _ error: Error?) -> Void) {
         syncQueueBatch.async {
@@ -277,6 +240,7 @@ public class Crashes: @unchecked Sendable {
 
         let log = LogEntity()
         log.id = UUID().uuidString
+        log.sessionId = exceptionInfo.sessionId
         log.appVersion = appVersionInfo
         log.classFQN = (exceptionInfo.classFullName == "" ? AppConstants.unknownClass : exceptionInfo.classFullName)
         log.fileName = exceptionInfo.fileNameFromStackTrace == "" ? AppConstants.unknownFileName : exceptionInfo.fileNameFromStackTrace
@@ -293,4 +257,18 @@ public class Crashes: @unchecked Sendable {
 
         return log
     }
+    
+    private static func withBatchLock<T>(_ body: () -> T) -> T {
+        batchLock.lock(); defer { batchLock.unlock() }
+        return body()
+    }
+
+    private static func getIsSending() -> Bool {
+        withBatchLock { shared.isSendingBatch }
+    }
+
+    private static func setIsSending(_ v: Bool) {
+        withBatchLock { shared.isSendingBatch = v }
+    }
+
 }

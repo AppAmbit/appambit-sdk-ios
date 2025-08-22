@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-public struct StackUtils {
+struct StackUtils {
     
     public static func getCallerClassName() -> String? {
         let maxStackSize = 10

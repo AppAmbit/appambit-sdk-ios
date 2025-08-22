@@ -11,6 +11,11 @@ struct CrashesView: View {
     @State private var alertMessage = ""
     @State private var alertTitle = "Info"
     
+    init() {
+
+    }
+
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
@@ -200,7 +205,7 @@ struct CrashesView: View {
             } else {
                 debugPrint("[CrashesView] Log Error sent successfully")
             }
-                                            
+            
             DispatchQueue.main.async {
                 self.showAlert = true
                 self.alertMessage = "LogError Sent"
@@ -230,7 +235,7 @@ struct CrashesView: View {
         } catch {
             Crashes.logError(exception: error, properties: ["user_id": "1"]) {error in
                 if let error = error {
-                    debugPrint("[CrashesView] Log Error sent successfully")
+                    debugPrint("[CrashesView] Log Error sent with: \(error.localizedDescription)")
                 } else {
                     debugPrint("[CrashesView] Log Error sent successfully")
                 }
@@ -264,108 +269,158 @@ struct CrashesView: View {
     }
     
     func onGenerate30daysTestErrors() {
-        if NetworkMonitor.shared.isConnected {
+        if NetworkMonitor.isConnected() {
             self.alertMessage = "Turn off internet and try again"
             self.showAlert = true
             return
         }
         
+        struct Item { let start: Date; let end: Date; let createdAt: Date }
+        
         let totalDays = 30
-        var completedCount = 0
+        let delayBetweenLogsSeconds: TimeInterval = 0.5
+        let now = Date()
+        var items = [Item]()
+        items.reserveCapacity(totalDays)
         
         for index in 1...totalDays {
-            let delay = Double(index) * 0.5
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                let daysToSubtract = totalDays - index
-                let errorDate = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: Date()) ?? Date()
-                
-                debugPrint("DEBUG TIME ERROR: \(errorDate) : Index: \(index)")
-                
-                Crashes.logError(message: "Test 30 Last Days Errors", createdAt: errorDate) { error in
-                    completedCount += 1
-                    
-                    if completedCount == totalDays {
-                        DispatchQueue.main.async {
-                            self.alertMessage = "Logs generated, turn on internet"
-                            self.showAlert = true
-                        }
-                    }
+            let daysToSubtract = totalDays - index
+            let start = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: now) ?? now
+            let end = start.addingTimeInterval(delayBetweenLogsSeconds)
+            items.append(Item(start: start, end: end, createdAt: start))
+        }
+        
+        func logErrorAwait(message: String, createdAt: Date) async {
+            await withCheckedContinuation { cont in
+                Crashes.logError(message: message, createdAt: createdAt) { _ in
+                    cont.resume()
                 }
+            }
+        }
+        
+        _ = try? StorableApp.shared.putSessionData(timestamp: Date(), sessionType: "end")
+        
+        Task(priority: .utility) {
+            let entered = await ConcurrencyApp.shared.tryEnter()
+            guard entered else { return }
+            defer { Task { await ConcurrencyApp.shared.leave() } }
+            
+            for item in items {
+                do {
+                    try StorableApp.shared.putSessionData(timestamp: item.start, sessionType: "start")
+                } catch {
+                    debugPrint("Error inserting start session: \(error)")
+                    continue
+                }
+                
+                await logErrorAwait(message: "Test 30 Last Days Errors", createdAt: item.createdAt)
+                
+                do {
+                    try StorableApp.shared.updateLogsWithCurrentSessionId()
+                    try StorableApp.shared.putSessionData(timestamp: item.end, sessionType: "end")
+                } catch {
+                    debugPrint("Error inserting end session: \(error)")
+                    continue
+                }
+            }
+            
+            await MainActor.run {
+                self.alertMessage = "Logs generated, turn on internet"
+                self.showAlert = true
             }
         }
     }
     
     func onGenerate30daysTestCrash() {
-        if NetworkMonitor.shared.isConnected {
+        if NetworkMonitor.isConnected() {
             self.alertMessage = "Turn off internet and try again"
             self.showAlert = true
             return
         }
-        
+
+        struct Item { let start: Date; let end: Date; let createdAt: Date }
+
         let totalDays = 30
-        var completedCount = 0
-        
+        let delayBetweenLogsSeconds: TimeInterval = 4
+        let now = Date()
+        var items = [Item]()
+        items.reserveCapacity(totalDays)
+
+        for index in 1...totalDays {
+            let daysToSubtract = totalDays - index
+            let start = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: now) ?? now
+            let end = start.addingTimeInterval(delayBetweenLogsSeconds)
+            items.append(Item(start: start, end: end, createdAt: start))
+        }
+
         guard let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             self.alertMessage = "Failed to access Application Support directory"
             self.showAlert = true
             return
         }
-        
         let crashLogsDir = appSupportDirectory.appendingPathComponent("CrashLogs")
-        
         if !FileManager.default.fileExists(atPath: crashLogsDir.path) {
-            do {
-                try FileManager.default.createDirectory(at: crashLogsDir, withIntermediateDirectories: true)
-            } catch {
+            do { try FileManager.default.createDirectory(at: crashLogsDir, withIntermediateDirectories: true) }
+            catch {
                 debugPrint("\(error.localizedDescription)")
                 return
             }
         }
-        
-        var exception: Error
-        do {
-            throw NSError(domain: "com.appambit.crashview", code: 1234, userInfo: [NSLocalizedDescriptionKey: "Error crash 30 daily"])
-        } catch {
-            exception = error
-        }
-        
-        for index in 1...totalDays {
-            let delay = Double(index) * 0.1
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                                
-                var exceptionInfo = ExceptionInfo.fromError(exception)
-                
-                let daysToSubtract = totalDays - index
-                let crashDate = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: Date()) ?? Date()
-                
-                exceptionInfo.createdAt = crashDate
-                exceptionInfo.crashLogFile = crashDate.ISO8601Format() + "_\(index)"
-                
+
+        let baseException: Error = NSError(
+            domain: "com.appambit.crashview",
+            code: 1234,
+            userInfo: [NSLocalizedDescriptionKey: "Error crash 30 daily"]
+        )
+
+        _ = try? StorableApp.shared.putSessionData(timestamp: Date(), sessionType: "end")
+
+        Task(priority: .utility) {
+            let entered = await ConcurrencyApp.shared.tryEnter()
+            guard entered else { return }
+            defer { Task { await ConcurrencyApp.shared.leave() } }
+
+            for (idx, item) in items.enumerated() {
+                do {
+                    try StorableApp.shared.putSessionData(timestamp: item.start, sessionType: "start")
+                } catch {
+                    debugPrint("Error inserting start session: \(error)")
+                    continue
+                }
+
+                let sessionId = (try? StorableApp.shared.getCurrentOpenSessionId()) ?? ""
+
+                var exceptionInfo = ExceptionModel.fromError(baseException, sessionId: sessionId)
+                exceptionInfo.createdAt = item.createdAt
+                exceptionInfo.crashLogFile = item.createdAt.ISO8601Format() + "_\(idx + 1)"
+
                 do {
                     let encoder = JSONEncoder()
                     encoder.dateEncodingStrategy = .iso8601
                     encoder.outputFormatting = .prettyPrinted
-                    
-                    let fileName = "crash_\(crashDate.formatted(.iso8601.dateSeparator(.omitted).timeSeparator(.omitted)))_\(index).json"
-                    let fileURL = crashLogsDir.appendingPathComponent(fileName)
-                    
+
+                    let stamp = item.createdAt.formatted(.iso8601.dateSeparator(.omitted).timeSeparator(.omitted))
+                    let fileURL = crashLogsDir.appendingPathComponent("crash_\(stamp)_\(idx + 1).json")
+
                     try encoder.encode(exceptionInfo).write(to: fileURL)
                     debugPrint("Crash file saved: \(fileURL.lastPathComponent)")
-                    
-                    completedCount += 1
-                    
-                    if completedCount == totalDays {
-                        DispatchQueue.main.async {
-                            self.alertMessage = "Crashes generated, turn on internet"
-                            self.showAlert = true
-                        }
-                    }
                 } catch {
                     debugPrint("Error saving crash file: \(error.localizedDescription)")
                 }
+                
+                do {
+                    try StorableApp.shared.putSessionData(timestamp: item.end, sessionType: "end")
+                } catch {
+                    debugPrint("Error inserting end session: \(error)")
+                    continue
+                }
+            }
+
+            await MainActor.run {
+                self.alertMessage = "Crashes generated, turn on internet"
+                self.showAlert = true
             }
         }
     }
+
 }

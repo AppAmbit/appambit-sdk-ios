@@ -165,12 +165,12 @@ class StorableService: StorageService {
         return try queue.sync {
             var result: [LogEntity] = []
             let sql = """
-            SELECT \(LogEntityConfiguration.Column.id.name), \(LogEntityConfiguration.Column.appVersion.name), 
-                    \(LogEntityConfiguration.Column.classFQN.name), \(LogEntityConfiguration.Column.fileName.name), 
-                    \(LogEntityConfiguration.Column.lineNumber.name), \(LogEntityConfiguration.Column.message.name),
-                    \(LogEntityConfiguration.Column.stackTrace.name), \(LogEntityConfiguration.Column.contextJson.name),
-                    \(LogEntityConfiguration.Column.type.name), \(LogEntityConfiguration.Column.file.name),
-                    \(LogEntityConfiguration.Column.createdAt.name)
+            SELECT \(LogEntityConfiguration.Column.id.name), \(LogEntityConfiguration.Column.sessionId.name), 
+                    \(LogEntityConfiguration.Column.appVersion.name), \(LogEntityConfiguration.Column.classFQN.name), 
+                    \(LogEntityConfiguration.Column.fileName.name), \(LogEntityConfiguration.Column.lineNumber.name), 
+                    \(LogEntityConfiguration.Column.message.name), \(LogEntityConfiguration.Column.stackTrace.name), 
+                    \(LogEntityConfiguration.Column.contextJson.name), \(LogEntityConfiguration.Column.type.name), 
+                    \(LogEntityConfiguration.Column.file.name), \(LogEntityConfiguration.Column.createdAt.name)
             FROM \(LogEntityConfiguration.tableName)
             ORDER BY \(LogEntityConfiguration.Column.createdAt.name) ASC
             LIMIT 100;
@@ -184,28 +184,29 @@ class StorableService: StorageService {
                 let id = String(cString: idCStr)
                 
                 guard
-                    let createdAtCStr = sqlite3_column_text(stmt, 10),
+                    let createdAtCStr = sqlite3_column_text(stmt, 11),
                     let createdAt = dateFromStringCustom(String(cString: createdAtCStr))
                 else { continue }
                 
                 let log = LogEntity()
                 log.id = id
+                log.sessionId = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }
                 log.createdAt = createdAt
-                log.appVersion = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }
-                log.classFQN = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }
-                let fileName = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }
+                log.appVersion = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }
+                log.classFQN = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }
+                let fileName = sqlite3_column_text(stmt, 4).flatMap { String(cString: $0) }
                 log.fileName = fileName
-                log.lineNumber = sqlite3_column_int64(stmt, 4)
-                log.message = sqlite3_column_text(stmt, 5).flatMap { String(cString: $0) } ?? ""
-                log.stackTrace = sqlite3_column_text(stmt, 6).flatMap { String(cString: $0) } ?? AppConstants.noStackTraceAvailable
-                log.contextJson = sqlite3_column_text(stmt, 7).flatMap { String(cString: $0) } ?? "{}"
+                log.lineNumber = sqlite3_column_int64(stmt, 5)
+                log.message = sqlite3_column_text(stmt, 6).flatMap { String(cString: $0) } ?? ""
+                log.stackTrace = sqlite3_column_text(stmt, 7).flatMap { String(cString: $0) } ?? AppConstants.noStackTraceAvailable
+                log.contextJson = sqlite3_column_text(stmt, 8).flatMap { String(cString: $0) } ?? "{}"
                 
-                if let typeStr = sqlite3_column_text(stmt, 8) {
+                if let typeStr = sqlite3_column_text(stmt, 9) {
                     log.type = LogType(rawValue: String(cString: typeStr))
                 }
                 
-                if let fileBlob = sqlite3_column_blob(stmt, 9) {
-                    let dataSize = sqlite3_column_bytes(stmt, 9)
+                if let fileBlob = sqlite3_column_blob(stmt, 10) {
+                    let dataSize = sqlite3_column_bytes(stmt, 10)
                     let data = Data(bytes: fileBlob, count: Int(dataSize))
                     log.file = MultipartFile(
                         fileName: fileName ?? "NA",
@@ -272,8 +273,9 @@ class StorableService: StorageService {
         try queue.sync {
             let sql = """
             DELETE FROM \(EventEntityConfiguration.tableName)
-            WHERE TRIM(\(EventEntityConfiguration.Column.id) = TRIM(?) COLLATE NOCASE;
+            WHERE TRIM(\(EventEntityConfiguration.Column.id)) = TRIM(?) COLLATE NOCASE;
             """
+
             var stmt: OpaquePointer?
             
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -343,8 +345,8 @@ class StorableService: StorageService {
         try queue.sync {
             let sql = """
             UPDATE \(EventEntityConfiguration.tableName)
-            SET \(EventEntityConfiguration.Column.id.name) = TRIM(?)
-            WHERE TRIM(\(EventEntityConfiguration.Column.id.name)) = TRIM(?) COLLATE NOCASE;
+            SET \(EventEntityConfiguration.Column.sessionId.name) = TRIM(?)
+            WHERE TRIM(\(EventEntityConfiguration.Column.sessionId.name)) = TRIM(?) COLLATE NOCASE;
             """
             var stmt: OpaquePointer?
 
@@ -491,7 +493,6 @@ class StorableService: StorageService {
                     }
                 }
 
-                // 2) Insertar la nueva sesión de start (endedAt NULL)
                 let insertStartSQL = """
                 INSERT INTO \(SessionsConfiguration.tableName)
                 (\(SessionsConfiguration.Column.id.name), \(SessionsConfiguration.Column.sessionId.name),
@@ -581,7 +582,7 @@ class StorableService: StorageService {
 
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = String(cString: sqlite3_column_text(stmt, 0))
-                let sessionId = String(cString: sqlite3_column_text(stmt, 2))
+                let sessionId = sqlite3_column_type(stmt, 1) != SQLITE_NULL ? String(cString: sqlite3_column_text(stmt, 1)) : nil
                 let startDate = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
                 let endDate = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
 
@@ -616,14 +617,15 @@ class StorableService: StorageService {
     func getUnpairedSessions() throws -> [SessionData] {
         return try queue.sync {
             let sql = """
-            SELECT \(SessionsConfiguration.Column.id.name),
-                   \(SessionsConfiguration.Column.sessionId.name),
-                   \(SessionsConfiguration.Column.startedAt.name),
-                   \(SessionsConfiguration.Column.endedAt.name)
+            SELECT
+              \(SessionsConfiguration.Column.id.name),
+              \(SessionsConfiguration.Column.sessionId.name),
+              \(SessionsConfiguration.Column.startedAt.name),
+              \(SessionsConfiguration.Column.endedAt.name)
             FROM \(SessionsConfiguration.tableName)
-            WHERE (NULLIF(\(SessionsConfiguration.Column.startedAt.name), '') IS NULL)
-               <> (NULLIF(\(SessionsConfiguration.Column.endedAt.name), '') IS NULL)
-            ORDER BY \(SessionsConfiguration.Column.startedAt.name) ASC
+            WHERE NULLIF(TRIM(\(SessionsConfiguration.Column.startedAt.name)), '') IS NULL
+              AND NULLIF(TRIM(\(SessionsConfiguration.Column.endedAt.name)), '') IS NOT NULL
+            ORDER BY \(SessionsConfiguration.Column.endedAt.name) ASC;
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
