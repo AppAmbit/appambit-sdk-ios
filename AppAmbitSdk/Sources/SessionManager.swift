@@ -224,7 +224,7 @@ final class SessionManager: @unchecked Sendable {
         
         if shared.isSendingBatch {
             batchLock.unlock()
-            AppAmbitLogger.log(message: "SendBatchSessions: en curso, me encolo")
+            AppAmbitLogger.log(message: "skipped: already in progress")
             return
         }
         shared.isSendingBatch = true
@@ -239,7 +239,7 @@ final class SessionManager: @unchecked Sendable {
             batchLock.unlock()
             
             if wasSending {
-                AppAmbitLogger.log(message: "SendBatchSessions: released")
+                AppAmbitLogger.log(message: "released")
             }
             
             for cb in callbacks {
@@ -254,7 +254,7 @@ final class SessionManager: @unchecked Sendable {
                 let stillSending = shared.isSendingBatch
                 batchLock.unlock()
                 if stillSending {
-                    AppAmbitLogger.log(message: "SendBatchSessions timeout: releasing lock")
+                    AppAmbitLogger.log(message: "timeout: releasing lock")
                     finish(SendBatchError.timeout)
                 }
             }
@@ -364,7 +364,6 @@ final class SessionManager: @unchecked Sendable {
 
             let list = sessions ?? []
             if list.isEmpty {
-                AppAmbitLogger.log(message: "sendUnpairedSessions: no hay sesiones impares")
                 completion(nil)
                 return
             }
