@@ -52,7 +52,7 @@ final class StorableApp {
     private func sleepWithBackoff(attempt: Int) {
         let powFactor = min(attempt, 7)
         let delayMs = min(maxDelayMs, baseDelayMs * (1 << powFactor))
-        let jitter = Int.random(in: 0...2500) // microsegundos
+        let jitter = Int.random(in: 0...2500)
         usleep(useconds_t(delayMs * 1000 + jitter))
     }
 
@@ -233,7 +233,6 @@ final class StorableApp {
     func updateLogsWithCurrentSessionId() throws {
         try queue.sync {
             try inTransaction {
-                // 1) Obtener la sesión abierta (su id)
                 let selectSQL = """
                 SELECT id
                 FROM sessions
