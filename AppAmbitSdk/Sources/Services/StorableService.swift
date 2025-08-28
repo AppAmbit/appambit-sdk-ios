@@ -485,7 +485,7 @@ class StorableService: StorageService {
                         guard sqlite3_prepare_v2(db, closeSQL, -1, &closeStmt, nil) == SQLITE_OK else { throw sqliteError }
                         defer { sqlite3_finalize(closeStmt) }
 
-                        bindText(closeStmt, index: 1, value: stringFromDateIso(session.timestamp)) // endedAt = nuevo start
+                        bindText(closeStmt, index: 1, value: stringFromDateIso(session.timestamp))
                         bindText(closeStmt, index: 2, value: openId)
 
                         guard sqlite3_step(closeStmt) == SQLITE_DONE else { throw sqliteError }
