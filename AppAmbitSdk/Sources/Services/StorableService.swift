@@ -285,7 +285,6 @@ class StorableService: StorageService {
             
             for event in events {
                 let idString = event.id.trimmingCharacters(in: .whitespacesAndNewlines)
-                debugPrint("Attempting to delete event with id: \(idString)")
                 
                 bindText(stmt, index: 1, value: idString)
                 
@@ -293,8 +292,6 @@ class StorableService: StorageService {
                 if stepResult != SQLITE_DONE {
                     debugPrint("sqlite3_step failed for id: \(idString) with result \(stepResult)")
                     throw sqliteError
-                } else {
-                    debugPrint("Deleted (or did not exist): \(idString)")
                 }
                 
                 sqlite3_reset(stmt)
@@ -331,8 +328,6 @@ class StorableService: StorageService {
                 let rc = sqlite3_step(stmt)
                 if rc != SQLITE_DONE {
                     debugPrint("sqlite3_step returned: \(rc)  old:\(oldRaw) -> new:\(newRaw)")
-                } else {
-                    debugPrint("Updated sessionId  \(oldRaw) -> \(newRaw)")
                 }
 
                 sqlite3_reset(stmt)
@@ -445,8 +440,6 @@ class StorableService: StorageService {
                 let stepResult = sqlite3_step(stmt)
                 if stepResult != SQLITE_DONE {
                     debugPrint("sqlite3_step returned: \(stepResult) for id \(id)")
-                } else {
-                    debugPrint("Deleted (or no-op if not found): \(id)")
                 }
                 
                 sqlite3_reset(stmt)
@@ -611,8 +604,8 @@ class StorableService: StorageService {
         }
     }
     
-    func getUnpairedSessions() throws -> [SessionData] {
-        return try queue.sync {
+    func getUnpairedSessionEnd() throws -> SessionData? {
+        try queue.sync {
             let sql = """
             SELECT
               \(SessionsConfiguration.Column.id.name),
@@ -622,54 +615,50 @@ class StorableService: StorageService {
             FROM \(SessionsConfiguration.tableName)
             WHERE NULLIF(TRIM(\(SessionsConfiguration.Column.startedAt.name)), '') IS NULL
               AND NULLIF(TRIM(\(SessionsConfiguration.Column.endedAt.name)), '') IS NOT NULL
-            ORDER BY \(SessionsConfiguration.Column.endedAt.name) ASC;
+            ORDER BY \(SessionsConfiguration.Column.endedAt.name) ASC
+            LIMIT 1;
             """
+
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
 
-            var results: [SessionData] = []
-
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                let id = String(cString: sqlite3_column_text(stmt, 0))
-
-                let sessionId: String? = {
-                    guard let ptr = sqlite3_column_text(stmt, 1) else { return nil }
-                    return String(cString: ptr)
-                }()
-
-                let start: Date? = {
-                    guard let ptr = sqlite3_column_text(stmt, 2) else { return nil }
-                    let s = String(cString: ptr)
-                    return s.isEmpty ? nil : dateFromStringIso(s)
-                }()
-
-                let end: Date? = {
-                    guard let ptr = sqlite3_column_text(stmt, 3) else { return nil }
-                    let s = String(cString: ptr)
-                    return s.isEmpty ? nil : dateFromStringIso(s)
-                }()
-
-                if let start {
-                    results.append(SessionData(
-                        id: id,
-                        sessionId: sessionId,
-                        timestamp: start,
-                        sessionType: .start
-                    ))
-                } else if let end {
-                    results.append(SessionData(
-                        id: id,
-                        sessionId: sessionId,
-                        timestamp: end,
-                        sessionType: .end
-                    ))
-                }
+            guard sqlite3_step(stmt) == SQLITE_ROW else {
+                return nil
             }
 
-            return results
+            let id = String(cString: sqlite3_column_text(stmt, 0))
+
+            let sessionId: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 1) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : s
+            }()
+
+            let startedAt: Date? = {
+                guard let ptr = sqlite3_column_text(stmt, 2) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : dateFromStringIso(s)
+            }()
+
+            let endedAt: Date? = {
+                guard let ptr = sqlite3_column_text(stmt, 3) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : dateFromStringIso(s)
+            }()
+
+            if let d = startedAt {
+                return SessionData(id: id, sessionId: sessionId, timestamp: d, sessionType: .start)
+            }
+            
+            if let d = endedAt {
+                return SessionData(id: id, sessionId: sessionId, timestamp: d, sessionType: .end)
+            }
+            
+            return nil
         }
     }
+
 
     func deleteSessionById(_ idValue: String) throws {
         try queue.sync {

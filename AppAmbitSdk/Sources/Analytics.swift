@@ -9,6 +9,7 @@ public final class Analytics: @unchecked Sendable {
     private var isSendingBatch = false
     private static let batchLock = NSLock()
     private static let batchSendTimeout: TimeInterval = 30
+    private var waiters: [(@Sendable (Error?) -> Void)] = []
     
     static let shared = Analytics()
     private init() {}
@@ -99,75 +100,79 @@ public final class Analytics: @unchecked Sendable {
     }
     
     
-    static func sendBatchEvents() {
+    static func sendBatchEvents(completion: (@Sendable (Error?) -> Void)? = nil) {
         batchLock.lock()
+        if let completion { shared.waiters.append(completion) }
+
         if shared.isSendingBatch {
             batchLock.unlock()
             AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
             return
         }
-        
         shared.isSendingBatch = true
         batchLock.unlock()
-                
-        
-        let finish: @Sendable () -> Void = {
+
+        let finish: @Sendable (Error?) -> Void = { err in
             batchLock.lock()
             let wasSending = shared.isSendingBatch
             shared.isSendingBatch = false
+            let callbacks = shared.waiters
+            shared.waiters.removeAll()
             batchLock.unlock()
-            if wasSending {
-                AppAmbitLogger.log(message: "SendBatchEvents: released")
-            }
+
+            if wasSending { AppAmbitLogger.log(message: "SendBatchEvents: released") }
+            for cb in callbacks { DispatchQueue.global().async { cb(err) } }
         }
-        
+
         DispatchQueue.main.async {
             Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
                 batchLock.lock()
-                let needsRelease = shared.isSendingBatch
-                shared.isSendingBatch = false
+                let stillSending = shared.isSendingBatch
                 batchLock.unlock()
-                if needsRelease {
+                if stillSending {
                     AppAmbitLogger.log(message: "SendBatchEvents timeout: releasing lock")
+                    finish(AppAmbitLogger.buildError(message: "SendBatchEvents timeout"))
                 }
             }
         }
-        
-        getEventsIndb { events, error in
+
+        getEventsInDb { events, error in
             if let error = error {
                 AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
-                finish()
+                finish(error)
                 return
             }
-            
+
             guard let events = events, !events.isEmpty else {
                 AppAmbitLogger.log(message: "There are no events to send")
-                finish()
+                finish(nil)
                 return
             }
-            
+
             let endpoint = EventBatchEndpoint(eventBatch: events)
-            
             shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
-                defer { finish() }
-                
                 if response.errorType != .none {
                     AppAmbitLogger.log(message: "Events were not sent: \(response.message ?? "")")
+                    finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
                     return
                 }
-                
-                AppAmbitLogger.log(message: "Events sent successfully")
+
                 do {
                     try shared.storageService?.deleteEventList(events)
                     AppAmbitLogger.log(message: "SendBatchEvents successfully sent")
+                    finish(nil)
                 } catch {
-                    AppAmbitLogger.log(message: error.localizedDescription)
+                    AppAmbitLogger.log(message: "Failed deleting events: \(error.localizedDescription)")
+                    finish(error)
                 }
             }
         }
     }
+
     
-    private static func getEventsIndb(completion: @escaping @Sendable (_ logs: [EventEntity]?, _ error: Error?) -> Void) {
+    private static func getEventsInDb(
+        completion: @escaping @Sendable (_ events: [EventEntity]?, _ error: Error?) -> Void
+    ) {
         syncQueueBatch.async {
             do {
                 let events = try shared.storageService?.getOldest100Events()
@@ -177,6 +182,7 @@ public final class Analytics: @unchecked Sendable {
             }
         }
     }
+
     
     private static func sendOrSaveEvent(
         eventTitle: String,

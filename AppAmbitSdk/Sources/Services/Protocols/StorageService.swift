@@ -33,6 +33,6 @@ protocol StorageService {
     func putSessionData(_ session: SessionData) throws -> Void
     func getOldest100Sessions() throws -> [SessionBatch]
     func deleteSessionList(_ sessions: [SessionBatch]) throws
-    func getUnpairedSessions() throws -> [SessionData]
+    func getUnpairedSessionEnd() throws -> SessionData?
     func deleteSessionById(_ idValue: String) throws
 }

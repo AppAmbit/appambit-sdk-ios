@@ -138,7 +138,7 @@ final class Logging: @unchecked Sendable {
                         let message = "Failed to store log: \(dbError.localizedDescription)"
                         AppAmbitLogger.log(message: message)
                     } else {
-                        AppAmbitLogger.log(message: "Log stored in database as fallback")
+                        AppAmbitLogger.log(message: "Log stored in database")
                     }
                     completion?(error)
                 }

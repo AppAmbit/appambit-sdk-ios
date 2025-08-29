@@ -23,8 +23,8 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     /// URLSession instance for network requests.
     private lazy var urlSession: URLSession = {
         let config: URLSessionConfiguration = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 10
+        config.timeoutIntervalForRequest = 20
+        config.timeoutIntervalForResource = 20
         config.waitsForConnectivity = true
         config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
@@ -187,11 +187,11 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     /// Returns: ApiResult<T>
     private func handleFailedRenewalResult<T>(_ type: T.Type, result: ApiErrorType) -> ApiResult<T> {
         if result == .networkUnavailable {
-            debugPrint("Cannot retry request: no internet after token renewal")
+            AppAmbitLogger.log(message: "Cannot retry request: no internet after token renewal")
             return .fail(.networkUnavailable, message: "No internet after token renewal")
         }
         
-        debugPrint("Could not renew token. Cleaning up")
+        AppAmbitLogger.log(message: "Could not renew token. Cleaning up")
         clearToken()
         return .fail(result, message: "Token renewal failed")
     }
@@ -199,7 +199,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     /// Handles exceptions during token renewal.
     /// Returns: ApiResult<T>    
     private func handleTokenRenewalException<T>(_ type: T.Type, error: Error) -> ApiResult<T> {
-        debugPrint("Error renewing token: \(error)")
+        AppAmbitLogger.log(message: "Error renewing token: \(error)")
         clearToken()
         return .fail(.unknown, message: "Token renewal failed")
     }
@@ -248,7 +248,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         request.url = urlWithQueryParams
         
 #if DEBUG
-        debugPrint("HTTP - REQUEST - URL with QueryParams: \(request.url?.absoluteString ?? "N/A")")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - URL with QueryParams: \(request.url?.absoluteString ?? "N/A")")
 #endif
     }
     
@@ -393,9 +393,9 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
                     default:
                         apiErrorType = .unknown
                     }
+                    
                     completion(.fail(apiErrorType, message: error.localizedDescription))
-                    
-                    
+                                        
                 case .failure(let error):
                     completion(ApiResult.fail(.unknown, message: error.localizedDescription))
                 }
@@ -418,7 +418,7 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
         
         if let httpResponse = response as? HTTPURLResponse {
-            debugPrint("HTTP RESPONSE CODE: \(httpResponse.statusCode)")
+            AppAmbitLogger.log(message: "HTTP RESPONSE CODE: \(httpResponse.statusCode)")
     #if DEBUG
             if let jsonString = String(data: data, encoding: .utf8) {
                 print("HTTP RESPONSE BODY:\n\(jsonString)")
@@ -464,9 +464,9 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     /// Returns: Void    
     private func printJSONRequest(request: URLRequest, jsonData: Data) {
 #if DEBUG
-        debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
-        debugPrint("HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
-        debugPrint("HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
         if let jsonString = String(data: jsonData, encoding: .utf8) {
             print("HTTP - REQUEST - JSON Body:\n\(jsonString)")
         }else {
@@ -479,9 +479,9 @@ class AppAmbitApiService: ApiService, @unchecked Sendable {
     /// Returns: Void    
     private func printMultipartRequest(request: URLRequest, body: Data) {
 #if DEBUG
-        debugPrint("HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
-        debugPrint("HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
-        debugPrint("HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - URL: \(request.url?.absoluteString ?? "N/A")")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - Method: \(request.httpMethod ?? "N/A")")
+        AppAmbitLogger.log(message: "HTTP - REQUEST - Headers: \(request.allHTTPHeaderFields ?? [:])")
         
         let fullBodyString = String(decoding: body, as: UTF8.self)
         print("HTTP - REQUEST - Body full length (\(body.count) bytes):\n\(fullBodyString)")
