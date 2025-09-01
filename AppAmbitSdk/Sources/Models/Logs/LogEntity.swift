@@ -2,6 +2,7 @@ import Foundation
 
 class LogEntity: Log, @unchecked Sendable {
     var id: String?
+    var sessionId: String?
     var createdAt: Date?
 
     override func toMultipartValue() -> MultipartValue {
@@ -15,6 +16,8 @@ class LogEntity: Log, @unchecked Sendable {
         }
         
         dict["id"] = .string(id ?? "")
+        
+        dict["session_id"] = .string(sessionId ?? "")
         
         if createdAt != nil {
             let createdAtString = DateUtils.utcCustomFormatString(from: createdAt!)

@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 
 
-public class CrashHandler: @unchecked Sendable {
+class CrashHandler: @unchecked Sendable {
     // MARK: - Singleton
     static let shared = CrashHandler()
     
@@ -39,9 +39,9 @@ public class CrashHandler: @unchecked Sendable {
     
     private func setupExceptionHandler() {
         previousHandler = NSGetUncaughtExceptionHandler()
-
         let newHandler: ExceptionHandler = { exception in
             debugPrint("[CrashHandler] NSException captured: \(exception.name.rawValue) - \(exception.reason ?? "No reason")")
+            SessionManager.saveEndSessionToFile()
             let crashInfo = ExceptionInfo.fromNSException(exception)
             CrashHandler.shared.saveCrashInfo(crashInfo)
             
@@ -65,7 +65,8 @@ public class CrashHandler: @unchecked Sendable {
             var action = sigaction()
             action.sa_flags = SA_SIGINFO
             action.__sigaction_u.__sa_sigaction = { (signal, info, context) in
-                debugPrint("[CrashHandler] Signal \(signal) capturada.")
+                debugPrint("[CrashHandler] Signal \(signal) captured")
+                SessionManager.saveEndSessionToFile()
                 let backtraceSymbols = Thread.callStackSymbols
                 let crashInfo = CrashHandler.shared.createSignalCrashInfo(
                     signal: signal,

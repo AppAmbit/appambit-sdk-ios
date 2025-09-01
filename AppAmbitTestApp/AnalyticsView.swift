@@ -268,17 +268,17 @@ struct AnalyticsView: View {
     }
     
     func generateTestSessionsForLast30Days() {
-        if NetworkMonitor.shared.isConnected {
+        if !NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
             self.showCompletionAlert = true
-             return
-         }
+            return
+        }
         
         let calendar = Calendar.current
         let now = Date()
         let startDate = calendar.date(byAdding: .day, value: -30, to: now)!
         let sessionCount = 30
-        let randomMinutesRange = 21...120
+        let fixedDurationMinutes = 90
         for i in 0..<sessionCount {
             
             guard let sessionDay = calendar.date(byAdding: .day, value: i, to: startDate) else { continue }
@@ -286,16 +286,15 @@ struct AnalyticsView: View {
             let randomHour = Int.random(in: 0..<23)
             let randomMinute = Int.random(in: 0..<60)
             let startSessionDate = calendar.date(bySettingHour: randomHour, minute: randomMinute, second: 0, of: sessionDay)!
-
+            
             do {
                 try StorableApp.shared.putSessionData(timestamp: startSessionDate, sessionType: "start")
             } catch {
                 debugPrint("Error inserting start session: \(error)")
             }
-
-            let randomDurationMinutes = Int.random(in: randomMinutesRange)
-            let endSessionDate = startSessionDate.addingTimeInterval(TimeInterval(randomDurationMinutes * 60))
-
+            
+            let endSessionDate = startSessionDate.addingTimeInterval(TimeInterval(fixedDurationMinutes * 60))
+            
             do {
                 try StorableApp.shared.putSessionData(timestamp: endSessionDate, sessionType: "end")
             } catch {
@@ -307,12 +306,13 @@ struct AnalyticsView: View {
             self.messageAlert = "Sessions generated, turn on internet"
             self.showCompletionAlert = true
         }
-
+        
         debugPrint("\(sessionCount) test sessions were inserted.")
     }
+
     
     func onGenerateBatchEvents() {
-        if NetworkMonitor.shared.isConnected {
+        if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
             self.showCompletionAlert = true
             return

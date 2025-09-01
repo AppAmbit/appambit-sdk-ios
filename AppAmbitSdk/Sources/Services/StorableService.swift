@@ -107,24 +107,30 @@ class StorableService: StorageService {
         try queue.sync {
             let sql = """
             INSERT INTO \(LogEntityConfiguration.tableName)
-            (id, appVersion, classFQN, fileName, lineNumber, message, stackTrace, contextJson, type, file, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            (\(LogEntityConfiguration.Column.id.name), \(LogEntityConfiguration.Column.sessionId.name), 
+             \(LogEntityConfiguration.Column.appVersion.name), \(LogEntityConfiguration.Column.classFQN.name), 
+             \(LogEntityConfiguration.Column.fileName.name), \(LogEntityConfiguration.Column.lineNumber.name), 
+             \(LogEntityConfiguration.Column.message.name), \(LogEntityConfiguration.Column.stackTrace.name), 
+             \(LogEntityConfiguration.Column.contextJson.name), \(LogEntityConfiguration.Column.type.name),
+             \(LogEntityConfiguration.Column.file.name), \(LogEntityConfiguration.Column.createdAt.name))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
             
             bindText(stmt, index: 1, value: log.id)
-            bindText(stmt, index: 2, value: log.appVersion)
-            bindText(stmt, index: 3, value: log.classFQN)
-            bindText(stmt, index: 4, value: log.fileName)
-            sqlite3_bind_int64(stmt, 5, log.lineNumber)
-            bindText(stmt, index: 6, value: log.message)
-            bindText(stmt, index: 7, value: log.stackTrace)
-            bindText(stmt, index: 8, value: log.contextJson)
-            bindText(stmt, index: 9, value: log.type?.rawValue)
-            bindBlob(stmt, index: 10, value: log.file?.data)
-            bindText(stmt, index: 11, value: stringFromDateCustom(log.createdAt!))
+            bindText(stmt, index: 2, value: log.sessionId)
+            bindText(stmt, index: 3, value: log.appVersion)
+            bindText(stmt, index: 4, value: log.classFQN)
+            bindText(stmt, index: 5, value: log.fileName)
+            sqlite3_bind_int64(stmt, 6, log.lineNumber)
+            bindText(stmt, index: 7, value: log.message)
+            bindText(stmt, index: 8, value: log.stackTrace)
+            bindText(stmt, index: 9, value: log.contextJson)
+            bindText(stmt, index: 10, value: log.type?.rawValue)
+            bindBlob(stmt, index: 11, value: log.file?.data)
+            bindText(stmt, index: 12, value: stringFromDateCustom(log.createdAt!))
             
             guard sqlite3_step(stmt) == SQLITE_DONE else {
                 throw sqliteError
@@ -136,17 +142,20 @@ class StorableService: StorageService {
         try queue.sync {
             let sql = """
                 INSERT INTO \(EventEntityConfiguration.tableName)
-            (id, data_json, name, createdAt)
-            VALUES (?, ?, ?, ?);
+            (\(EventEntityConfiguration.Column.id.name), \(EventEntityConfiguration.Column.sessionId.name), 
+             \(EventEntityConfiguration.Column.dataJson.name), \(EventEntityConfiguration.Column.name.name), 
+             \(EventEntityConfiguration.Column.createdAt.name))
+            VALUES (?, ?, ?, ?, ?);
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
             
             bindText(stmt, index: 1, value: event.id)
-            bindText(stmt, index: 2, value: event.dataJson)
-            bindText(stmt, index: 3, value: event.name)
-            bindText(stmt, index: 4, value:  stringFromDateCustom(event.createdAt))
+            bindText(stmt, index: 2, value: event.sessionId)
+            bindText(stmt, index: 3, value: event.dataJson)
+            bindText(stmt, index: 4, value: event.name)
+            bindText(stmt, index: 5, value:  stringFromDateCustom(event.createdAt))
             
             guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
         }
@@ -156,10 +165,14 @@ class StorableService: StorageService {
         return try queue.sync {
             var result: [LogEntity] = []
             let sql = """
-            SELECT id, appVersion, classFQN, fileName, lineNumber, message, stackTrace,
-                   contextJson, type, file, createdAt
+            SELECT \(LogEntityConfiguration.Column.id.name), \(LogEntityConfiguration.Column.sessionId.name), 
+                    \(LogEntityConfiguration.Column.appVersion.name), \(LogEntityConfiguration.Column.classFQN.name), 
+                    \(LogEntityConfiguration.Column.fileName.name), \(LogEntityConfiguration.Column.lineNumber.name), 
+                    \(LogEntityConfiguration.Column.message.name), \(LogEntityConfiguration.Column.stackTrace.name), 
+                    \(LogEntityConfiguration.Column.contextJson.name), \(LogEntityConfiguration.Column.type.name), 
+                    \(LogEntityConfiguration.Column.file.name), \(LogEntityConfiguration.Column.createdAt.name)
             FROM \(LogEntityConfiguration.tableName)
-            ORDER BY createdAt ASC
+            ORDER BY \(LogEntityConfiguration.Column.createdAt.name) ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?
@@ -171,28 +184,29 @@ class StorableService: StorageService {
                 let id = String(cString: idCStr)
                 
                 guard
-                    let createdAtCStr = sqlite3_column_text(stmt, 10),
+                    let createdAtCStr = sqlite3_column_text(stmt, 11),
                     let createdAt = dateFromStringCustom(String(cString: createdAtCStr))
                 else { continue }
                 
                 let log = LogEntity()
                 log.id = id
+                log.sessionId = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }
                 log.createdAt = createdAt
-                log.appVersion = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }
-                log.classFQN = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }
-                let fileName = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }
+                log.appVersion = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }
+                log.classFQN = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }
+                let fileName = sqlite3_column_text(stmt, 4).flatMap { String(cString: $0) }
                 log.fileName = fileName
-                log.lineNumber = sqlite3_column_int64(stmt, 4)
-                log.message = sqlite3_column_text(stmt, 5).flatMap { String(cString: $0) } ?? ""
-                log.stackTrace = sqlite3_column_text(stmt, 6).flatMap { String(cString: $0) } ?? AppConstants.noStackTraceAvailable
-                log.contextJson = sqlite3_column_text(stmt, 7).flatMap { String(cString: $0) } ?? "{}"
+                log.lineNumber = sqlite3_column_int64(stmt, 5)
+                log.message = sqlite3_column_text(stmt, 6).flatMap { String(cString: $0) } ?? ""
+                log.stackTrace = sqlite3_column_text(stmt, 7).flatMap { String(cString: $0) } ?? AppConstants.noStackTraceAvailable
+                log.contextJson = sqlite3_column_text(stmt, 8).flatMap { String(cString: $0) } ?? "{}"
                 
-                if let typeStr = sqlite3_column_text(stmt, 8) {
+                if let typeStr = sqlite3_column_text(stmt, 9) {
                     log.type = LogType(rawValue: String(cString: typeStr))
                 }
                 
-                if let fileBlob = sqlite3_column_blob(stmt, 9) {
-                    let dataSize = sqlite3_column_bytes(stmt, 9)
+                if let fileBlob = sqlite3_column_blob(stmt, 10) {
+                    let dataSize = sqlite3_column_bytes(stmt, 10)
                     let data = Data(bytes: fileBlob, count: Int(dataSize))
                     log.file = MultipartFile(
                         fileName: fileName ?? "NA",
@@ -211,9 +225,12 @@ class StorableService: StorageService {
         return try queue.sync {
             var result: [EventEntity] = []
             let sql = """
-            SELECT id, data_json, name, createdAt
+            SELECT 
+                \(EventEntityConfiguration.Column.id.name), \(EventEntityConfiguration.Column.sessionId.name), 
+                \(EventEntityConfiguration.Column.dataJson.name), \(EventEntityConfiguration.Column.name.name), 
+                \(EventEntityConfiguration.Column.createdAt.name)
             FROM \(EventEntityConfiguration.tableName)
-            ORDER BY createdAt ASC
+            ORDER BY \(EventEntityConfiguration.Column.createdAt.name) ASC
             LIMIT 100;
             """
             var stmt: OpaquePointer?
@@ -224,14 +241,14 @@ class StorableService: StorageService {
             
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let idString = String(cString: sqlite3_column_text(stmt, 0))
-                let createdAtString = String(cString: sqlite3_column_text(stmt, 3))
+                let sessionId = String(cString: sqlite3_column_text(stmt, 1))
+                let dataJson = String(cString: sqlite3_column_text(stmt, 2))
+                let name = String(cString: sqlite3_column_text(stmt, 3))
+                let createdAtString = String(cString: sqlite3_column_text(stmt, 4))
                 
                 guard let createdAt = dateFromStringCustom(createdAtString) else {
                     continue
                 }
-                
-                let dataJson = String(cString: sqlite3_column_text(stmt, 1))
-                let name = String(cString: sqlite3_column_text(stmt, 2))
                 
                 var metadata: [String: String] = [:]
                 if let data = dataJson.data(using: .utf8),
@@ -241,6 +258,7 @@ class StorableService: StorageService {
             
                 let event = EventEntity(
                     id: idString,
+                    sessionId: sessionId,
                     createdAt: createdAt,
                     name: name,
                     metadata: metadata
@@ -255,8 +273,9 @@ class StorableService: StorageService {
         try queue.sync {
             let sql = """
             DELETE FROM \(EventEntityConfiguration.tableName)
-            WHERE TRIM(id) = TRIM(?) COLLATE NOCASE;
+            WHERE TRIM(\(EventEntityConfiguration.Column.id)) = TRIM(?) COLLATE NOCASE;
             """
+
             var stmt: OpaquePointer?
             
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -266,7 +285,6 @@ class StorableService: StorageService {
             
             for event in events {
                 let idString = event.id.trimmingCharacters(in: .whitespacesAndNewlines)
-                debugPrint("Attempting to delete event with id: \(idString)")
                 
                 bindText(stmt, index: 1, value: idString)
                 
@@ -274,18 +292,140 @@ class StorableService: StorageService {
                 if stepResult != SQLITE_DONE {
                     debugPrint("sqlite3_step failed for id: \(idString) with result \(stepResult)")
                     throw sqliteError
-                } else {
-                    debugPrint("Deleted (or did not exist): \(idString)")
                 }
                 
                 sqlite3_reset(stmt)
             }
         }
     }
-    
+  
+    func updateSessionsIdsInLogs(_ sessions: [SessionBatch]) throws {
+        try queue.sync {
+            let sql = """
+            UPDATE \(LogEntityConfiguration.tableName)
+            SET \(LogEntityConfiguration.Column.sessionId.name) = TRIM(?)
+            WHERE TRIM(\(LogEntityConfiguration.Column.sessionId.name)) = TRIM(?) COLLATE NOCASE;
+            """
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            for s in sessions {
+                let oldRaw = s.id.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !oldRaw.isEmpty else { continue }
+
+                guard let newRaw = s.sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !newRaw.isEmpty else { continue }
+
+                if oldRaw.compare(newRaw, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame {
+                    continue
+                }
+
+                bindText(stmt, index: 1, value: newRaw)
+                bindText(stmt, index: 2, value: oldRaw)
+
+                let rc = sqlite3_step(stmt)
+                if rc != SQLITE_DONE {
+                    debugPrint("sqlite3_step returned: \(rc)  old:\(oldRaw) -> new:\(newRaw)")
+                }
+
+                sqlite3_reset(stmt)
+                sqlite3_clear_bindings(stmt)
+            }
+        }
+    }
+
+    func updateSessionsIdsInEvents(_ sessions: [SessionBatch]) throws {
+        try queue.sync {
+            let sql = """
+            UPDATE \(EventEntityConfiguration.tableName)
+            SET \(EventEntityConfiguration.Column.sessionId.name) = TRIM(?)
+            WHERE TRIM(\(EventEntityConfiguration.Column.sessionId.name)) = TRIM(?) COLLATE NOCASE;
+            """
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            for s in sessions {
+                let oldRaw = s.id.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !oldRaw.isEmpty else { continue }
+
+                guard let newRaw = s.sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !newRaw.isEmpty else { continue }
+
+                if oldRaw.compare(newRaw, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame {
+                    continue
+                }
+
+                bindText(stmt, index: 1, value: newRaw)
+                bindText(stmt, index: 2, value: oldRaw)
+
+                let rc = sqlite3_step(stmt)
+                if rc != SQLITE_DONE {
+                    debugPrint("sqlite3_step returned: \(rc)  old:\(oldRaw) -> new:\(newRaw)")
+                } else {
+                    debugPrint("Updated sessionId  \(oldRaw) -> \(newRaw)")
+                }
+
+                sqlite3_reset(stmt)
+                sqlite3_clear_bindings(stmt)
+            }
+        }
+    }
+
+    func getSessionById(_ sessionLocalId: String) throws -> SessionData? {
+        return try queue.sync {
+            let sql = """
+            SELECT 
+                \(SessionsConfiguration.Column.id.name), \(SessionsConfiguration.Column.sessionId.name), 
+                \(SessionsConfiguration.Column.startedAt.name), \(SessionsConfiguration.Column.endedAt.name)
+            FROM \(SessionsConfiguration.tableName)
+            WHERE \(SessionsConfiguration.Column.id.name) = ?
+            LIMIT 1;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            guard sqlite3_bind_text(stmt, 1, (sessionLocalId as NSString).utf8String, -1, nil) == SQLITE_OK else { throw sqliteError }
+
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                let id = String(cString: sqlite3_column_text(stmt, 0))
+                let sessionId: String? = (sqlite3_column_type(stmt, 1) != SQLITE_NULL) ? String(cString: sqlite3_column_text(stmt, 1)) : nil
+
+                if let startPtr = sqlite3_column_text(stmt, 2) {
+                    let startStr = String(cString: startPtr)
+                    if let date = dateFromStringIso(startStr) {
+                        return SessionData(
+                            id: id,
+                            sessionId: sessionId,
+                            timestamp: date,
+                            sessionType: .start
+                        )
+                    }
+                }
+
+                if let endPtr = sqlite3_column_text(stmt, 3) {
+                    let endStr = String(cString: endPtr)
+                    if let date = dateFromStringIso(endStr) {
+                        return SessionData(
+                            id: id,
+                            sessionId: sessionId,
+                            timestamp: date,
+                            sessionType: .end
+                        )
+                    }
+                }
+            }
+            return nil
+        }
+    }
+
     func deleteLogList(_ logs: [LogEntity]) throws {
         try queue.sync {
-            let sql = "DELETE FROM \(LogEntityConfiguration.tableName) WHERE TRIM(id) = TRIM(?) COLLATE NOCASE;"
+            let sql = "DELETE FROM \(LogEntityConfiguration.tableName) WHERE TRIM(\(LogEntityConfiguration.Column.id.name)) = TRIM(?) COLLATE NOCASE;"
             var stmt: OpaquePointer?
             
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
@@ -300,8 +440,6 @@ class StorableService: StorageService {
                 let stepResult = sqlite3_step(stmt)
                 if stepResult != SQLITE_DONE {
                     debugPrint("sqlite3_step returned: \(stepResult) for id \(id)")
-                } else {
-                    debugPrint("Deleted (or no-op if not found): \(id)")
                 }
                 
                 sqlite3_reset(stmt)
@@ -313,87 +451,121 @@ class StorableService: StorageService {
         try queue.sync {
             switch session.sessionType! {
             case .start:
-                let sql = """
+                do {
+                    let selectOpenSQL = """
+                    SELECT \(SessionsConfiguration.Column.id.name)
+                    FROM \(SessionsConfiguration.tableName)
+                    WHERE \(SessionsConfiguration.Column.endedAt.name) IS NULL
+                    ORDER BY \(SessionsConfiguration.Column.startedAt.name) DESC
+                    LIMIT 1;
+                    """
+                    var selectStmt: OpaquePointer?
+                    guard sqlite3_prepare_v2(db, selectOpenSQL, -1, &selectStmt, nil) == SQLITE_OK else { throw sqliteError }
+                    defer { sqlite3_finalize(selectStmt) }
+
+                    var openId: String?
+                    if sqlite3_step(selectStmt) == SQLITE_ROW, let cstr = sqlite3_column_text(selectStmt, 0) {
+                        openId = String(cString: cstr)
+                    }
+
+                    if let openId {
+                        let closeSQL = """
+                        UPDATE \(SessionsConfiguration.tableName)
+                        SET \(SessionsConfiguration.Column.endedAt.name) = ?
+                        WHERE \(SessionsConfiguration.Column.id.name) = ?;
+                        """
+                        var closeStmt: OpaquePointer?
+                        guard sqlite3_prepare_v2(db, closeSQL, -1, &closeStmt, nil) == SQLITE_OK else { throw sqliteError }
+                        defer { sqlite3_finalize(closeStmt) }
+
+                        bindText(closeStmt, index: 1, value: stringFromDateIso(session.timestamp))
+                        bindText(closeStmt, index: 2, value: openId)
+
+                        guard sqlite3_step(closeStmt) == SQLITE_DONE else { throw sqliteError }
+                    }
+                }
+
+                let insertStartSQL = """
                 INSERT INTO \(SessionsConfiguration.tableName)
-                (id, sessionId, startSessionDate, endSessionDate)
+                (\(SessionsConfiguration.Column.id.name), \(SessionsConfiguration.Column.sessionId.name),
+                 \(SessionsConfiguration.Column.startedAt.name), \(SessionsConfiguration.Column.endedAt.name))
                 VALUES (?, ?, ?, ?);
                 """
                 var stmt: OpaquePointer?
-                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+                guard sqlite3_prepare_v2(db, insertStartSQL, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
                 defer { sqlite3_finalize(stmt) }
-                
+
                 bindText(stmt, index: 1, value: session.id)
                 bindText(stmt, index: 2, value: session.sessionId)
                 bindText(stmt, index: 3, value: stringFromDateIso(session.timestamp))
                 bindText(stmt, index: 4, value: nil)
-                
+
                 guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
-                
+
             case .end:
                 let selectSQL = """
-                SELECT id FROM \(SessionsConfiguration.tableName)
-                WHERE endSessionDate IS NULL
-                ORDER BY startSessionDate DESC
+                SELECT \(SessionsConfiguration.Column.id.name) FROM \(SessionsConfiguration.tableName)
+                WHERE \(SessionsConfiguration.Column.endedAt.name) IS NULL
+                ORDER BY \(SessionsConfiguration.Column.startedAt.name) DESC
                 LIMIT 1;
                 """
                 var selectStmt: OpaquePointer?
                 guard sqlite3_prepare_v2(db, selectSQL, -1, &selectStmt, nil) == SQLITE_OK else { throw sqliteError }
                 defer { sqlite3_finalize(selectStmt) }
-                
+
                 var foundId: String? = nil
-                if sqlite3_step(selectStmt) == SQLITE_ROW {
-                    if let idCStr = sqlite3_column_text(selectStmt, 0) {
-                        foundId = String(cString: idCStr)
-                    }
+                if sqlite3_step(selectStmt) == SQLITE_ROW, let idCStr = sqlite3_column_text(selectStmt, 0) {
+                    foundId = String(cString: idCStr)
                 }
-                
+
                 if let openId = foundId {
                     let updateSQL = """
                     UPDATE \(SessionsConfiguration.tableName)
-                    SET endSessionDate = ?
-                    WHERE id = ?;
+                    SET \(SessionsConfiguration.Column.endedAt.name) = ?
+                    WHERE \(SessionsConfiguration.Column.id.name) = ?;
                     """
                     var updateStmt: OpaquePointer?
                     guard sqlite3_prepare_v2(db, updateSQL, -1, &updateStmt, nil) == SQLITE_OK else { throw sqliteError }
                     defer { sqlite3_finalize(updateStmt) }
-                    
+
                     bindText(updateStmt, index: 1, value: stringFromDateIso(session.timestamp))
                     bindText(updateStmt, index: 2, value: openId)
-                    
+
                     guard sqlite3_step(updateStmt) == SQLITE_DONE else { throw sqliteError }
-                    
                 } else {
                     let insertSQL = """
                     INSERT INTO \(SessionsConfiguration.tableName)
-                    (id, sessionId, startSessionDate, endSessionDate)
+                    (\(SessionsConfiguration.Column.id.name), \(SessionsConfiguration.Column.sessionId.name),
+                     \(SessionsConfiguration.Column.startedAt.name), \(SessionsConfiguration.Column.endedAt.name))
                     VALUES (?, ?, ?, ?);
                     """
                     var insertStmt: OpaquePointer?
                     guard sqlite3_prepare_v2(db, insertSQL, -1, &insertStmt, nil) == SQLITE_OK else { throw sqliteError }
                     defer { sqlite3_finalize(insertStmt) }
-                    
+
                     bindText(insertStmt, index: 1, value: session.id)
                     bindText(insertStmt, index: 2, value: session.sessionId)
                     bindText(insertStmt, index: 3, value: nil)
                     bindText(insertStmt, index: 4, value: stringFromDateIso(session.timestamp))
-                    
+
                     guard sqlite3_step(insertStmt) == SQLITE_DONE else { throw sqliteError }
                 }
             }
         }
     }
-    
+
     func getOldest100Sessions() throws -> [SessionBatch] {
         return try queue.sync {
             var result: [SessionBatch] = []
             let sql = """
-            SELECT id, startSessionDate, endSessionDate
-            FROM \(SessionsConfiguration.tableName)
-            WHERE (sessionId IS NULL OR sessionId = '')
-            AND startSessionDate IS NOT NULL
-            AND endSessionDate IS NOT NULL
-            ORDER BY startSessionDate ASC
-            LIMIT 100;
+                SELECT 
+                    \(SessionsConfiguration.Column.id.name), \(SessionsConfiguration.Column.sessionId.name),  
+                    \(SessionsConfiguration.Column.startedAt.name), \(SessionsConfiguration.Column.endedAt.name)
+                FROM \(SessionsConfiguration.tableName)
+                WHERE \(SessionsConfiguration.Column.startedAt.name) IS NOT NULL
+                AND \(SessionsConfiguration.Column.endedAt.name) IS NOT NULL
+                ORDER BY \(SessionsConfiguration.Column.startedAt.name) ASC
+                LIMIT 100;
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
@@ -401,11 +573,13 @@ class StorableService: StorageService {
 
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = String(cString: sqlite3_column_text(stmt, 0))
-                let startDate = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
-                let endDate = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
+                let sessionId = sqlite3_column_type(stmt, 1) != SQLITE_NULL ? String(cString: sqlite3_column_text(stmt, 1)) : nil
+                let startDate = sqlite3_column_text(stmt, 2).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
+                let endDate = sqlite3_column_text(stmt, 3).flatMap { String(cString: $0) }.flatMap(dateFromStringIso)
 
                 result.append(SessionBatch(
                     id: id,
+                    sessionId: sessionId,
                     startedAt: startDate,
                     endedAt: endDate
                 ))
@@ -414,10 +588,9 @@ class StorableService: StorageService {
         }
     }
 
-    
     func deleteSessionList(_ sessions: [SessionBatch]) throws {
         try queue.sync {
-            let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE id = ?;"
+            let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE \(SessionsConfiguration.Column.id.name) = ?;"
             var stmt: OpaquePointer?
             
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
@@ -431,49 +604,65 @@ class StorableService: StorageService {
         }
     }
     
-    func getSessionById() throws -> SessionData? {
-        return try queue.sync {
+    func getUnpairedSessionEnd() throws -> SessionData? {
+        try queue.sync {
             let sql = """
-            SELECT id, sessionId, startSessionDate, endSessionDate
+            SELECT
+              \(SessionsConfiguration.Column.id.name),
+              \(SessionsConfiguration.Column.sessionId.name),
+              \(SessionsConfiguration.Column.startedAt.name),
+              \(SessionsConfiguration.Column.endedAt.name)
             FROM \(SessionsConfiguration.tableName)
-            WHERE sessionId IS NOT NULL AND sessionId != ''
+            WHERE NULLIF(TRIM(\(SessionsConfiguration.Column.startedAt.name)), '') IS NULL
+              AND NULLIF(TRIM(\(SessionsConfiguration.Column.endedAt.name)), '') IS NOT NULL
+            ORDER BY \(SessionsConfiguration.Column.endedAt.name) ASC
             LIMIT 1;
             """
+
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }
-            
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                let id = String(cString: sqlite3_column_text(stmt, 0))
-                let sessionId = sqlite3_column_text(stmt, 1).flatMap { String(cString: $0) }
-                
-                if let startStr = sqlite3_column_text(stmt, 2) {
-                    if let date = dateFromStringIso(String(cString: startStr)) {
-                        return SessionData(
-                            id: id,
-                            sessionId: sessionId,
-                            timestamp: date,
-                            sessionType: .start
-                        )
-                    }
-                } else if let endStr = sqlite3_column_text(stmt, 3) {
-                    if let date = dateFromStringIso(String(cString: endStr)) {
-                        return SessionData(
-                            id: id,
-                            sessionId: sessionId,
-                            timestamp: date,
-                            sessionType: .end
-                        )
-                    }
-                }
+
+            guard sqlite3_step(stmt) == SQLITE_ROW else {
+                return nil
             }
+
+            let id = String(cString: sqlite3_column_text(stmt, 0))
+
+            let sessionId: String? = {
+                guard let ptr = sqlite3_column_text(stmt, 1) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : s
+            }()
+
+            let startedAt: Date? = {
+                guard let ptr = sqlite3_column_text(stmt, 2) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : dateFromStringIso(s)
+            }()
+
+            let endedAt: Date? = {
+                guard let ptr = sqlite3_column_text(stmt, 3) else { return nil }
+                let s = String(cString: ptr)
+                return s.isEmpty ? nil : dateFromStringIso(s)
+            }()
+
+            if let d = startedAt {
+                return SessionData(id: id, sessionId: sessionId, timestamp: d, sessionType: .start)
+            }
+            
+            if let d = endedAt {
+                return SessionData(id: id, sessionId: sessionId, timestamp: d, sessionType: .end)
+            }
+            
             return nil
         }
     }
-    
+
+
     func deleteSessionById(_ idValue: String) throws {
         try queue.sync {
-            let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE id = ?;"
+            let sql = "DELETE FROM \(SessionsConfiguration.tableName) WHERE \(SessionsConfiguration.Column.id.name) = ?;"
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
             defer { sqlite3_finalize(stmt) }

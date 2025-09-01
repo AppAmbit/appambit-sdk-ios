@@ -1,7 +1,8 @@
 import Foundation
 
-public struct ExceptionInfo: Codable {
+struct ExceptionInfo: Codable {
     let type: String
+    let sessionId: String
     let message: String?
     let stackTrace: String
     let source: String?
@@ -14,6 +15,7 @@ public struct ExceptionInfo: Codable {
     
     enum CodingKeys: String, CodingKey {
         case type = "Type"
+        case sessionId = "SessionId"
         case message = "Message"
         case stackTrace = "StackTrace"
         case source = "Source"
@@ -25,7 +27,7 @@ public struct ExceptionInfo: Codable {
         case createdAt =  "CreatedAt"
     }
 
-    public static func fromNSException(_ exception: NSException) -> ExceptionInfo {
+    static func fromNSException(_ exception: NSException) -> ExceptionInfo {
         let stackTrace = exception.callStackSymbols
         let (fileName, className, lineNumber) = parseStackTrace(stackTrace)
 
@@ -45,6 +47,7 @@ public struct ExceptionInfo: Codable {
         let backtraceString: String = stackTrace.joined(separator: "\n")
         return ExceptionInfo(
             type: exception.name.rawValue,
+            sessionId: SessionManager.sessionId,
             message: exception.reason,
             stackTrace: backtraceString,
             source: source,
@@ -77,6 +80,7 @@ public struct ExceptionInfo: Codable {
 
         return ExceptionInfo(
             type: nsError.domain,
+            sessionId: SessionManager.sessionId,
             message: nsError.localizedDescription,
             stackTrace: backtraceString,
             source: source,
@@ -93,6 +97,7 @@ public struct ExceptionInfo: Codable {
         
         return ExceptionInfo(
             type: signalName,
+            sessionId: SessionManager.sessionId,
             message: "Application terminated due to signal: \(signalName)",
             stackTrace: stackTrace,
             source: source,

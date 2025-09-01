@@ -47,6 +47,11 @@ final class Logging: @unchecked Sendable {
         
         let log = LogEntity()
         log.id = UUID().uuidString
+        if let sessionId = exceptionInfo?.sessionId, !sessionId.isEmpty {
+            log.sessionId = sessionId
+        } else {
+            log.sessionId = SessionManager.sessionId
+        }
         log.appVersion = appVersionInfo
         log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true) ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName
         log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true) ? fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName : exceptionInfo?.fileNameFromStackTrace
@@ -82,7 +87,6 @@ final class Logging: @unchecked Sendable {
         return MultipartFile(fileName: fileName, mimeType: mimeType, data: Data("".utf8))
     }
     
-    
     private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
         let localLogEntity = logEntity
         
@@ -101,7 +105,7 @@ final class Logging: @unchecked Sendable {
             endpointLog.file = localLogEntity.file
             
             let logEndpoint = LogEndpoint(log: endpointLog)
-            
+                                    
             apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
                 handleLogRequestResult(
                     result: result,
@@ -134,7 +138,7 @@ final class Logging: @unchecked Sendable {
                         let message = "Failed to store log: \(dbError.localizedDescription)"
                         AppAmbitLogger.log(message: message)
                     } else {
-                        AppAmbitLogger.log(message: "Log stored in database as fallback")
+                        AppAmbitLogger.log(message: "Log stored in database")
                     }
                     completion?(error)
                 }

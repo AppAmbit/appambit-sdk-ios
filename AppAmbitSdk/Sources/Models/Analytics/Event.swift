@@ -1,6 +1,6 @@
 import Foundation
 
-public class Event: Codable, DictionaryConvertible {
+class Event: Codable, DictionaryConvertible {
     // MARK: - Properties
     
     /// The name of the event.

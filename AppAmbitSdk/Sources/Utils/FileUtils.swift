@@ -42,7 +42,7 @@ final class FileUtils {
             let url = fileURL(for: T.self)
             do {
                 guard fileManager.fileExists(atPath: url.path) else {
-                    debugPrint("File for \(T.self) does not exist at \(url.path)")
+                    debugPrint("File for \(T.self) does not exist")
                     return nil
                 }
                 let data = try Data(contentsOf: url)

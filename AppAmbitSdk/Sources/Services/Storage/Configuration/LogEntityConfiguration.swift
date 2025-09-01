@@ -3,8 +3,9 @@ struct LogEntityConfiguration {
 
     static let tableName = "logs"
 
-    public enum Column: String {
+    public enum Column: String, CaseIterable {
         case id
+        case sessionId
         case appVersion
         case classFQN
         case fileName
@@ -23,6 +24,7 @@ struct LogEntityConfiguration {
         """
         CREATE TABLE IF NOT EXISTS \(tableName) (
             \(Column.id.name) TEXT PRIMARY KEY,
+            \(Column.sessionId.name) TEXT,        
             \(Column.appVersion.name) TEXT,
             \(Column.classFQN.name) TEXT,
             \(Column.fileName.name) TEXT,
