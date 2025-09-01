@@ -2,7 +2,67 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>MinimumOSVersion</key>
-	<string>12</string>
+    <!-- Bundle Information -->
+    <key>CFBundleName</key>
+    <string>AppAmbit</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.appambit.AppAmbitTestingApp</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleExecutable</key>
+    <string>${EXECUTABLE_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <!-- App Transport Security (ATS) -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <!-- Allow HTTP for testing -->
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <!-- Optional: Specific domain for production -->
+        <!--
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>yourapi.com</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+        -->
+    </dict>
+
+    <!-- Network Usage Description -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>AppAmbitTestingApp needs network access to fetch data from the server.</string>
+
+    <!-- Required Device Capabilities -->
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+    </array>
+
+    <!-- Supported Interface Orientations -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <!-- Launch Screen -->
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+
+    <!-- Minimum iOS Version -->
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
 </dict>
 </plist>
