@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-public struct ExceptionModel: Codable {
+struct ExceptionModel: Codable {
     public let type: String
     public let sessionId: String
     public let message: String?
