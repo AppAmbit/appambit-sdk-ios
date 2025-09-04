@@ -1,6 +1,8 @@
 import Foundation
 
-public final class Crashes: @unchecked Sendable {
+@objcMembers
+public final class Crashes: NSObject, @unchecked Sendable {
+    
     private var apiService: ApiService?
     private var storageService: StorageService?
     private var crashStorageURL: URL?
@@ -14,9 +16,10 @@ public final class Crashes: @unchecked Sendable {
     private static let sendingGate = DispatchSemaphore(value: 1)
 
     static let shared = Crashes()
-    private init() {
-        apiService = ServiceContainer.shared.apiService
-        storageService = ServiceContainer.shared.storageService
+    private override init() {
+        self.apiService = ServiceContainer.shared.apiService
+        self.storageService = ServiceContainer.shared.storageService
+        super.init()
     }
 
     private static func logCrash(exceptionInfo: ExceptionInfo, completion: (@Sendable (Error?) -> Void)? = nil) {

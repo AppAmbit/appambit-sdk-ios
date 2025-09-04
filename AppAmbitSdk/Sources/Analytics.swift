@@ -1,6 +1,7 @@
 import Foundation
 
-public final class Analytics: @unchecked Sendable {
+@objcMembers
+public final class Analytics: NSObject, @unchecked Sendable {
     private var apiService: ApiService?
     private var storageService: StorageService?
     nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
@@ -11,8 +12,11 @@ public final class Analytics: @unchecked Sendable {
     private static let batchSendTimeout: TimeInterval = 30
     private var waiters: [(@Sendable (Error?) -> Void)] = []
     
+    private override init() {
+        super.init()
+    }
+    
     static let shared = Analytics()
-    private init() {}
     
     private static let isolationQueue = DispatchQueue(
         label: "com.appambit.analytics.isolation",
