@@ -2,7 +2,8 @@ import UIKit
 import Foundation
 import Network
 
-public final class AppAmbit: @unchecked Sendable {
+@objcMembers
+public final class AppAmbit: NSObject, @unchecked Sendable {
     private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = DispatchQueue(label: "com.appambit.init")
     let monitor = NWPathMonitor()
@@ -21,8 +22,9 @@ public final class AppAmbit: @unchecked Sendable {
     private var reachability: ReachabilityService?
     
     private init(appKey: String) {
-        AppAmbitLogger.log(message: "INIT")
         self.appKey = appKey
+        super.init()
+        AppAmbitLogger.log(message: "INIT")
         CrashHandler.shared.register()
         setupLifecycleObservers()
         onStart()
