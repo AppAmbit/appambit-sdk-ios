@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
   s.name             = 'AppAmbitSdk'
   s.version          = '1.0.0'
-  s.summary          = 'Lightweight SDK for capturing sessions, logs, crashes, and events in ios apps with offline persistence and batch delivery to AppAmbit.'
+  s.summary          = 'Lightweight SDK for capturing sessions, logs, crashes, and events in iOS apps with offline persistence and batch upload to AppAmbit.'
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -18,7 +18,7 @@ Pod::Spec.new do |s|
 #   * Finally, don't worry about the indent, CocoaPods strips it!
 
   s.description      = <<-DESC
-AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your iOS apps. It delivers telemetry with offline persistence and batch delivery to AppAmbit backend services, all with minimal setup. 
+AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your iOS apps. It supports offline persistence and batches data to AppAmbit backend services with minimal setup.
                        DESC
 
   s.homepage         = 'https://github.com/Kava-Up-LLC/appambit-sdk-ios'
