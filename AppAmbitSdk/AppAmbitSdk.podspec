@@ -18,13 +18,13 @@ Pod::Spec.new do |s|
 #   * Finally, don't worry about the indent, CocoaPods strips it!
 
   s.description      = <<-DESC
-AppAmbit SDK provides a unified way to capture sessions, logs, crashes, and custom events from your iOS applications. It is designed for developers who want reliable telemetry, offline persistence, and batch delivery to their backend services, without heavy configuration
+AppAmbit SDK provides a unified way to capture sessions, logs, crashes, and custom events from your iOS applications. It is designed for developers who want reliable telemetry, offline persistence, and batch delivery to AppAmbit backend services, without heavy configuration.
                        DESC
 
   s.homepage         = 'https://github.com/Kava-Up-LLC/appambit-sdk-ios'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
-  s.author           = { 'AppAmbit Inc' => 'helpdesk@appambit.com' }
+  s.author           = { 'AppAmbit Inc' => 'hello@appambit.com' }
   s.source           = { :git => 'https://github.com/Kava-Up-LLC/appambit-sdk-ios.git', :tag => s.version.to_s }
   # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
 
