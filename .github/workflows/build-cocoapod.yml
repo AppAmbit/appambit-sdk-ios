@@ -1,17 +1,14 @@
 name: CocoaPods Library Build & Release
 
 on:
-  workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - feature/add-cococoa-pod-library
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   cut_release:
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
@@ -32,17 +29,15 @@ jobs:
         id: ver
         shell: bash
         env:
-          PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec  # ensure this is the file you edited
+          PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
         run: |
           set -e
           [ -f "$PODSPEC" ] || { echo "Missing $PODSPEC"; exit 1; }
           echo "Using podspec: $PODSPEC"
 
-          # Extract s.version and normalize line endings
           FULL=$(ruby -e "v=File.read('$PODSPEC')[/s\\.version\\s*=\\s*'([^']+)'/,1]; puts(v ? v.strip : '')")
           FULL=${FULL//$'\r'/}
 
-          # Accept GA or pre: X.Y.Z or X.Y.Z-(alpha|beta|rc).N
           if [[ "$FULL" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
             :
           else
@@ -57,7 +52,6 @@ jobs:
           fi
           echo "Version (podspec): $FULL"
 
-
       - name: Extract latest CHANGELOG section
         id: changelog
         shell: bash
@@ -67,24 +61,19 @@ jobs:
             echo "CHANGELOG.md is missing"; exit 1
           fi
 
-          # Find the FIRST header that exactly matches "## Version ..."
           TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+Version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
           if [ -z "$TITLE_LINE_NUM" ]; then
             echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1
           fi
 
           TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
-
-          # Version from title
           VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
           if [ -z "$VER_IN_TITLE" ]; then
             echo "Could not extract title version: $TITLE"; exit 1
           fi
 
-          # Extract body up to the next header '##' or EOF
           START=$((TITLE_LINE_NUM + 1))
           TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
-          # Siguiente cabecera después del título
           NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^## ' | head -n1 | cut -d: -f1 || true)
           if [ -z "$NEXT_HEADER_LINE" ]; then
             END=$TOTAL_LINES
@@ -116,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          TAG="${{ steps.ver.outputs.full }}"   # sin prefijo 'v'
+          TAG="${{ steps.ver.outputs.full }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "Tag $TAG already exists. Nothing to do."
@@ -147,13 +136,12 @@ jobs:
           body_path: ${{ steps.changelog.outputs.notes_path }}
           prerelease: ${{ steps.ver.outputs.is_prerelease }}
 
-      
-      # - name: Publish to CocoaPods (only on main GA)
-      #   if: github.ref_name == 'main' && steps.ver.outputs.is_prerelease == 'false'
-      #   env:
-      #     COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
-      #   run: |
-      #     set -e
-      #     [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
-      #     pod trunk me || true
-      #     pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
+      - name: Publish to CocoaPods
+        if: github.ref_name == 'main' && steps.ver.outputs.is_prerelease == 'false'
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          set -e
+          [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
+          pod trunk me || true
+          pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
