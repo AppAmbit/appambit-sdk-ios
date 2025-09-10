@@ -31,20 +31,32 @@ jobs:
       - name: Read full version from podspec
         id: ver
         shell: bash
+        env:
+          PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec  # ensure this is the file you edited
         run: |
           set -e
-          FULL=$(ruby -e "puts File.read('${PODSPEC}')[/s\.version\s*=\s*'([^']+)'/,1]")
-          # Acepta: X.Y.Z o X.Y.Z-(alpha|beta|rc).N
-          if [[ ! "$FULL" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?$ ]]; then
-            echo "s.invalid version: $FULL"; exit 1
+          [ -f "$PODSPEC" ] || { echo "Missing $PODSPEC"; exit 1; }
+          echo "Using podspec: $PODSPEC"
+
+          # Extract s.version and normalize line endings
+          FULL=$(ruby -e "v=File.read('$PODSPEC')[/s\\.version\\s*=\\s*'([^']+)'/,1]; puts(v ? v.strip : '')")
+          FULL=${FULL//$'\r'/}
+
+          # Accept GA or pre: X.Y.Z or X.Y.Z-(alpha|beta|rc).N
+          if [[ "$FULL" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+            :
+          else
+            echo "Invalid s.version: '$FULL'"; exit 1
           fi
+
           echo "full=$FULL" >> $GITHUB_OUTPUT
-          if [[ "$FULL" == *"-"* ]]; then
+          if [[ "$FULL" == *-* ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
           echo "Version (podspec): $FULL"
+
 
       - name: Extract latest CHANGELOG section
         id: changelog
