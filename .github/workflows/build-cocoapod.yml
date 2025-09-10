@@ -1,0 +1,147 @@
+name: CocoaPods Library Build & Release
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - feature/add-cococoa-pod-library
+
+permissions:
+  contents: write
+
+jobs:
+  cut_release:
+    runs-on: macos-latest
+    env:
+      PODSPEC: AppAmbitSdk.podspec
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods --no-document
+          pod --version
+
+      - name: Read full version from podspec
+        id: ver
+        shell: bash
+        run: |
+          set -e
+          FULL=$(ruby -e "puts File.read('${PODSPEC}')[/s\.version\s*=\s*'([^']+)'/,1]")
+          # Acepta: X.Y.Z o X.Y.Z-(alpha|beta|rc).N
+          if [[ ! "$FULL" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?$ ]]; then
+            echo "s.invalid version: $FULL"; exit 1
+          fi
+          echo "full=$FULL" >> $GITHUB_OUTPUT
+          if [[ "$FULL" == *"-"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Version (podspec): $FULL"
+
+      - name: Extract latest CHANGELOG section
+        id: changelog
+        shell: bash
+        run: |
+          set -e
+          if [ ! -f CHANGELOG.md ]; then
+            echo "CHANGELOG.md is missing"; exit 1
+          fi
+
+          # Find the FIRST header that exactly matches "## Version ..."
+          TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+Version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
+          if [ -z "$TITLE_LINE_NUM" ]; then
+            echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1
+          fi
+
+          TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
+
+          # Version from title
+          VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
+          if [ -z "$VER_IN_TITLE" ]; then
+            echo "Could not extract title version: $TITLE"; exit 1
+          fi
+
+          # Extract body up to the next header '##' or EOF
+          START=$((TITLE_LINE_NUM + 1))
+          TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
+          # Siguiente cabecera después del título
+          NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^## ' | head -n1 | cut -d: -f1 || true)
+          if [ -z "$NEXT_HEADER_LINE" ]; then
+            END=$TOTAL_LINES
+          else
+            END=$((START + NEXT_HEADER_LINE - 2))
+          fi
+          sed -n "${START},${END}p" CHANGELOG.md > CHANGELOG_LATEST.md
+
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "ver_from_title=$VER_IN_TITLE" >> $GITHUB_OUTPUT
+          echo "notes_path=CHANGELOG_LATEST.md" >> $GITHUB_OUTPUT
+
+          echo "CHANGELOG title: $TITLE"
+
+      - name: Enforce podspec version matches CHANGELOG
+        shell: bash
+        run: |
+          set -e
+          PS="${{ steps.ver.outputs.full }}"
+          CL="${{ steps.changelog.outputs.ver_from_title }}"
+          if [ "$PS" != "$CL" ]; then
+            echo "s.version ($PS) != version in CHANGELOG ($CL)."
+            exit 1
+          fi
+          echo "OK: s.version matches CHANGELOG."
+
+      - name: Skip if tag already exists
+        id: check_tag
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.ver.outputs.full }}"   # sin prefijo 'v'
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists. Nothing to do."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cancel if tag exists
+        if: steps.check_tag.outputs.skip == 'true'
+        run: exit 0
+
+      - name: pod lib lint (build the pod)
+        run: |
+          set -e
+          pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
+
+      - name: Tag & Push
+        run: |
+          set -e
+          git tag -f "${{ steps.ver.outputs.full }}"
+          git push origin "${{ steps.ver.outputs.full }}"
+
+      - name: Create GitHub Release (CHANGELOG notes)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name:  ${{ steps.ver.outputs.full }}
+          name:      ${{ steps.ver.outputs.full }}
+          body_path: ${{ steps.changelog.outputs.notes_path }}
+          prerelease: ${{ steps.ver.outputs.is_prerelease }}
+
+      
+      # - name: Publish to CocoaPods (only on main GA)
+      #   if: github.ref_name == 'main' && steps.ver.outputs.is_prerelease == 'false'
+      #   env:
+      #     COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+      #   run: |
+      #     set -e
+      #     [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
+      #     pod trunk me || true
+      #     pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
