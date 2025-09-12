@@ -1,4 +1,4 @@
 ___
-## Version 0.0.1-beta.1
+## Version 0.0.1
 
 Firs publication
