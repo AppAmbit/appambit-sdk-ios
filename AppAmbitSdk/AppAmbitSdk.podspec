@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'AppAmbitSdk'
-  s.version          = '0.0.1'
+  s.version          = '0.0.3'
   s.summary          = 'Lightweight SDK for capturing sessions, logs, crashes, and events in iOS apps with offline persistence and batch upload to AppAmbit.'
 
 # This description is used to generate tags and improve search results.
