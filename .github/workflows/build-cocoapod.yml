@@ -138,9 +138,8 @@ jobs:
           name:      ${{ steps.ver.outputs.full }}
           body_path: ${{ steps.changelog.outputs.notes_path }}
           prerelease: ${{ steps.ver.outputs.is_prerelease }}
-
+      
       - name: Publish to CocoaPods
-        if: github.ref_name == 'main' && steps.ver.outputs.is_prerelease == 'false'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
