@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   cut_release:
-    if: github.ref == 'refs/heads/main'
+    if: ${{ github.ref == 'refs/heads/feature/add-cococoa-pod-library' }}
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
