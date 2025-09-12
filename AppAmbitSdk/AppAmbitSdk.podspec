@@ -21,11 +21,11 @@ Pod::Spec.new do |s|
 AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your iOS apps. It supports offline persistence and batches data to AppAmbit backend services with minimal setup.
                        DESC
 
-  s.homepage         = 'https://github.com/Kava-Up-LLC/appambit-sdk-ios'
+  s.homepage         = 'https://appambit.com'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'AppAmbit Inc' => 'hello@appambit.com' }
-  s.source           = { :git => 'https://github.com/Kava-Up-LLC/appambit-sdk-ios.git', :tag => s.version.to_s }
+  s.source           = { :git => 'https://github.com/AppAmbit/appambit-sdk-ios.git', :tag => s.version.to_s }
   # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
 
   s.ios.deployment_target = '12.0'
