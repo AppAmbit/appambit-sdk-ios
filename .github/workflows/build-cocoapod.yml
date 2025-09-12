@@ -1,7 +1,10 @@
 name: CocoaPods Library Build & Release
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - feature/add-cococoa-pod-library
 
 permissions:
   contents: write
