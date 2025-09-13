@@ -131,6 +131,21 @@ jobs:
           git tag -f "${{ steps.ver.outputs.full }}"
           git push origin "${{ steps.ver.outputs.full }}"
 
+      - name: Build SDK zip (only AppAmbitSdk/)
+        shell: bash
+        run: |
+          set -e
+          VER="${{ steps.ver.outputs.full }}"
+          ZIP="AppAmbitSdk-${VER}.zip"
+          rm -f "$ZIP"
+          # Empaqueta únicamente la carpeta AppAmbitSdk/ (sin el proyecto de ejemplo)
+          zip -r "$ZIP" AppAmbitSdk \
+            -x "AppAmbitSdk/.git/*" \
+               "AppAmbitSdk/build/*" \
+               "AppAmbitSdk/.DS_Store" \
+               "AppAmbitSdk/**/__MACOSX/*"
+          ls -lh "$ZIP"
+
       - name: Create GitHub Release (CHANGELOG notes)
         uses: softprops/action-gh-release@v2
         with:
@@ -138,10 +153,13 @@ jobs:
           name:      ${{ steps.ver.outputs.full }}
           body_path: ${{ steps.changelog.outputs.notes_path }}
           prerelease: ${{ steps.ver.outputs.is_prerelease }}
-      
+          files:     AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
+
       - name: Publish to CocoaPods
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
+          set -e
+          [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
           pod trunk me || true
           pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
