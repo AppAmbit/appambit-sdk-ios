@@ -8,7 +8,7 @@ AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your
                        DESC
 
   s.homepage         = 'https://appambit.com'
-  s.license          = { :type => 'MIT', :file => 'LICENSE' }
+  s.license          = { :type => 'MIT', :file => 'AppAmbitSdk/LICENSE' }
   s.author           = { 'AppAmbit Inc' => 'hello@appambit.com' }
   s.source           = { :git => 'https://github.com/AppAmbit/appambit-sdk-ios.git', :tag => s.version.to_s }
 
