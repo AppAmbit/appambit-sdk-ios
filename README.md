@@ -40,9 +40,9 @@ The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash rep
 
 ## Requirements
 
-* iOS 13.0 or newer
+* iOS 12.0 or newer
 * Xcode 15 or newer
-* Swift 5.9 or newer
+* Swift 5.7 or newer
 
 ---
 
