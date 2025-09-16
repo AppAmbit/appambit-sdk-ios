@@ -2,16 +2,14 @@ name: CocoaPods Library Build & Release
 
 on:
   workflow_dispatch: {}
-  push:
-    branches:
-      - feature/add-cococoa-pod-library
 
 permissions:
   contents: write
 
 jobs:
   cut_release:
-    if: ${{ github.ref == 'refs/heads/feature/add-cococoa-pod-library' }}
+    name: Release (main only)
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
@@ -37,22 +35,11 @@ jobs:
           set -e
           [ -f "$PODSPEC" ] || { echo "Missing $PODSPEC"; exit 1; }
           echo "Using podspec: $PODSPEC"
-
           FULL=$(ruby -e "v=File.read('$PODSPEC')[/s\\.version\\s*=\\s*'([^']+)'/,1]; puts(v ? v.strip : '')")
           FULL=${FULL//$'\r'/}
-
-          if [[ "$FULL" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
-            :
-          else
-            echo "Invalid s.version: '$FULL'"; exit 1
-          fi
-
+          [[ "$FULL" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta|rc)\.[0-9]+)?$ ]] || { echo "Invalid s.version: '$FULL'"; exit 1; }
           echo "full=$FULL" >> $GITHUB_OUTPUT
-          if [[ "$FULL" == *-* ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
+          [[ "$FULL" == *-* ]] && echo "is_prerelease=true" >> $GITHUB_OUTPUT || echo "is_prerelease=false" >> $GITHUB_OUTPUT
           echo "Version (podspec): $FULL"
 
       - name: Extract latest CHANGELOG section
@@ -60,35 +47,20 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ ! -f CHANGELOG.md ]; then
-            echo "CHANGELOG.md is missing"; exit 1
-          fi
-
+          [ -f CHANGELOG.md ] || { echo "CHANGELOG.md is missing"; exit 1; }
           TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+Version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
-          if [ -z "$TITLE_LINE_NUM" ]; then
-            echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1
-          fi
-
+          [ -n "$TITLE_LINE_NUM" ] || { echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1; }
           TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
           VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
-          if [ -z "$VER_IN_TITLE" ]; then
-            echo "Could not extract title version: $TITLE"; exit 1
-          fi
-
+          [ -n "$VER_IN_TITLE" ] || { echo "Could not extract title version: $TITLE"; exit 1; }
           START=$((TITLE_LINE_NUM + 1))
           TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
           NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^## ' | head -n1 | cut -d: -f1 || true)
-          if [ -z "$NEXT_HEADER_LINE" ]; then
-            END=$TOTAL_LINES
-          else
-            END=$((START + NEXT_HEADER_LINE - 2))
-          fi
+          [ -z "$NEXT_HEADER_LINE" ] && END=$TOTAL_LINES || END=$((START + NEXT_HEADER_LINE - 2))
           sed -n "${START},${END}p" CHANGELOG.md > CHANGELOG_LATEST.md
-
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "ver_from_title=$VER_IN_TITLE" >> $GITHUB_OUTPUT
           echo "notes_path=CHANGELOG_LATEST.md" >> $GITHUB_OUTPUT
-
           echo "CHANGELOG title: $TITLE"
 
       - name: Enforce podspec version matches CHANGELOG
@@ -97,10 +69,7 @@ jobs:
           set -e
           PS="${{ steps.ver.outputs.full }}"
           CL="${{ steps.changelog.outputs.ver_from_title }}"
-          if [ "$PS" != "$CL" ]; then
-            echo "s.version ($PS) != version in CHANGELOG ($CL)."
-            exit 1
-          fi
+          [ "$PS" = "$CL" ] || { echo "s.version ($PS) != version in CHANGELOG ($CL)."; exit 1; }
           echo "OK: s.version matches CHANGELOG."
 
       - name: Skip if tag already exists
@@ -138,12 +107,8 @@ jobs:
           VER="${{ steps.ver.outputs.full }}"
           ZIP="AppAmbitSdk-${VER}.zip"
           rm -f "$ZIP"
-          # Empaqueta únicamente la carpeta AppAmbitSdk/ (sin el proyecto de ejemplo)
           zip -r "$ZIP" AppAmbitSdk \
-            -x "AppAmbitSdk/.git/*" \
-               "AppAmbitSdk/build/*" \
-               "AppAmbitSdk/.DS_Store" \
-               "AppAmbitSdk/**/__MACOSX/*"
+            -x "AppAmbitSdk/.git/*" "AppAmbitSdk/build/*" "AppAmbitSdk/.DS_Store" "AppAmbitSdk/**/__MACOSX/*"
           ls -lh "$ZIP"
 
       - name: Create GitHub Release (CHANGELOG notes)
