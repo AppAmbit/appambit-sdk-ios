@@ -47,20 +47,24 @@ jobs:
         run: |
           set -e
           [ -f CHANGELOG.md ] || { echo "CHANGELOG.md is missing"; exit 1; }
-          TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+Version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
-          [ -n "$TITLE_LINE_NUM" ] || { echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1; }
+
+          # ex; "## 1.2.3" o "## Version 1.2.3"
+          TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+(Version[[:space:]]+)?[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
+          [ -n "$TITLE_LINE_NUM" ] || { echo "No release header found (## [Version ]X.Y.Z)"; exit 1; }
+
           TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
           VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
-          [ -n "$VER_IN_TITLE" ] || { echo "Could not extract title version: $TITLE"; exit 1; }
+          [ -n "$VER_IN_TITLE" ] || { echo "Could not extract version from: $TITLE"; exit 1; }
+
           START=$((TITLE_LINE_NUM + 1))
           TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
-          NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^## ' | head -n1 | cut -d: -f1 || true)
+          NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^##[[:space:]]+' | head -n1 | cut -d: -f1 || true)
           [ -z "$NEXT_HEADER_LINE" ] && END=$TOTAL_LINES || END=$((START + NEXT_HEADER_LINE - 2))
           sed -n "${START},${END}p" CHANGELOG.md > CHANGELOG_LATEST.md
+
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "ver_from_title=$VER_IN_TITLE" >> $GITHUB_OUTPUT
           echo "notes_path=CHANGELOG_LATEST.md" >> $GITHUB_OUTPUT
-          echo "CHANGELOG title: $TITLE"
 
       - name: Enforce podspec version matches CHANGELOG
         shell: bash

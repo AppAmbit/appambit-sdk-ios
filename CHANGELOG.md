@@ -1,23 +1,17 @@
-## Version 0.0.5
+## 0.0.6
+- Fix: changelog rendering on cocoapods.org.
 
-- **[Fix]** Fixing changelog versioning.
+## 0.0.5
+- Fixing changelog versioning.
 
----
-## Version 0.0.4
+## 0.0.4
+- Changes in README.md.
 
-changes in README.md.
+## 0.0.3
+- Changes in the podspec.
 
----
-## Version 0.0.3
+## 0.0.2
+- LICENSE and README.md moved.
 
-Changes in the podpspec.
-
----
-## Version 0.0.2
-
-LICENCE and README.md have been moved.
-
----
-## Version 0.0.1
-
-First publication
+## 0.0.1
+- First publication.
