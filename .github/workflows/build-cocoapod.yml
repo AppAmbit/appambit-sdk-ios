@@ -77,20 +77,15 @@ jobs:
 
       - name: Skip if tag already exists
         id: check_tag
-        shell: bash
         run: |
           set -e
           TAG="${{ steps.ver.outputs.full }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
+          if git ls-remote --tags origin | grep -q -E "refs/tags/${TAG}(\^\{\})?$"; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists. Nothing to do."
+            echo "Tag $TAG exists. Skipping."
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Cancel if tag exists
-        if: steps.check_tag.outputs.skip == 'true'
-        run: exit 0
 
       - name: pod lib lint (build the pod)
         run: |
@@ -98,12 +93,14 @@ jobs:
           pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
 
       - name: Tag & Push (tag current commit)
+        if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
-          git tag -f "${{ steps.ver.outputs.full }}" $GITHUB_SHA
+          git tag "${{ steps.ver.outputs.full }}" "$GITHUB_SHA"
           git push origin "${{ steps.ver.outputs.full }}"
 
       - name: Build SDK zip (only AppAmbitSdk/)
+        if: steps.check_tag.outputs.skip == 'false'
         shell: bash
         run: |
           set -e
@@ -115,6 +112,7 @@ jobs:
           ls -lh "$ZIP"
 
       - name: Create GitHub Release (CHANGELOG notes)
+        if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name:  ${{ steps.ver.outputs.full }}
@@ -124,6 +122,7 @@ jobs:
           files:     AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
+        if: steps.check_tag.outputs.skip == 'false'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
