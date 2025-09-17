@@ -8,8 +8,7 @@ permissions:
 
 jobs:
   cut_release:
-    name: Release (main only)
-    if: github.ref == 'refs/heads/main'
+    name: Release
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
@@ -94,10 +93,10 @@ jobs:
           set -e
           pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
 
-      - name: Tag & Push
+      - name: Tag & Push (tag current commit)
         run: |
           set -e
-          git tag -f "${{ steps.ver.outputs.full }}"
+          git tag -f "${{ steps.ver.outputs.full }}" $GITHUB_SHA
           git push origin "${{ steps.ver.outputs.full }}"
 
       - name: Build SDK zip (only AppAmbitSdk/)
