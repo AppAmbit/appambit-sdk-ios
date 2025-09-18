@@ -8,7 +8,8 @@ permissions:
 
 jobs:
   cut_release:
-    name: Release
+    name: Release (main only)
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
