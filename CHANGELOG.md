@@ -1,18 +1,34 @@
-___
+## Version 0.0.7
+
+### Changes
+- Fix: Changes to the CI/CD workflow
+
+## Version 0.0.6
+
+### Changes
+- Fix: changelog rendering on cocoapods.org.
+
+## Version 0.0.5
+
+### Changes
+- Fixing changelog versioning.
+
 ## Version 0.0.4
 
-changes in README.md.
+### Changes
+- Changes in README.md.
 
-___
 ## Version 0.0.3
 
-Changes in the podpspec.
+### Changes
+- Changes in the podspec.
 
-___
 ## Version 0.0.2
 
-LICENCE and README.md have been moved.
-___
+### Changes
+- LICENSE and README.md moved.
+
 ## Version 0.0.1
 
-First publication
+### Changes
+- First publication.

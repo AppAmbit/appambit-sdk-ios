@@ -48,20 +48,24 @@ jobs:
         run: |
           set -e
           [ -f CHANGELOG.md ] || { echo "CHANGELOG.md is missing"; exit 1; }
-          TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+Version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
-          [ -n "$TITLE_LINE_NUM" ] || { echo "No header type '## Version X.Y.Z' was found in CHANGELOG.md"; exit 1; }
+
+          # ex; "## 1.2.3" o "## Version 1.2.3"
+          TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+(Version[[:space:]]+)?[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
+          [ -n "$TITLE_LINE_NUM" ] || { echo "No release header found (## [Version ]X.Y.Z)"; exit 1; }
+
           TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
           VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
-          [ -n "$VER_IN_TITLE" ] || { echo "Could not extract title version: $TITLE"; exit 1; }
+          [ -n "$VER_IN_TITLE" ] || { echo "Could not extract version from: $TITLE"; exit 1; }
+
           START=$((TITLE_LINE_NUM + 1))
           TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
-          NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^## ' | head -n1 | cut -d: -f1 || true)
+          NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^##[[:space:]]+' | head -n1 | cut -d: -f1 || true)
           [ -z "$NEXT_HEADER_LINE" ] && END=$TOTAL_LINES || END=$((START + NEXT_HEADER_LINE - 2))
           sed -n "${START},${END}p" CHANGELOG.md > CHANGELOG_LATEST.md
+
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "ver_from_title=$VER_IN_TITLE" >> $GITHUB_OUTPUT
           echo "notes_path=CHANGELOG_LATEST.md" >> $GITHUB_OUTPUT
-          echo "CHANGELOG title: $TITLE"
 
       - name: Enforce podspec version matches CHANGELOG
         shell: bash
@@ -74,33 +78,30 @@ jobs:
 
       - name: Skip if tag already exists
         id: check_tag
-        shell: bash
         run: |
           set -e
           TAG="${{ steps.ver.outputs.full }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
+          if git ls-remote --tags origin | grep -q -E "refs/tags/${TAG}(\^\{\})?$"; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists. Nothing to do."
+            echo "Tag $TAG exists. Skipping."
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Cancel if tag exists
-        if: steps.check_tag.outputs.skip == 'true'
-        run: exit 0
 
       - name: pod lib lint (build the pod)
         run: |
           set -e
           pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
 
-      - name: Tag & Push
+      - name: Tag & Push (tag current commit)
+        if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
-          git tag -f "${{ steps.ver.outputs.full }}"
+          git tag "${{ steps.ver.outputs.full }}" "$GITHUB_SHA"
           git push origin "${{ steps.ver.outputs.full }}"
 
       - name: Build SDK zip (only AppAmbitSdk/)
+        if: steps.check_tag.outputs.skip == 'false'
         shell: bash
         run: |
           set -e
@@ -112,6 +113,7 @@ jobs:
           ls -lh "$ZIP"
 
       - name: Create GitHub Release (CHANGELOG notes)
+        if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name:  ${{ steps.ver.outputs.full }}
@@ -121,6 +123,7 @@ jobs:
           files:     AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
+        if: steps.check_tag.outputs.skip == 'false'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
