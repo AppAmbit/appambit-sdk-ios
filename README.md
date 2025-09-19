@@ -169,7 +169,7 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 ## Links
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
-* **Dashboard**: AppAmbit workspace link
+* **Dashboard**: [appambit.com](https://appambit.com)
 * **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-c test app coming soon. 
 
 ---
