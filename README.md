@@ -1,7 +1,7 @@
 # AppAmbit iOS SDK
 
 **Track. Debug. Distribute.**
-**AppAmbit: track, debug, and distribute—one SDK, one dashboard.**
+**AppAmbit: track, debug, and distribute your apps from one dashboard.**
 
 The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash reporting, and release distribution hooks to your iOS apps. It is designed for simple setup, low overhead, and production-ready defaults.
 
@@ -55,18 +55,45 @@ The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash rep
 
 ### CocoaPods
 
-* Add `pod 'AppAmbitSdk'` to your `Podfile`
-* Run `pod install`
-* Open the generated `.xcworkspace`
+Add this to your Podfile:
+
+```ruby
+pod 'AppAmbit'
+# or specify version
+pod 'AppAmbit', '~> 1.0.0'
+```
+
+Then run:
+
+```bash
+pod install
+```
+
+Open the generated `.xcworkspace` project.
+
+*(If you get an error like “Unable to find a specification for `AppAmbit`”: run `pod repo update`, then `pod install`.)*
 
 ---
 
 ## Quickstart
 
-* Configure the SDK at app launch with your **API key** and **base URL**
-* Verify session data flows into your AppAmbit dashboard
-* Begin tracking events, logs, and crashes
+Configure the SDK at app launch with your **API Key**.
 
+### Swift
+
+```swift
+
+// AppDelegate
+AppAmbit.start(appKey: "<YOUR-APIKEY>")
+```
+
+### Objective-C
+
+```objective-c
+
+// AppDelegate
+[AppAmbit startWithAppKey:@"<YOUR-APIKEY>"];
+```
 ---
 
 ## Usage
@@ -142,7 +169,7 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 ## Links
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
-* **Dashboard**: AppAmbit workspace link
+* **Dashboard**: [appambit.com](https://appambit.com)
 * **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-c test app coming soon. 
 
 ---
