@@ -119,6 +119,16 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+
+                Button("Send 30 Daily Events") {
+                    onSend30DailyEvents()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
                 
                 Button("Send Batch of 220 Events") {
                     onGenerateBatchEvents()
@@ -202,9 +212,8 @@ struct AnalyticsView: View {
         let concurrentQueue = DispatchQueue.global(qos: .utility)
         let serialEventQueue = DispatchQueue(label: "com.appambit.analytics.eventQueue")
         
-        overallGroup.enter() // Start of the entire process
+        overallGroup.enter()
         
-        // 1. Error log phase (They run in parallel)
         let logsGroup = DispatchGroup()
         debugPrint("[AnalyticsView] Starting 5 concurrent error logs")
         
@@ -268,7 +277,7 @@ struct AnalyticsView: View {
     }
     
     func generateTestSessionsForLast30Days() {
-        if !NetworkMonitor.isConnected() {
+        if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
             self.showCompletionAlert = true
             return
@@ -308,6 +317,69 @@ struct AnalyticsView: View {
         }
         
         debugPrint("\(sessionCount) test sessions were inserted.")
+    }
+    
+    func onSend30DailyEvents() {
+        if NetworkMonitor.isConnected() {
+            self.messageAlert = "Turn off internet and try again"
+            self.showCompletionAlert = true
+            return
+        }
+        
+        struct Item { let start: Date; let end: Date; let createdAt: Date }
+        
+        let totalDays = 30
+        let delayBetweenEventSeconds: TimeInterval = 0.5
+        let now = Date()
+        var items = [Item]()
+        items.reserveCapacity(totalDays)
+        
+        for index in 1...totalDays {
+            let daysToSubtract = totalDays - index
+            let start = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: now) ?? now
+            let end = start.addingTimeInterval(delayBetweenEventSeconds)
+            items.append(Item(start: start, end: end, createdAt: start))
+        }
+        
+        func eventsErrorAwait(message: String, createdAt: Date) async {
+            await withCheckedContinuation { cont in
+                Analytics.trackEvent(eventTitle: "Test Batch TrackEvent", data: ["30 Daily events": "Event"], createdAt: createdAt) { _ in
+                    cont.resume()
+                }
+            }
+        }
+        
+        _ = try? StorableApp.shared.putSessionData(timestamp: Date(), sessionType: "end")
+        
+        Task(priority: .utility) {
+            let entered = await ConcurrencyApp.shared.tryEnter()
+            guard entered else { return }
+            defer { Task { await ConcurrencyApp.shared.leave() } }
+            
+            for item in items {
+                do {
+                    try StorableApp.shared.putSessionData(timestamp: item.start, sessionType: "start")
+                } catch {
+                    debugPrint("Error inserting start session: \(error)")
+                    continue
+                }
+                
+                await eventsErrorAwait(message: "Test 30 Last Days Events", createdAt: item.createdAt)
+                
+                do {
+                    try StorableApp.shared.updateEventsWithCurrentSessionId()
+                    try StorableApp.shared.putSessionData(timestamp: item.end, sessionType: "end")
+                } catch {
+                    debugPrint("Error inserting end session: \(error)")
+                    continue
+                }
+            }
+            
+            await MainActor.run {
+                self.messageAlert = "Event generated, turn on internet"
+                self.showCompletionAlert = true
+            }
+        }
     }
 
     

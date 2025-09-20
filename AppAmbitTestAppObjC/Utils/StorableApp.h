@@ -14,7 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (BOOL)updateLogsWithCurrentSessionId:(NSError * _Nullable * _Nullable)error;
 
+- (BOOL)updateEventsWithCurrentSessionId:(NSError * _Nullable * _Nullable)error;
+
 - (NSString * _Nullable)getCurrentOpenSessionId:(NSError * _Nullable * _Nullable)error;
+
 
 @end
 

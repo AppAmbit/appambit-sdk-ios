@@ -1,7 +1,6 @@
 #import "MainTabBarController.h"
 #import "CrashesViewController.h"
 #import "AnalyticsViewController.h"
-#import "LoadViewController.h"
 
 @implementation MainTabBarController
 
@@ -23,14 +22,7 @@
                                                             tag:1];
     UINavigationController *navAnalytics = [[UINavigationController alloc] initWithRootViewController:analytics];
 
-    LoadViewController *load = [LoadViewController new];
-    load.title = @"Load";
-    load.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Load"
-                                                    image:[UIImage systemImageNamed:@"bolt.horizontal.circle"]
-                                                      tag:2];
-    UINavigationController *navLoad = [[UINavigationController alloc] initWithRootViewController:load];
-
-    self.viewControllers = @[navCrashes, navAnalytics, navLoad];
+    self.viewControllers = @[navCrashes, navAnalytics];
 }
 
 @end

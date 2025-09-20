@@ -74,7 +74,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSDictionary *)toDictionary {
     NSISO8601DateFormatter *iso = [NSISO8601DateFormatter new];
-    iso.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
+    iso.formatOptions = NSISO8601DateFormatWithInternetDateTime;
+
     NSString *created = [iso stringFromDate:self.createdAt];
 
     NSMutableDictionary *d = [@{
@@ -93,6 +94,7 @@ NS_ASSUME_NONNULL_BEGIN
     if (self.crashLogFile) d[@"CrashLogFile"] = self.crashLogFile;
     return d;
 }
+
 
 + (instancetype)fromError:(NSError *)error
                 sessionId:(NSString *)sessionId
@@ -224,7 +226,6 @@ NS_ASSUME_NONNULL_BEGIN
     for (NSString *symbol in symbols) {
         NSRange r = [symbol rangeOfString:@".swift:"];
         if (r.location != NSNotFound) {
-            // Busca el último "/" antes de ".swift:"
             NSRange before = NSMakeRange(0, r.location);
             NSRange slash = [symbol rangeOfString:@"/" options:NSBackwardsSearch range:before];
             if (slash.location != NSNotFound) {

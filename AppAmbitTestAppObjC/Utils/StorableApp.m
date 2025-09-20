@@ -1,6 +1,6 @@
 #import "StorableApp.h"
 #import <sqlite3.h>
-#import <unistd.h> // usleep
+#import <unistd.h>
 
 #define SA_SQLITE_TRANSIENT ((sqlite3_destructor_type)-1)
 
@@ -14,8 +14,6 @@
 @end
 
 @implementation StorableApp
-
-#pragma mark - Singleton
 
 + (instancetype)shared {
     static StorableApp *S;
@@ -45,8 +43,6 @@
     [NSException raise:@"Use shared" format:@"Use [StorableApp shared]"];
     return nil;
 }
-
-#pragma mark - Open/Close
 
 - (BOOL)openDB:(NSError **)error {
     __block BOOL ok = YES;
@@ -105,63 +101,75 @@
 - (void)sleepWithBackoffAttempt:(int)attempt {
     int powFactor = MIN(attempt, 7);
     int delayMs = MIN(_maxDelayMs, _baseDelayMs * (1 << powFactor));
-    int jitter = arc4random_uniform(2501); // 0..2500
+    int jitter = arc4random_uniform(2501);
     useconds_t us = (useconds_t)((delayMs * 1000) + jitter);
     usleep(us);
 }
+ 
+- (BOOL)exec:(NSString *)sql error:(NSError **)error {
+    BOOL ok = NO;
+    NSError *local = nil;
 
-- (BOOL)execRetry:(NSString *)sql error:(NSError **)error {
-    __block BOOL ok = NO;
-    __block NSError *local = nil;
-
-    dispatch_sync(_queue, ^{
-        const char *csql = [sql UTF8String];
-        char *errmsg = NULL;
-        NSString *lastErr = @"unknown";
-
-        for (int attempt=0; attempt<_maxAttempts; attempt++) {
-            int rc = sqlite3_exec(_db, csql, NULL, NULL, &errmsg);
-            if (rc == SQLITE_OK) { ok = YES; break; }
-
-            if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
-                if (errmsg) { lastErr = [NSString stringWithUTF8String:errmsg]; sqlite3_free(errmsg); errmsg = NULL; }
-                [self sleepWithBackoffAttempt:attempt];
-                continue;
-            }
-            lastErr = errmsg ? [NSString stringWithUTF8String:errmsg] : @"unknown";
-            if (errmsg) { sqlite3_free(errmsg); errmsg = NULL; }
-            local = [NSError errorWithDomain:@"SQLite3" code:rc userInfo:@{NSLocalizedDescriptionKey:lastErr}];
-            break;
-        }
-
-        if (!ok && !local) {
-            local = [NSError errorWithDomain:@"SQLite3" code:SQLITE_BUSY
-                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                    [NSString stringWithFormat:@"execRetry exhausted attempts for: %@ (last: %@)", sql, lastErr]}];
-        }
-    });
+    char *errmsg = NULL;
+    int rc = sqlite3_exec(_db, sql.UTF8String, NULL, NULL, &errmsg);
+    if (rc == SQLITE_OK) {
+        ok = YES;
+    } else {
+        NSString *msg = errmsg ? [NSString stringWithUTF8String:errmsg] : @"unknown";
+        if (errmsg) sqlite3_free(errmsg);
+        local = [NSError errorWithDomain:@"SQLite3" code:rc userInfo:@{NSLocalizedDescriptionKey: msg}];
+    }
 
     if (error) *error = local;
     return ok;
 }
 
-- (BOOL)exec:(NSString *)sql error:(NSError **)error {
-    __block BOOL ok = NO;
-    __block NSError *local = nil;
+- (BOOL)execRetry:(NSString *)sql error:(NSError **)error {
+    BOOL ok = NO;
+    NSError *local = nil;
 
-    dispatch_sync(_queue, ^{
-        char *errmsg = NULL;
-        int rc = sqlite3_exec(_db, sql.UTF8String, NULL, NULL, &errmsg);
-        if (rc == SQLITE_OK) { ok = YES; }
-        else {
-            NSString *msg = errmsg ? [NSString stringWithUTF8String:errmsg] : @"unknown";
-            if (errmsg) sqlite3_free(errmsg);
-            local = [NSError errorWithDomain:@"SQLite3" code:rc userInfo:@{NSLocalizedDescriptionKey: msg}];
+    const char *csql = [sql UTF8String];
+    char *errmsg = NULL;
+    NSString *lastErr = @"unknown";
+
+    for (int attempt = 0; attempt < _maxAttempts; attempt++) {
+        int rc = sqlite3_exec(_db, csql, NULL, NULL, &errmsg);
+        if (rc == SQLITE_OK) { ok = YES; break; }
+
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+            if (errmsg) { lastErr = [NSString stringWithUTF8String:errmsg]; sqlite3_free(errmsg); errmsg = NULL; }
+            [self sleepWithBackoffAttempt:attempt];
+            continue;
         }
-    });
+        lastErr = errmsg ? [NSString stringWithUTF8String:errmsg] : @"unknown";
+        if (errmsg) { sqlite3_free(errmsg); errmsg = NULL; }
+        local = [NSError errorWithDomain:@"SQLite3" code:rc userInfo:@{NSLocalizedDescriptionKey: lastErr}];
+        break;
+    }
 
+    if (!ok && !local) {
+        local = [NSError errorWithDomain:@"SQLite3" code:SQLITE_BUSY
+                                 userInfo:@{NSLocalizedDescriptionKey:
+                                                [NSString stringWithFormat:@"execRetry exhausted attempts for: %@ (last: %@)", sql, lastErr]}];
+    }
     if (error) *error = local;
     return ok;
+}
+
+- (BOOL)inTransaction:(BOOL (^)(NSError **innerErr))body error:(NSError **)error {
+    if (![self execRetry:@"BEGIN IMMEDIATE;" error:error]) return NO;
+
+    NSError *inner = nil;
+    BOOL ok = body(&inner);
+
+    if (ok) {
+        if (![self execRetry:@"COMMIT;" error:error]) return NO;
+    } else {
+        [self execRetry:@"ROLLBACK;" error:nil];
+        if (error) *error = inner ?: [self sqliteError];
+        return NO;
+    }
+    return YES;
 }
 
 - (NSString *)isoStringFromDate:(NSDate *)date {
@@ -189,23 +197,6 @@
     }
 }
 
-- (BOOL)inTransaction:(BOOL (^)(NSError **innerErr))body error:(NSError **)error {
-    if (![self execRetry:@"BEGIN IMMEDIATE;" error:error]) return NO;
-
-    NSError *inner = nil;
-    BOOL ok = body(&inner);
-
-    if (ok) {
-        if (![self execRetry:@"COMMIT;" error:error]) return NO;
-    } else {
-        [self execRetry:@"ROLLBACK;" error:nil];
-        if (error) *error = inner ?: [self sqliteError];
-        return NO;
-    }
-    return YES;
-}
-
-#pragma mark - API públicas (equivalentes a Swift)
 
 - (BOOL)putSessionDataWithTimestamp:(NSDate *)timestamp
                         sessionType:(NSString *)sessionType
@@ -366,6 +357,68 @@
     if (error) *error = local;
     return ok;
 }
+
+- (BOOL)updateEventsWithCurrentSessionId:(NSError * _Nullable * _Nullable)error {
+    __block BOOL ok = NO;
+    __block NSError *local = nil;
+
+    dispatch_sync(_queue, ^{
+        ok = [self inTransaction:^BOOL(NSError *__autoreleasing  _Nullable * _Nonnull innerErr) {
+            const char *selectSQL =
+            "SELECT id FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1;";
+            sqlite3_stmt *sel = NULL;
+            if (sqlite3_prepare_v2(_db, selectSQL, -1, &sel, NULL) != SQLITE_OK) {
+                *innerErr = [self sqliteError]; return NO;
+            }
+            NSString *sessionId = nil;
+            if (sqlite3_step(sel) == SQLITE_ROW) {
+                const unsigned char *c = sqlite3_column_text(sel, 0);
+                if (c) sessionId = [NSString stringWithUTF8String:(const char *)c];
+            }
+            sqlite3_finalize(sel);
+
+            if (!sessionId) {
+                NSLog(@"No open session found, events not updated");
+                return YES;
+            }
+
+            const char *upd1 =
+            "UPDATE events SET sessionId = ? "
+            "WHERE _rowid_ = (SELECT _rowid_ FROM events ORDER BY _rowid_ DESC LIMIT 1);";
+            sqlite3_stmt *s1 = NULL;
+            if (sqlite3_prepare_v2(_db, upd1, -1, &s1, NULL) != SQLITE_OK) {
+                *innerErr = [self sqliteError]; return NO;
+            }
+            [self bindText:s1 index:1 value:sessionId];
+            if (sqlite3_step(s1) != SQLITE_DONE) { sqlite3_finalize(s1); *innerErr = [self sqliteError]; return NO; }
+            sqlite3_finalize(s1);
+
+            if (sqlite3_changes(_db) == 1) {
+                return YES;
+            }
+
+            const char *upd2 =
+            "UPDATE events SET sessionId = ? "
+            "WHERE id = (SELECT id FROM events ORDER BY id DESC LIMIT 1);";
+            sqlite3_stmt *s2 = NULL;
+            if (sqlite3_prepare_v2(_db, upd2, -1, &s2, NULL) != SQLITE_OK) {
+                *innerErr = [self sqliteError]; return NO;
+            }
+            [self bindText:s2 index:1 value:sessionId];
+            if (sqlite3_step(s2) != SQLITE_DONE) { sqlite3_finalize(s2); *innerErr = [self sqliteError]; return NO; }
+            sqlite3_finalize(s2);
+
+            if (sqlite3_changes(_db) == 0) {
+                NSLog(@"No events to update (table empty?)");
+            }
+            return YES;
+        } error:&local];
+    });
+
+    if (error) *error = local;
+    return ok;
+}
+
 
 - (NSString * _Nullable)getCurrentOpenSessionId:(NSError * _Nullable * _Nullable)error {
     __block NSString *result = nil;

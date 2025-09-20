@@ -1,4 +1,3 @@
-// Utilities/CrashStore.m
 #import "CrashStore.h"
 #import "ExceptionModel.h"
 

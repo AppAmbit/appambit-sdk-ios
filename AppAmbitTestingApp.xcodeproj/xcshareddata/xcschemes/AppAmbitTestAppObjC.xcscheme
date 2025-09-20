@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1620"
+   LastUpgradeVersion = "1640"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-               BuildableName = "AppAmbitTestingApp.app"
-               BlueprintName = "AppAmbitTestingApp"
+               BlueprintIdentifier = "79712D1B2E7CD50D00B99DB6"
+               BuildableName = "AppAmbitTestAppObjC.app"
+               BlueprintName = "AppAmbitTestAppObjC"
                ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,8 +32,8 @@
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = ""
-      selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
@@ -44,9 +44,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-            BuildableName = "AppAmbitTestingApp.app"
-            BlueprintName = "AppAmbitTestingApp"
+            BlueprintIdentifier = "79712D1B2E7CD50D00B99DB6"
+            BuildableName = "AppAmbitTestAppObjC.app"
+            BlueprintName = "AppAmbitTestAppObjC"
             ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,9 +61,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-            BuildableName = "AppAmbitTestingApp.app"
-            BlueprintName = "AppAmbitTestingApp"
+            BlueprintIdentifier = "79712D1B2E7CD50D00B99DB6"
+            BuildableName = "AppAmbitTestAppObjC.app"
+            BlueprintName = "AppAmbitTestAppObjC"
             ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -11,7 +11,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Uncomment the line for manual session management
-    // [Analytics enableManualSession];
+    //[Analytics enableManualSession];
 
     [AppAmbit startWithAppKey:@"API_KEY"];
 
