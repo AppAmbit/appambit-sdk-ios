@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name             = 'AppAmbitSdk'
-  s.version          = '0.0.8'
-  s.summary          = 'Lightweight SDK for capturing sessions, logs, crashes, and events in iOS apps with offline persistence and batch upload to AppAmbit.'
+  s.version          = '0.0.9'
+  s.summary          = 'Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.'
 
   s.description      = <<-DESC
 AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your iOS apps. It supports offline persistence and batches data to AppAmbit backend services with minimal setup.
