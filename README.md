@@ -3,7 +3,7 @@
 **Track. Debug. Distribute.**
 **AppAmbit: track, debug, and distribute your apps from one dashboard.**
 
-The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash reporting, and release distribution hooks to your iOS apps. It is designed for simple setup, low overhead, and production-ready defaults.
+Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.
 
 > Full product docs live here: **[docs.appambit.com](https://docs.appambit.com)**
 
