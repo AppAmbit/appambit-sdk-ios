@@ -84,7 +84,7 @@ Configure the SDK at app launch with your **API Key**.
 ```swift
 
 // AppDelegate
-AppAmbit.start(appKey: "<YOUR-APIKEY>")
+AppAmbit.start(appKey: "<YOUR-APPKEY>")
 ```
 
 ### Objective-C
@@ -92,7 +92,7 @@ AppAmbit.start(appKey: "<YOUR-APIKEY>")
 ```objective-c
 
 // AppDelegate
-[AppAmbit startWithAppKey:@"<YOUR-APIKEY>"];
+[AppAmbit startWithAppKey:@"<YOUR-APPKEY>"];
 ```
 ---
 
