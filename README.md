@@ -3,7 +3,7 @@
 **Track. Debug. Distribute.**
 **AppAmbit: track, debug, and distribute your apps from one dashboard.**
 
-The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash reporting, and release distribution hooks to your iOS apps. It is designed for simple setup, low overhead, and production-ready defaults.
+Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.
 
 > Full product docs live here: **[docs.appambit.com](https://docs.appambit.com)**
 
@@ -28,13 +28,13 @@ The AppAmbit iOS SDK adds lightweight analytics, event tracking, logs, crash rep
 
 ## Features
 
-* Session analytics with automatic lifecycle tracking
+* Session analytics
 * Event tracking with rich properties
-* Structured logs with levels and tags
+* Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
-* Network-safe batching, retry, and offline queue
-* Configurable endpoints for staging and production
-* Small footprint, modern Swift API
+* Offline support with batching, retry, and queue
+* Create mutliple app profiles for staging and production
+* Small footprint, modern Swift API with full Objective-C support
 
 ---
 
@@ -98,7 +98,7 @@ AppAmbit.start(appKey: "<YOUR-APIKEY>")
 
 ## Usage
 
-* **Identify Users**: attach traits and metadata to your sessions
+* **Session Activity**: understand user behavior and engagement
 * **Track Events**: send structured events with custom properties
 * **Logs**: add structured log messages for debugging
 * **Crash Reporting**: uncaught crashes are automatically captured
@@ -107,8 +107,7 @@ AppAmbit.start(appKey: "<YOUR-APIKEY>")
 
 ## Release Distribution
 
-* Optionally enable in-app build update checks for tester workflows
-* Safe to omit for production apps that only use telemetry
+* Push the artifact to your AppAmbit dashboard for distribution via email and direct installation.
 
 ---
 
@@ -170,7 +169,7 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
 * **Dashboard**: [appambit.com](https://appambit.com)
-* **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-c test app coming soon. 
+* **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-C test app coming soon. 
 
 ---
 
