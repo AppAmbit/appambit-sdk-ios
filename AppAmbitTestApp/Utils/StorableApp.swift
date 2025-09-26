@@ -56,7 +56,6 @@ final class StorableApp {
         usleep(useconds_t(delayMs * 1000 + jitter))
     }
 
-    @discardableResult
     private func execRetry(_ sql: String) throws -> Void {
         var lastErr: String = "unknown"
         for attempt in 0..<maxAttempts {
@@ -292,6 +291,73 @@ final class StorableApp {
 
                 if sqlite3_changes(db) == 0 {
                     debugPrint("No logs to update (table empty?)")
+                }
+            }
+        }
+    }
+    
+    func updateEventsWithCurrentSessionId() throws {
+        try queue.sync {
+            try inTransaction {
+                let selectSQL = """
+                SELECT id
+                FROM sessions
+                WHERE endedAt IS NULL
+                ORDER BY startedAt DESC
+                LIMIT 1;
+                """
+                var selectStmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, selectSQL, -1, &selectStmt, nil) == SQLITE_OK else { throw sqliteError }
+                defer { sqlite3_finalize(selectStmt) }
+
+                var sessionId: String? = nil
+                if sqlite3_step(selectStmt) == SQLITE_ROW, let cstr = sqlite3_column_text(selectStmt, 0) {
+                    sessionId = String(cString: cstr)
+                }
+
+                guard let currentSessionId = sessionId else {
+                    debugPrint("No open session found, events not updated")
+                    return
+                }
+
+                let updateByRowidSQL = """
+                UPDATE events
+                SET sessionId = ?
+                WHERE _rowid_ = (SELECT _rowid_ FROM events ORDER BY _rowid_ DESC LIMIT 1);
+                """
+                var updateByRowidStmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, updateByRowidSQL, -1, &updateByRowidStmt, nil) == SQLITE_OK else { throw sqliteError }
+                defer { sqlite3_finalize(updateByRowidStmt) }
+
+                bindText(updateByRowidStmt, index: 1, value: currentSessionId)
+
+                let stepRC1 = sqlite3_step(updateByRowidStmt)
+                guard stepRC1 == SQLITE_DONE else { throw sqliteError }
+
+                if sqlite3_changes(db) == 1 {
+                    return
+                }
+
+                let updateByIdSQL = """
+                UPDATE events
+                SET sessionId = ?
+                WHERE id = (
+                    SELECT id FROM events
+                    ORDER BY id DESC
+                    LIMIT 1
+                );
+                """
+                var updateByIdStmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, updateByIdSQL, -1, &updateByIdStmt, nil) == SQLITE_OK else { throw sqliteError }
+                defer { sqlite3_finalize(updateByIdStmt) }
+
+                bindText(updateByIdStmt, index: 1, value: currentSessionId)
+
+                let stepRC2 = sqlite3_step(updateByIdStmt)
+                guard stepRC2 == SQLITE_DONE else { throw sqliteError }
+
+                if sqlite3_changes(db) == 0 {
+                    debugPrint("No events to update (table empty?)")
                 }
             }
         }
