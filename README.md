@@ -58,9 +58,9 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 Add this to your Podfile:
 
 ```ruby
-pod 'AppAmbit'
+pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbit', '~> 1.0.0'
+pod 'AppAmbitSdk', '~> 0.0.8'
 ```
 
 Then run:
@@ -71,7 +71,7 @@ pod install
 
 Open the generated `.xcworkspace` project.
 
-*(If you get an error like “Unable to find a specification for `AppAmbit`”: run `pod repo update`, then `pod install`.)*
+*(If you get an error like “Unable to find a specification for `AppAmbitSdk`”: run `pod repo update`, then `pod install`.)*
 
 ---
 
@@ -100,7 +100,28 @@ AppAmbit.start(appKey: "<YOUR-APIKEY>")
 
 * **Session Activity**: understand user behavior and engagement
 * **Track Events**: send structured events with custom properties
+  ### Swift
+  ```swift
+    Analytics.trackEvent(eventTitle: "Test TrackEvent", data: ["test1":"test1"])
+  ```
+  ### Objective-C
+  ```objetive-c
+    [Analytics trackEventWithEventTitle:@"Test TrackEvent" data:@{ @"test1": @"test1" } createdAt:nil completion:nil];
+  ```
 * **Logs**: add structured log messages for debugging
+  ### Swift
+  ```swift
+    let properties: [String: String] = ["user_id": "1"]
+    let message = "Error NullPointerException"
+    Crashes.logError(message: message, properties: properties, exception: error)
+  ```
+  ### Objective-C
+  ```objetive-c
+    [props setObject:@"123" forKey:@"userId"];
+    NSDictionary *userInfo = @{ NSLocalizedDescriptionKey: exception.reason };
+    NSError *error = [NSError errorWithDomain:exception.name code:0 userInfo:userInfo];
+    [Crashes logErrorWithMessage:(@"Error ArrayIndex") properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 createdAt:nil completion:nil];
+  ```
 * **Crash Reporting**: uncaught crashes are automatically captured
 
 ---
