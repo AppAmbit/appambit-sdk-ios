@@ -28,8 +28,8 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ## Features
 
-* Session analytics
-* Event tracking with rich properties
+* Session analytics with automatic lifecycle tracking
+* Event tracking with custom properties
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
