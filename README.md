@@ -98,8 +98,8 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 
 ## Usage
 
-* **Session Activity**: understand user behavior and engagement
-* **Track Events**: send structured events with custom properties
+* **Session activity** – automatically tracks user session starts, stops, and durations
+* **Track events** – send structured events with custom properties
   ### Swift
   ```swift
     Analytics.trackEvent(eventTitle: "Test TrackEvent", data: ["test1":"test1"])
@@ -122,7 +122,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     NSError *error = [NSError errorWithDomain:exception.name code:0 userInfo:userInfo];
     [Crashes logErrorWithMessage:(@"Error ArrayIndex") properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 createdAt:nil completion:nil];
   ```
-* **Crash Reporting**: uncaught crashes are automatically captured
+* **Crash Reporting**: uncaught crashes are automatically captured and uploaded on next launch
 
 ---
 
@@ -190,7 +190,7 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
 * **Dashboard**: [appambit.com](https://appambit.com)
-* **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-C test app coming soon. 
+* **Examples**: Sample swift test app AppAmbitTestApp included in repo. Objective-C test app coming soon. 
 
 ---
 
