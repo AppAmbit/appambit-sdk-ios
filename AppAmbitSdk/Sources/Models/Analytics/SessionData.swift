@@ -37,3 +37,19 @@ struct SessionData: Codable, DictionaryConvertible {
         return dict
     }
 }
+
+extension SessionData {
+    func withCopy(
+        id: String? = nil,
+        sessionId: String? = nil,
+        timestamp: Date? = nil,
+        sessionType: SessionType? = nil
+    ) -> SessionData {
+        SessionData(
+            id: id ?? self.id,
+            sessionId: sessionId ?? self.sessionId,
+            timestamp: timestamp ?? self.timestamp,
+            sessionType: sessionType ?? self.sessionType
+        )
+    }
+}

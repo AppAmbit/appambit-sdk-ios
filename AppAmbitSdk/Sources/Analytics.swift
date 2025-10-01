@@ -2,86 +2,70 @@ import Foundation
 
 @objcMembers
 public final class Analytics: NSObject, @unchecked Sendable {
+    public typealias ErrorCompletion = @Sendable (Error?) -> Void
+
     private var apiService: ApiService?
     private var storageService: StorageService?
     nonisolated(unsafe) static var isManualSessionEnabled: Bool = false
-    
-    private static let syncQueueBatch = DispatchQueue(label: "com.appambit.crashes.batch", attributes: .concurrent)
+
     private var isSendingBatch = false
-    private static let batchLock = NSLock()
-    private static let batchSendTimeout: TimeInterval = 30
-    private var waiters: [(@Sendable (Error?) -> Void)] = []
-    
-    private override init() {
-        super.init()
-    }
-    
-    static let shared = Analytics()
-    
-    private static let isolationQueue = DispatchQueue(
-        label: "com.appambit.analytics.isolation",
-        qos: .default,
-        attributes: []
-    )
-    
+    private var waiters: [ErrorCompletion] = []
+    private var batchTimeoutTimer: DispatchSourceTimer?
+    private static let batchSendTimeoutSeconds: Int = 30
+
+    private override init() { super.init() }
+    public static let shared = Analytics()
+
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.apiService = apiService
         shared.storageService = storageService
     }
-    
-    public static func setUserId(_ userId: String, completion: ((Error?) -> Void)? = nil) {
-        let workItem = DispatchWorkItem {
+
+    public static func setUserId(_ userId: String, completion: @escaping ErrorCompletion = { _ in }) {
+        Queues.state.async {
             do {
                 try shared.storageService?.putUserId(userId)
-                completion?(nil)
+                completion(nil)
             } catch {
                 AppAmbitLogger.log(error: error)
-                completion?(error)
+                completion(error)
             }
         }
-        
-        isolationQueue.async(execute: workItem)
     }
-    
-    public static func setEmail(_ email: String, completion: ((Error?) -> Void)? = nil) {
-        let workItem = DispatchWorkItem {
+
+    public static func setEmail(_ email: String, completion: @escaping ErrorCompletion = { _ in }) {
+        Queues.state.async {
             do {
                 try shared.storageService?.putUserEmail(email)
+                completion(nil)
             } catch {
                 AppAmbitLogger.log(message: "Error putting email: \(error)")
+                completion(error)
             }
         }
-        
-        isolationQueue.async(execute: workItem)
     }
-    
-    public static func startSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+
+    public static func startSession(completion: @escaping ErrorCompletion = { _ in }) {
         SessionManager.startSession(completion: completion)
     }
-    
-    public static func endSession(completion: (@Sendable (Error?) -> Void)? = nil) {
+
+    public static func endSession(completion: @escaping ErrorCompletion = { _ in }) {
         SessionManager.endSession(completion: completion)
     }
-    
+
     public static func enableManualSession() {
-        let workItem = DispatchWorkItem {
-            isManualSessionEnabled = true
-        }
-        
-        isolationQueue.async(execute: workItem)
+        Queues.state.async { isManualSessionEnabled = true }
     }
-    
+
     public static func clearToken() {
-        isolationQueue.async {
-            ServiceContainer.shared.apiService.setToken("")
-        }
+        Queues.state.async { ServiceContainer.shared.apiService.setToken("") }
     }
-    
+
     public static func trackEvent(
         eventTitle: String,
         data: [String: String],
         createdAt: Date? = nil,
-        completion: (@Sendable (Error?) -> Void)? = nil
+        completion: @escaping ErrorCompletion = { _ in }
     ) {
         sendOrSaveEvent(
             eventTitle: eventTitle,
@@ -90,94 +74,85 @@ public final class Analytics: NSObject, @unchecked Sendable {
             completion: completion
         )
     }
-    
-    public static func generateTestEvent(completion: (@Sendable (Error?) -> Void)? = nil) {
-        let workItem = DispatchWorkItem {
+
+    public static func generateTestEvent(completion: @escaping ErrorCompletion = { _ in }) {
+        Queues.state.async {
             sendOrSaveEvent(
                 eventTitle: "Test Event",
                 data: ["Event": "Custom Event"],
                 createdAt: nil,
-                completion: completion)
+                completion: completion
+            )
         }
-        
-        isolationQueue.async(execute: workItem)
     }
-    
-    
-    static func sendBatchEvents(completion: (@Sendable (Error?) -> Void)? = nil) {
-        batchLock.lock()
-        if let completion { shared.waiters.append(completion) }
 
-        if shared.isSendingBatch {
-            batchLock.unlock()
-            AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
-            return
-        }
-        shared.isSendingBatch = true
-        batchLock.unlock()
-
-        let finish: @Sendable (Error?) -> Void = { err in
-            batchLock.lock()
-            let wasSending = shared.isSendingBatch
-            shared.isSendingBatch = false
-            let callbacks = shared.waiters
-            shared.waiters.removeAll()
-            batchLock.unlock()
-
-            if wasSending { AppAmbitLogger.log(message: "SendBatchEvents: released") }
-            for cb in callbacks { DispatchQueue.global().async { cb(err) } }
-        }
-
-        DispatchQueue.main.async {
-            Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
-                batchLock.lock()
-                let stillSending = shared.isSendingBatch
-                batchLock.unlock()
-                if stillSending {
-                    AppAmbitLogger.log(message: "SendBatchEvents timeout: releasing lock")
-                    finish(AppAmbitLogger.buildError(message: "SendBatchEvents timeout"))
-                }
+    public static func sendBatchEvents(completion: @escaping ErrorCompletion = { _ in }) {
+        let finish: ErrorCompletion = { err in
+            Queues.batch.async {
+                shared.isSendingBatch = false
+                shared.batchTimeoutTimer?.cancel()
+                shared.batchTimeoutTimer = nil
+                let cbs = shared.waiters
+                shared.waiters.removeAll()
+                for cb in cbs { DispatchQueue.global(qos: .utility).async { cb(err) } }
             }
         }
 
-        getEventsInDb { events, error in
-            if let error = error {
-                AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
-                finish(error)
+        Queues.batch.async {
+            shared.waiters.append(completion)
+            guard !shared.isSendingBatch else {
+                AppAmbitLogger.log(message: "SendBatchEvents skipped: already in progress")
                 return
             }
+            shared.isSendingBatch = true
 
-            guard let events = events, !events.isEmpty else {
-                AppAmbitLogger.log(message: "There are no events to send")
-                finish(nil)
-                return
+            let t = DispatchSource.makeTimerSource(queue: Queues.batch)
+            t.schedule(deadline: .now() + .seconds(batchSendTimeoutSeconds))
+            t.setEventHandler {
+                AppAmbitLogger.log(message: "SendBatchEvents timeout: releasing gate")
+                finish(AppAmbitLogger.buildError(message: "SendBatchEvents timeout"))
             }
+            shared.batchTimeoutTimer = t
+            t.resume()
 
-            let endpoint = EventBatchEndpoint(eventBatch: events)
-            shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
-                if response.errorType != .none {
-                    AppAmbitLogger.log(message: "Events were not sent: \(response.message ?? "")")
-                    finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
-                    return
-                }
+            getEventsInDbAsync { events, error in
+                Queues.batch.async {
+                    if let error = error {
+                        AppAmbitLogger.log(message: "Error getting events: \(error.localizedDescription)")
+                        finish(error); return
+                    }
+                    guard let events = events, !events.isEmpty else {
+                        AppAmbitLogger.log(message: "There are no events to send")
+                        finish(nil); return
+                    }
 
-                do {
-                    try shared.storageService?.deleteEventList(events)
-                    AppAmbitLogger.log(message: "SendBatchEvents successfully sent")
-                    finish(nil)
-                } catch {
-                    AppAmbitLogger.log(message: "Failed deleting events: \(error.localizedDescription)")
-                    finish(error)
+                    let endpoint = EventBatchEndpoint(eventBatch: events)
+                    shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
+                        Queues.batch.async {
+                            if response.errorType != .none {
+                                AppAmbitLogger.log(message: "Events were not sent: \(response.message ?? "")")
+                                finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
+                                return
+                            }
+                            do {
+                                try shared.storageService?.deleteEventList(events)
+                                AppAmbitLogger.log(message: "SendBatchEvents successfully sent")
+                                finish(nil)
+                            } catch {
+                                AppAmbitLogger.log(message: "Failed deleting events: \(error.localizedDescription)")
+                                finish(error)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    
-    private static func getEventsInDb(
-        completion: @escaping @Sendable (_ events: [EventEntity]?, _ error: Error?) -> Void
+    private static func getEventsInDbAsync(
+        _ completion: @escaping @Sendable (_ events: [EventEntity]?, _ error: Error?) -> Void
     ) {
-        syncQueueBatch.async {
+        DispatchQueue.global(qos: .utility).async {
             do {
                 let events = try shared.storageService?.getOldest100Events()
                 completion(events, nil)
@@ -187,20 +162,19 @@ public final class Analytics: NSObject, @unchecked Sendable {
         }
     }
 
-    
     private static func sendOrSaveEvent(
         eventTitle: String,
         data: [String: String],
         createdAt: Date?,
-        completion: (@Sendable (Error?) -> Void)? = nil
+        completion: @escaping ErrorCompletion = { _ in }
     ) {
         if !SessionManager.isSessionActive {
             let message = "There is no active session"
             AppAmbitLogger.log(message: message)
-            completion?(AppAmbitLogger.buildError(message: message, code: 200));
+            completion(AppAmbitLogger.buildError(message: message, code: 200))
             return
         }
-        
+
         let truncatedData = Dictionary(
             data
                 .map { key, value in
@@ -212,62 +186,46 @@ public final class Analytics: NSObject, @unchecked Sendable {
                 .prefix(AppConstants.trackEventMaxPropertyLimit),
             uniquingKeysWith: { first, _ in first }
         )
-        
+
         let eventTitleTruncate = truncate(value: eventTitle, maxLength: AppConstants.trackEventNameMaxLimit)
-        
-        let event = Event(
-            name: eventTitleTruncate,
-            metadata: truncatedData
-        )
-        
+
+        let event = Event(name: eventTitleTruncate, metadata: truncatedData)
         let endpoint = EventEndpoint(event: event)
-        
+
         shared.apiService?.executeRequest(endpoint, responseType: EventResponse.self) { (resultEvent: ApiResult<EventResponse>) in
             if resultEvent.errorType != .none {
                 AppAmbitLogger.log(message: resultEvent.message ?? "Unknown")
-                
-                
-                
                 let entity = EventEntity(
                     id: UUID().uuidString,
                     sessionId: SessionManager.sessionId,
-                    createdAt: DateUtils.utcNow,
+                    createdAt: createdAt ?? DateUtils.utcNow,
                     name: eventTitleTruncate,
                     metadata: truncatedData
                 )
-                
-                storeLogInDb(eventEntity: entity) { error in
+                storeLogInDb(eventEntity: entity) { _ in
                     DispatchQueue.main.async {
-                        completion?(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
+                        completion(AppAmbitLogger.buildError(message: resultEvent.message ?? "", code: 100))
                     }
                 }
-                
             } else {
-                DispatchQueue.main.async {
-                    completion?(nil)
-                }
+                DispatchQueue.main.async { completion(nil) }
             }
         }
     }
-    
+
     private static func truncate(value: String, maxLength: Int) -> String {
         guard !value.isEmpty else { return value }
         return String(value.prefix(maxLength))
     }
-    
-    private static func storeLogInDb(eventEntity: EventEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
-        let workItem = DispatchWorkItem {
+
+    private static func storeLogInDb(eventEntity: EventEntity, completion: @escaping ErrorCompletion = { _ in }) {
+        Queues.state.async {
             do {
                 try shared.storageService?.putLogAnalyticsEvent(eventEntity)
-                DispatchQueue.main.async {
-                    completion?(nil)
-                }
+                DispatchQueue.main.async { completion(nil) }
             } catch {
-                DispatchQueue.main.async {
-                    completion?(error)
-                }
+                DispatchQueue.main.async { completion(error) }
             }
         }
-        isolationQueue.async(execute: workItem)
     }
 }

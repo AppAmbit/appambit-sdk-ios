@@ -11,7 +11,6 @@ class CrashHandler: @unchecked Sendable {
     
     // MARK: - State
     private let isolationQueue = DispatchQueue(label: "com.appambit.crashhandler.queue", attributes: .concurrent)
-    private let filesQueue = DispatchQueue(label: "com.appambit.crashhandler.files", attributes: .concurrent)
     private var _previousHandler: ExceptionHandler?
     
     private var previousHandler: ExceptionHandler? {
@@ -21,10 +20,16 @@ class CrashHandler: @unchecked Sendable {
     
     private var crashStorageURL: URL?
     
+    private static let symbolRegex: NSRegularExpression = {
+        try! NSRegularExpression(pattern: "\\s+\\d+\\s+[^\\s]+\\s+([^\\s]+)\\s+\\+")
+    }()
+    private static let fileLineRegex: NSRegularExpression = {
+        try! NSRegularExpression(pattern: "([^/]+(?:\\.swift|\\.m|\\.h)):(\\d+)")
+    }()
+    
     private init() {
         if let crashLogsDir = CrashHandler.getCrashLogsDirectory() {
             self.crashStorageURL = crashLogsDir
-            debugPrint("[CrashHandler] Crash log directory set to: \(crashLogsDir.path)")
         } else {
             debugPrint("[CrashHandler] ERROR: The crash log directory could not be determined or created.")
             self.crashStorageURL = nil
@@ -32,7 +37,6 @@ class CrashHandler: @unchecked Sendable {
     }
     
     func register() {
-        debugPrint("[CrashHandler] Registering crash handlers...")
         setupExceptionHandler()
         setupSignalHandlers()
     }
@@ -41,7 +45,15 @@ class CrashHandler: @unchecked Sendable {
         previousHandler = NSGetUncaughtExceptionHandler()
         let newHandler: ExceptionHandler = { exception in
             debugPrint("[CrashHandler] NSException captured: \(exception.name.rawValue) - \(exception.reason ?? "No reason")")
-            SessionManager.saveEndSessionToFile()
+            
+            if !Analytics.isManualSessionEnabled {
+                SessionManager.saveEndSession()
+            }
+            
+            if !SessionManager.isSessionActive {
+                return;
+            }
+            
             let crashInfo = ExceptionInfo.fromNSException(exception)
             CrashHandler.shared.saveCrashInfo(crashInfo)
             
@@ -66,7 +78,13 @@ class CrashHandler: @unchecked Sendable {
             action.sa_flags = SA_SIGINFO
             action.__sigaction_u.__sa_sigaction = { (signal, info, context) in
                 debugPrint("[CrashHandler] Signal \(signal) captured")
-                SessionManager.saveEndSessionToFile()
+                if !Analytics.isManualSessionEnabled {
+                    SessionManager.saveEndSession()
+                }
+                
+                if !SessionManager.isSessionActive {
+                    return;
+                }
                 let backtraceSymbols = Thread.callStackSymbols
                 let crashInfo = CrashHandler.shared.createSignalCrashInfo(
                     signal: signal,
@@ -121,45 +139,27 @@ class CrashHandler: @unchecked Sendable {
     }
 
     static func parseStackTrace(_ stackTrace: String) -> [(fileName: String?, className: String?, lineNumber: Int64?)] {
-        var elements: [(fileName: String?, className: String?, lineNumber: Int64?)] = []
-        let lines = stackTrace.split(separator: "\n")
-        
-        let symbolRegex = try? NSRegularExpression(pattern: "\\s+\\d+\\s+[^\\s]+\\s+([^\\s]+)\\s+\\+", options: [])
-        
-        for line in lines {
-            let nsLine = line as NSString
+        var elements: [(String?, String?, Int64?)] = []
+        for lineSub in stackTrace.split(separator: "\n") {
+            let line = String(lineSub) as NSString
             var fileName: String?
             var className: String?
             var lineNumber: Int64?
 
-            if let match = symbolRegex?.firstMatch(in: String(line), options: [], range: NSRange(location: 0, length: nsLine.length)) {
-                if match.numberOfRanges > 1 {
-                    let symbolRange = match.range(at: 1)
-                    if symbolRange.location != NSNotFound {
-                        let fullSymbol = nsLine.substring(with: symbolRange)
-                        let parts = fullSymbol.split(separator: ".", maxSplits: 1)
-                        
-                        if parts.count > 0 {
-                            if parts.count > 1 {
-                                className = String(parts[0])
-                            } else {
-                                className = String(parts[0])
-                            }
-                        }
-                    }
-                }
+            if let m = symbolRegex.firstMatch(in: String(line), options: [], range: NSRange(location: 0, length: line.length)),
+               m.numberOfRanges > 1, m.range(at: 1).location != NSNotFound {
+                let fullSymbol = line.substring(with: m.range(at: 1))
+                className = String(fullSymbol.split(separator: ".", maxSplits: 1).first ?? Substring(fullSymbol))
             }
 
-            let fileLineRegex = try? NSRegularExpression(pattern: "([^/]+(?:\\.swift|\\.m|\\.h)):(\\d+)", options: [])
-            if let fileLineMatch = fileLineRegex?.firstMatch(in: String(line), options: [], range: NSRange(location: 0, length: nsLine.length)) {
-                if fileLineMatch.numberOfRanges > 2 {
-                    fileName = nsLine.substring(with: fileLineMatch.range(at: 1))
-                    if let numStr = Int64(nsLine.substring(with: fileLineMatch.range(at: 2))) {
-                        lineNumber = numStr
-                    }
+            if let m = fileLineRegex.firstMatch(in: String(line), options: [], range: NSRange(location: 0, length: line.length)),
+               m.numberOfRanges > 2 {
+                fileName = line.substring(with: m.range(at: 1))
+                if let num = Int64(line.substring(with: m.range(at: 2))) {
+                    lineNumber = num
                 }
             }
-            elements.append((fileName: fileName, className: className, lineNumber: lineNumber))
+            elements.append((fileName, className, lineNumber))
         }
         return elements
     }
@@ -169,22 +169,15 @@ class CrashHandler: @unchecked Sendable {
             debugPrint("[CrashHandler] The crash storage URL could not be determined..")
             return
         }
-
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
         let timestamp = dateFormatter.string(from: info.createdAt)
-        let fileName = "crash_\(timestamp).json"
-        let fileURL = crashStorageURL.appendingPathComponent(fileName)
-        
-        do {
-            let encoder: JSONEncoder = {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = .prettyPrinted
-                encoder.dateEncodingStrategy = .iso8601
+        let fileURL = crashStorageURL.appendingPathComponent("crash_\(timestamp).json")
 
-                return encoder
-            }()
-            encoder.outputFormatting = .prettyPrinted
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(info)
             try data.write(to: fileURL, options: .atomic)
             debugPrint("[CrashHandler] Crash information saved in \(fileURL.lastPathComponent)")
@@ -256,7 +249,6 @@ class CrashHandler: @unchecked Sendable {
         do {
             if !FileManager.default.fileExists(atPath: crashLogsDir.path) {
                 try FileManager.default.createDirectory(at: crashLogsDir, withIntermediateDirectories: true, attributes: nil)
-                debugPrint("[Crashes] Crash log directory CREATED in: \(crashLogsDir.path)")
             }
             return crashLogsDir
         } catch {
@@ -335,22 +327,17 @@ class CrashHandler: @unchecked Sendable {
     }
     
     func didAppCrashFileExist(completion: @escaping (@Sendable (Result<Bool, Error>) -> Void)) {
-        let workItem = DispatchWorkItem {
-            guard let directory = self.crashStorageURL else {
+        Queues.crashFiles.async { [crashStorageURL] in
+            guard let directory = crashStorageURL else {
                 let message = "[CrashHandler] ERROR: crashStorageURL is nil"
-                
                 AppAmbitLogger.log(message: message)
-                return completion(.failure(AppAmbitLogger.buildError(message: message, code: 110)))
+                completion(.failure(AppAmbitLogger.buildError(message: message, code: 110)))
+                return
             }
-
             let fileURL = directory.appendingPathComponent(AppConstants.didAppCrashFlagFileName)
-
             let exists = FileManager.default.fileExists(atPath: fileURL.path)
-            
             completion(.success(exists))
         }
-        
-        filesQueue.async(execute: workItem)
     }
 }
 
