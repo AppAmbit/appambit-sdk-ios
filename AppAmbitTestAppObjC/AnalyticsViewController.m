@@ -1,6 +1,6 @@
 #import "AnalyticsViewController.h"
 #import "NetworkMonitor.h"
-#import "StorableApp.h"
+
 
 @import AppAmbit;
 
@@ -21,8 +21,6 @@
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
 }
-
-#pragma mark - UI
 
 - (void)buildUI {
     self.scroll = [[UIScrollView alloc] init];
@@ -57,8 +55,11 @@
                                               action:@selector(onStartSession)]];
     [self.stack addArrangedSubview:[self makeButton:@"End Session"
                                               action:@selector(onEndSession)]];
-    [self.stack addArrangedSubview:[self makeButton:@"Generate the last 30 daily sessions"
-                                              action:@selector(onGenerateLast30DailySessions)]];
+
+    UIButton *sessions30Btn = [self makeDisabledButton:@"Generate the last 30 daily sessions"];
+    [sessions30Btn addTarget:self action:@selector(onGenerateLast30DailySessions) forControlEvents:UIControlEventTouchUpInside];
+    [self.stack addArrangedSubview:sessions30Btn];
+
     [self.stack addArrangedSubview:[self makeButton:@"Send 'Button Clicked' Event w/ property"
                                               action:@selector(onSendButtonClickedEvent)]];
     [self.stack addArrangedSubview:[self makeButton:@"Send Default Event w/ property"
@@ -67,8 +68,11 @@
                                               action:@selector(onSendMax300LengthEvent)]];
     [self.stack addArrangedSubview:[self makeButton:@"Send Max-20-Properties Event"
                                               action:@selector(onSendMax20PropertiesEvent)]];
-    [self.stack addArrangedSubview:[self makeButton:@"Send 30 Daily Events"
-                                              action:@selector(onSend30DailyEvents)]];
+
+    UIButton *events30Btn = [self makeDisabledButton:@"Send 30 Daily Events"];
+    [events30Btn addTarget:self action:@selector(onSend30DailyEvents) forControlEvents:UIControlEventTouchUpInside];
+    [self.stack addArrangedSubview:events30Btn];
+
     [self.stack addArrangedSubview:[self makeButton:@"Send Batch of 220 Events"
                                               action:@selector(onGenerateBatchEvents)]];
 }
@@ -87,7 +91,23 @@
     return b;
 }
 
-#pragma mark - Alert helper
+- (UIButton *)makeDisabledButton:(NSString *)title {
+    UIColor *azulGris = [UIColor colorWithRed:96.0/255.0 green:120.0/255.0 blue:141.0/255.0 alpha:1.0];
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
+    [b setTitle:title forState:UIControlStateNormal];
+    b.titleLabel.numberOfLines = 0;
+    b.titleLabel.textAlignment = NSTextAlignmentCenter;
+    b.contentEdgeInsets = UIEdgeInsetsMake(12, 12, 12, 12);
+    b.layer.cornerRadius = 8.0;
+    b.backgroundColor = azulGris;
+    [b setTitleColor:[UIColor colorWithWhite:0.95 alpha:1.0] forState:UIControlStateNormal];
+    [b setTitleColor:[UIColor colorWithWhite:0.95 alpha:1.0] forState:UIControlStateDisabled];
+    [b.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+    b.enabled = NO;
+    b.adjustsImageWhenDisabled = NO;
+    b.alpha = 1.0;
+    return b;
+}
 
 - (void)presentInfoWithMessage:(NSString *)message {
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Info"
@@ -97,8 +117,6 @@
     [self presentViewController:ac animated:YES completion:nil];
 }
 
-#pragma mark - Helpers
-
 - (NSDate *)dateBySettingHour:(NSInteger)hour minute:(NSInteger)minute onDay:(NSDate *)day {
     NSCalendar *cal = [NSCalendar currentCalendar];
     NSDateComponents *dc = [cal componentsInTimeZone:[NSTimeZone localTimeZone] fromDate:day];
@@ -107,8 +125,6 @@
     dc.second = 0;
     return [cal dateFromComponents:dc] ?: day;
 }
-
-#pragma mark - Actions
 
 - (void)onInvalidateToken {
     [Analytics clearToken];
@@ -129,47 +145,12 @@
 }
 
 - (void)onGenerateLast30DailySessions {
-    if ([NetworkMonitor isConnected]) {
-        [self presentInfoWithMessage:@"Turn off internet and try again"];
-        return;
-    }
-
-    NSCalendar *cal = [NSCalendar currentCalendar];
-    NSDate *now = [NSDate date];
-    NSDate *startDate = [cal dateByAddingUnit:NSCalendarUnitDay value:-30 toDate:now options:0];
-    NSInteger sessionCount = 30;
-    NSInteger fixedDurationMinutes = 90;
-
-    for (NSInteger i = 0; i < sessionCount; i++) {
-        NSDate *sessionDay = [cal dateByAddingUnit:NSCalendarUnitDay value:i toDate:startDate options:0];
-        NSInteger randomHour = arc4random_uniform(23);
-        NSInteger randomMinute = arc4random_uniform(60);
-        NSDate *startSessionDate = [self dateBySettingHour:randomHour minute:randomMinute onDay:sessionDay];
-
-        NSError *err = nil;
-        BOOL ok = [[StorableApp shared] putSessionDataWithTimestamp:startSessionDate
-                                                        sessionType:@"start"
-                                                              error:&err];
-        if (!ok) NSLog(@"Error inserting start session: %@", err.localizedDescription);
-
-        NSDate *endSessionDate = [startSessionDate dateByAddingTimeInterval:fixedDurationMinutes * 60.0];
-
-        err = nil;
-        ok = [[StorableApp shared] putSessionDataWithTimestamp:endSessionDate
-                                                   sessionType:@"end"
-                                                         error:&err];
-        if (!ok) NSLog(@"Error inserting end session: %@", err.localizedDescription);
-    }
-
-    NSLog(@"%ld test sessions were inserted.", (long)sessionCount);
-    [self presentInfoWithMessage:@"Sessions generated, turn on internet"];
 }
 
 - (void)onSendButtonClickedEvent {
     NSDictionary *props = @{@"Count": @"41"};
     [Analytics trackEventWithEventTitle:@"ButtonClicked"
                                    data:props
-                              createdAt:nil
                              completion:^(NSError * _Nullable error) {
         if (error) NSLog(@"Error Track Event: %@", error.localizedDescription);
         else       NSLog(@"Event sent successfully");
@@ -193,7 +174,6 @@
 
     [Analytics trackEventWithEventTitle:s300
                                    data:props
-                              createdAt:nil
                              completion:^(NSError * _Nullable error) {
         if (error) NSLog(@"Error Track Event: %@", error.localizedDescription);
         else       NSLog(@"Event sent successfully");
@@ -208,86 +188,12 @@
     }
     [Analytics trackEventWithEventTitle:@"TestMaxProperties"
                                    data:props
-                              createdAt:nil
                              completion:^(NSError * _Nullable error) {
         if (error) NSLog(@"Error Track Event: %@", error.localizedDescription);
         else       NSLog(@"Event sent successfully");
     }];
 }
-- (void)onSend30DailyEvents {
-    if ([NetworkMonitor isConnected]) {
-        [self presentInfoWithMessage:@"Turn off internet and try again"];
-        return;
-    }
-
-    const NSInteger totalDays = 30;
-    NSDate *now = [NSDate date];
-    NSCalendar *cal = [NSCalendar currentCalendar];
-
-    (void)[StorableApp.shared putSessionDataWithTimestamp:[NSDate date]
-                                              sessionType:@"end"
-                                                   error:NULL];
-
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        NSTimeInterval secOffset = 0.0;
-
-        for (NSInteger i = 1; i <= totalDays; i++) {
-            NSInteger daysToSubtract = totalDays - i;
-            NSDate *baseDay = [cal dateByAddingUnit:NSCalendarUnitDay value:-daysToSubtract toDate:now options:0];
-            if (!baseDay) baseDay = now;
-
-            NSDate *start      = [baseDay dateByAddingTimeInterval:secOffset];
-            NSDate *createdAt  = [start   dateByAddingTimeInterval:1.0];
-            NSDate *end        = [createdAt dateByAddingTimeInterval:1.0];
-
-            NSError *sesErr = nil;
-            BOOL ok = [StorableApp.shared putSessionDataWithTimestamp:start
-                                                          sessionType:@"start"
-                                                               error:&sesErr];
-            if (!ok) {
-                NSLog(@"[AnalyticsView] start session error: %@", sesErr.localizedDescription);
-                secOffset += 1.0;
-                continue;
-            }
-
-            dispatch_semaphore_t sem = dispatch_semaphore_create(1);
-            dispatch_semaphore_wait(sem, DISPATCH_TIME_NOW);
-
-            NSDictionary *data = @{ @"30 Daily events" : @"Event" };
-            [Analytics trackEventWithEventTitle:@"Test Batch TrackEvent"
-                                           data:data
-                                      createdAt:createdAt
-                                     completion:^(NSError * _Nullable error) {
-                if (error) {
-                    NSLog(@"[AnalyticsView] trackEvent offline (esperado): %@", error.localizedDescription);
-                }
-                NSError *linkErr = nil;
-                (void)[StorableApp.shared updateEventsWithCurrentSessionId:&linkErr];
-                if (linkErr) {
-                    NSLog(@"[AnalyticsView] updateEventsWithCurrentSessionId error: %@", linkErr.localizedDescription);
-                }
-                dispatch_semaphore_signal(sem);
-            }];
-
-            (void)dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)));
-            dispatch_semaphore_signal(sem);
-
-            NSError *endErr = nil;
-            ok = [StorableApp.shared putSessionDataWithTimestamp:end
-                                                     sessionType:@"end"
-                                                          error:&endErr];
-            if (!ok && endErr) {
-                NSLog(@"[AnalyticsView] end session error: %@", endErr.localizedDescription);
-            }
-            
-            secOffset += 1.0;
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self presentInfoWithMessage:@"Event generated, turn on internet"];
-        });
-    });
-}
+- (void)onSend30DailyEvents { }
 
 - (void)onTokenRefreshTest {
     dispatch_group_t overallGroup = dispatch_group_create();
@@ -313,7 +219,6 @@
                                exception:nil
                                 fileName:@(__FILE__)
                               lineNumber:__LINE__
-                               createdAt:createdAt
                               completion:^(NSError * _Nullable error) {
                 if (error) NSLog(@"Failed to log error %d: %@", i, error.localizedDescription);
                 else       NSLog(@"Log %d recorded successfully", i);
@@ -332,7 +237,6 @@
             dispatch_async(serialEventQ, ^{
                 [Analytics trackEventWithEventTitle:@"Sending event 5 after invalid token"
                                                data:@{ @"Test Token": @"5 events sent" }
-                                          createdAt:nil
                                          completion:^(NSError * _Nullable error) {
                     if (error) NSLog(@"Event %d failed: %@", i, error.localizedDescription);
                     else       NSLog(@"Event %d tracked successfully", i);
@@ -367,7 +271,6 @@
 
         [Analytics trackEventWithEventTitle:@"Test Batch TrackEvent"
                                        data:@{@"test1": @"test1"}
-                                  createdAt:nil
                                  completion:^(NSError * _Nullable error) {
             if (error) {
                 NSLog(@"[AnalyticsView] Error Track Event: %@", error.localizedDescription);

@@ -6,7 +6,7 @@ struct AppAmbitTestingApp: App {
     init() {
         //Uncomment the line for manual session management
         //Analytics.enableManualSession()
-        AppAmbit.start(appKey: "65ff1001-be3b-4d68-8dcf-8305907690a3")                
+        AppAmbit.start(appKey: "efa71f47-0b22-4a53-9692-7d0762a57e50")                
     }
     var body: some Scene {
         WindowGroup {

@@ -11,11 +11,10 @@ final class Logging: @unchecked Sendable {
         classFqn: String?,
         fileName: String?,
         lineNumber: Int64,
-        createdAt: Date?,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
         let exception = exception != nil ? ExceptionInfo.fromError(exception!) : nil
-        logEvent(message: message, logType: logType, exceptionInfo: exception, properties: properties, classFqn: classFqn, fileName: fileName, lineNumber: lineNumber, createdAt: createdAt, completion: completion)
+        logEvent(message: message, logType: logType, exceptionInfo: exception, properties: properties, classFqn: classFqn, fileName: fileName, lineNumber: lineNumber, completion: completion)
     }
 
     static func logEvent(
@@ -26,7 +25,6 @@ final class Logging: @unchecked Sendable {
         classFqn: String?,
         fileName: String?,
         lineNumber: Int64,
-        createdAt: Date?,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
         if !SessionManager.isSessionActive {
@@ -62,7 +60,7 @@ final class Logging: @unchecked Sendable {
         log.context = properties ?? [:]
         log.type = logType
         log.file = logType == .crash ? getFile(exceptionIn: exceptionInfo) : nil
-        log.createdAt = createdAt ?? DateUtils.utcNow
+        log.createdAt = DateUtils.utcNow
 
         sendOrSaveLogEvent(log) { error in
             DispatchQueue.main.async { completion?(error) }
