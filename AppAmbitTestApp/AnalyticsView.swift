@@ -250,7 +250,7 @@ struct AnalyticsView: View {
                 serialEventQueue.async {
                     Analytics.trackEvent(
                         eventTitle: "Sending event 5 after invalid token",
-                        data: ["Test Token": "5 events sent"],
+                        data: ["Test Token": "5 events sent"]
                     ) { error in
                         if let error = error {
                             debugPrint("Event \(i) failed: \(error.localizedDescription)")
@@ -277,7 +277,6 @@ struct AnalyticsView: View {
         }
     }
 
-    
     func onGenerateBatchEvents() {
         if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
