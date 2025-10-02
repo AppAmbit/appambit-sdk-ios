@@ -59,14 +59,15 @@ struct AnalyticsView: View {
                 .padding(.horizontal)
                 
                 Button("Generate the last 30 daily sessions") {
-                    generateTestSessionsForLast30Days()
+                    
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
+                .disabled(true)
                 
                 Button("Send 'Button Clicked' Event w/ property") {
                     Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
@@ -121,14 +122,15 @@ struct AnalyticsView: View {
                 .padding(.horizontal)
 
                 Button("Send 30 Daily Events") {
-                    onSend30DailyEvents()
+                    
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
+                .disabled(true)
                 
                 Button("Send Batch of 220 Events") {
                     onGenerateBatchEvents()
@@ -139,6 +141,7 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+                
                 
             }
             .padding()
@@ -223,9 +226,8 @@ struct AnalyticsView: View {
                 let message = "Sending logs 5 after invalid token"
                 let classFqn = "AnalyticsView"
                 let properties = ["user_id": "1"]
-                let createdAt = Date()
                 
-                Crashes.logError(message: message, properties: properties, classFqn: classFqn, createdAt: createdAt) { error in
+                Crashes.logError(message: message, properties: properties, classFqn: classFqn) { error in
                     if let error = error {
                         debugPrint("Failed to log error \(i): \(error.localizedDescription)")
                     } else {
@@ -249,7 +251,6 @@ struct AnalyticsView: View {
                     Analytics.trackEvent(
                         eventTitle: "Sending event 5 after invalid token",
                         data: ["Test Token": "5 events sent"],
-                        createdAt: nil
                     ) { error in
                         if let error = error {
                             debugPrint("Event \(i) failed: \(error.localizedDescription)")
@@ -275,114 +276,7 @@ struct AnalyticsView: View {
             debugPrint("[AnalyticsView] Full test sequence completed")
         }
     }
-    
-    func generateTestSessionsForLast30Days() {
-        if NetworkMonitor.isConnected() {
-            self.messageAlert = "Turn off internet and try again"
-            self.showCompletionAlert = true
-            return
-        }
-        
-        let calendar = Calendar.current
-        let now = Date()
-        let startDate = calendar.date(byAdding: .day, value: -30, to: now)!
-        let sessionCount = 30
-        let fixedDurationMinutes = 90
-        for i in 0..<sessionCount {
-            
-            guard let sessionDay = calendar.date(byAdding: .day, value: i, to: startDate) else { continue }
-            
-            let randomHour = Int.random(in: 0..<23)
-            let randomMinute = Int.random(in: 0..<60)
-            let startSessionDate = calendar.date(bySettingHour: randomHour, minute: randomMinute, second: 0, of: sessionDay)!
-            
-            do {
-                try StorableApp.shared.putSessionData(timestamp: startSessionDate, sessionType: "start")
-            } catch {
-                debugPrint("Error inserting start session: \(error)")
-            }
-            
-            let endSessionDate = startSessionDate.addingTimeInterval(TimeInterval(fixedDurationMinutes * 60))
-            
-            do {
-                try StorableApp.shared.putSessionData(timestamp: endSessionDate, sessionType: "end")
-            } catch {
-                debugPrint("Error inserting end session: \(error)")
-            }
-        }
-        
-        DispatchQueue.main.async {
-            self.messageAlert = "Sessions generated, turn on internet"
-            self.showCompletionAlert = true
-        }
-        
-        debugPrint("\(sessionCount) test sessions were inserted.")
-    }
-    
-    func onSend30DailyEvents() {
-        if NetworkMonitor.isConnected() {
-            self.messageAlert = "Turn off internet and try again"
-            self.showCompletionAlert = true
-            return
-        }
-        
-        struct Item { let start: Date; let end: Date; let createdAt: Date }
-        
-        let totalDays = 30
-        let delayBetweenEventSeconds: TimeInterval = 0.5
-        let now = Date()
-        var items = [Item]()
-        items.reserveCapacity(totalDays)
-        
-        for index in 1...totalDays {
-            let daysToSubtract = totalDays - index
-            let start = Calendar.current.date(byAdding: .day, value: -daysToSubtract, to: now) ?? now
-            let end = start.addingTimeInterval(delayBetweenEventSeconds)
-            items.append(Item(start: start, end: end, createdAt: start))
-        }
-        
-        func eventsErrorAwait(message: String, createdAt: Date) async {
-            await withCheckedContinuation { cont in
-                Analytics.trackEvent(eventTitle: "Test Batch TrackEvent", data: ["30 Daily events": "Event"], createdAt: createdAt) { _ in
-                    cont.resume()
-                }
-            }
-        }
-        
-        _ = try? StorableApp.shared.putSessionData(timestamp: Date(), sessionType: "end")
-        
-        Task(priority: .utility) {
-            let entered = await ConcurrencyApp.shared.tryEnter()
-            guard entered else { return }
-            defer { Task { await ConcurrencyApp.shared.leave() } }
-            
-            for item in items {
-                do {
-                    try StorableApp.shared.putSessionData(timestamp: item.start, sessionType: "start")
-                } catch {
-                    debugPrint("Error inserting start session: \(error)")
-                    continue
-                }
-                
-                await eventsErrorAwait(message: "Test 30 Last Days Events", createdAt: item.createdAt)
-                
-                do {
-                    try StorableApp.shared.updateEventsWithCurrentSessionId()
-                    try StorableApp.shared.putSessionData(timestamp: item.end, sessionType: "end")
-                } catch {
-                    debugPrint("Error inserting end session: \(error)")
-                    continue
-                }
-            }
-            
-            await MainActor.run {
-                self.messageAlert = "Event generated, turn on internet"
-                self.showCompletionAlert = true
-            }
-        }
-    }
 
-    
     func onGenerateBatchEvents() {
         if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"

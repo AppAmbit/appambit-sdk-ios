@@ -64,13 +64,11 @@ public final class Analytics: NSObject, @unchecked Sendable {
     public static func trackEvent(
         eventTitle: String,
         data: [String: String],
-        createdAt: Date? = nil,
         completion: @escaping ErrorCompletion = { _ in }
     ) {
         sendOrSaveEvent(
             eventTitle: eventTitle,
             data: data,
-            createdAt: createdAt,
             completion: completion
         )
     }
@@ -80,7 +78,6 @@ public final class Analytics: NSObject, @unchecked Sendable {
             sendOrSaveEvent(
                 eventTitle: "Test Event",
                 data: ["Event": "Custom Event"],
-                createdAt: nil,
                 completion: completion
             )
         }
@@ -165,7 +162,6 @@ public final class Analytics: NSObject, @unchecked Sendable {
     private static func sendOrSaveEvent(
         eventTitle: String,
         data: [String: String],
-        createdAt: Date?,
         completion: @escaping ErrorCompletion = { _ in }
     ) {
         if !SessionManager.isSessionActive {
@@ -198,7 +194,7 @@ public final class Analytics: NSObject, @unchecked Sendable {
                 let entity = EventEntity(
                     id: UUID().uuidString,
                     sessionId: SessionManager.sessionId,
-                    createdAt: createdAt ?? DateUtils.utcNow,
+                    createdAt: DateUtils.utcNow,
                     name: eventTitleTruncate,
                     metadata: truncatedData
                 )

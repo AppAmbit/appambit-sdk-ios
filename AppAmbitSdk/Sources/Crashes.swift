@@ -116,7 +116,6 @@ public final class Crashes: NSObject, @unchecked Sendable {
                     classFqn: className,
                     fileName: fileName,
                     lineNumber: lineNumber,
-                    createdAt: nil,
                     completion: completion
                 )
             }
@@ -133,7 +132,6 @@ public final class Crashes: NSObject, @unchecked Sendable {
         exception: Error? = nil,
         fileName: String? = #file,
         lineNumber: Int64 = #line,
-        createdAt: Date? = nil,
         completion: (@Sendable (Error?) -> Void)? = nil
     ) {
         Queues.crashFiles.async {
@@ -146,7 +144,6 @@ public final class Crashes: NSObject, @unchecked Sendable {
                     classFqn: className,
                     fileName: fileName,
                     lineNumber: lineNumber,
-                    createdAt: createdAt,
                     completion: completion
                 )
             }
@@ -286,7 +283,6 @@ public final class Crashes: NSObject, @unchecked Sendable {
             classFqn: exceptionInfo.classFullName,
             fileName: exceptionInfo.fileNameFromStackTrace,
             lineNumber: exceptionInfo.lineNumberFromStackTrace,
-            createdAt: exceptionInfo.createdAt,
             completion: completion
         )
     }
