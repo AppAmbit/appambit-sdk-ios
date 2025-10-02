@@ -21,7 +21,6 @@
     [super viewDidLoad];
     self.title = @"Crashes";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
-
     [self buildUI];
 }
 
@@ -123,6 +122,8 @@
     return tf;
 }
 
+#pragma mark - Actions
+
 - (void)onDidCrashInLastSession {
     [Crashes didCrashInLastSessionWithCompletion:^(BOOL didCrash) {
         self.alertMessage = didCrash ?
@@ -145,11 +146,12 @@
     [Analytics setEmail:email completion:nil];
 }
 
+#pragma mark - NUEVAS llamadas limpias con completion (sin error)
+
 - (void)onSendCustomLogError {
     NSString *msg = self.messageField.text ?: @"";
-    [Crashes logErrorWithMessage:msg properties:nil classFqn:nil exception:nil fileName:nil lineNumber:0 completion:^(NSError * _Nullable error) {
-        if (error) NSLog(@"[CrashesView] Error sending Log Error: %@", error.localizedDescription);
-        else NSLog(@"[CrashesView] Log Error sent successfully");
+    [Crashes logErrorWithMessage:msg completion:^{
+        NSLog(@"[CrashesView] Log Error sent");
         self.alertMessage = @"LogError Sent";
         [self presentInfo];
     }];
@@ -157,9 +159,8 @@
 
 - (void)onSendDefaultLog {
     NSDictionary<NSString *, NSString *> *props = @{ @"user_id": @"1" };
-    [Crashes logErrorWithMessage:@"Test Log Error" properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 completion:^(NSError * _Nullable error) {
-        if (error) NSLog(@"[CrashesView] Error sending Log Error: %@", error.localizedDescription);
-        else NSLog(@"[CrashesView] Log Error sent successfully");
+    [Crashes logErrorWithMessage:@"Test Log Error" properties:props completion:^{
+        NSLog(@"[CrashesView] Log Error sent");
         self.alertMessage = @"LogError Sent";
         [self presentInfo];
     }];
@@ -170,20 +171,29 @@
         [NSException raise:NSInternalInconsistencyException format:@"Test error Exception Objective C"];
     }
     @catch (NSException *ex) {
-        [Crashes logErrorWithNsException:ex properties:@{ @"user_id": @"1" } classFqn:NSStringFromClass(self.class) fileName:[NSString stringWithUTF8String:__FILE__] lineNumber:@(__LINE__).longLongValue completion:^(NSError * _Nullable err) {
-            NSLog(@"%@", err ? err.localizedDescription : @"OK");
+        [Crashes logErrorWithNSException:ex
+                              properties:@{ @"user_id": @"1" }
+                                 classFqn:NSStringFromClass(self.class)
+                              completion:^{
+            NSLog(@"[CrashesView] Exception Log sent");
+            self.alertMessage = @"LogError Sent";
+            [self presentInfo];
         }];
     }
 }
 
 - (void)onSendClassInfoLog {
-    [Crashes logErrorWithMessage:@"Test Log Error" properties:@{ @"user_id": @"1" } classFqn:nil exception:nil fileName:@(__FILE__) lineNumber:__LINE__ completion:^(NSError * _Nullable error) {
-        if (error) NSLog(@"Error sending Log Error: %@", error.localizedDescription);
-        else NSLog(@"Log Error sent successfully");
+    [Crashes logErrorWithMessage:@"Test Log Error"
+                      properties:@{ @"user_id": @"1" }
+                         classFqn:NSStringFromClass(self.class)
+                      completion:^{
+        NSLog(@"[CrashesView] Log Error sent");
         self.alertMessage = @"LogError Sent";
         [self presentInfo];
     }];
 }
+
+#pragma mark - Otros botones
 
 - (void)onGenerate30DaysTestErrorsOC {
 }

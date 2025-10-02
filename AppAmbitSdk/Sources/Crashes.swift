@@ -4,7 +4,74 @@ import UIKit
 
 @objcMembers
 public final class Crashes: NSObject, @unchecked Sendable {
+    
+    // MARK: - Objetive-C API
 
+    @preconcurrency
+    @objc(logErrorWithMessage:completion:)
+    public static func objc_logError(message: String,
+                                     completion: (@Sendable () -> Void)?)
+    {
+        self.logError(message: message,
+                      properties: nil,
+                      classFqn: nil,
+                      exception: nil,
+                      fileName: nil,
+                      lineNumber: #line) { _ in
+            if let completion { DispatchQueue.main.async { completion() } }
+        }
+    }
+
+    @preconcurrency
+    @objc(logErrorWithMessage:properties:completion:)
+    public static func objc_logError(message: String,
+                                     properties: [String: String]?,
+                                     completion: (@Sendable () -> Void)?)
+    {
+        self.logError(message: message,
+                      properties: properties,
+                      classFqn: nil,
+                      exception: nil,
+                      fileName: nil,
+                      lineNumber: #line) { _ in
+            if let completion { DispatchQueue.main.async { completion() } }
+        }
+    }
+
+    @preconcurrency
+    @objc(logErrorWithMessage:properties:classFqn:completion:)
+    public static func objc_logError(message: String,
+                                     properties: [String: String]?,
+                                     classFqn: String?,
+                                     completion: (@Sendable () -> Void)?)
+    {
+        self.logError(message: message,
+                      properties: properties,
+                      classFqn: classFqn,
+                      exception: nil,
+                      fileName: nil,
+                      lineNumber: #line) { _ in
+            if let completion { DispatchQueue.main.async { completion() } }
+        }
+    }
+
+    @preconcurrency
+    @objc(logErrorWithNSException:properties:classFqn:completion:)
+    public static func objc_logError(nsException: NSException,
+                                     properties: [String: String]?,
+                                     classFqn: String?,
+                                     completion: (@Sendable () -> Void)?)
+    {
+        self.logError(nsException: nsException,
+                      properties: properties,
+                      classFqn: classFqn,
+                      fileName: nil,
+                      lineNumber: #line) { _ in
+            if let completion { DispatchQueue.main.async { completion() } }
+        }
+    }
+
+    
     // MARK: - Singleton
     public static let shared = Crashes()
 
