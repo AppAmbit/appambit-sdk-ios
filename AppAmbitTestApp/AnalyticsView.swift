@@ -277,6 +277,7 @@ struct AnalyticsView: View {
         }
     }
 
+    
     func onGenerateBatchEvents() {
         if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
