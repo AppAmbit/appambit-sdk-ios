@@ -146,8 +146,6 @@
     [Analytics setEmail:email completion:nil];
 }
 
-#pragma mark - NUEVAS llamadas limpias con completion (sin error)
-
 - (void)onSendCustomLogError {
     NSString *msg = self.messageField.text ?: @"";
     [Crashes logErrorWithMessage:msg completion:^{
@@ -192,8 +190,6 @@
         [self presentInfo];
     }];
 }
-
-#pragma mark - Otros botones
 
 - (void)onGenerate30DaysTestErrorsOC {
 }

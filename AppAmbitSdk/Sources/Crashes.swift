@@ -5,7 +5,7 @@ import UIKit
 @objcMembers
 public final class Crashes: NSObject, @unchecked Sendable {
     
-    // MARK: - Objetive-C API
+    // MARK: - Objective-C
 
     @preconcurrency
     @objc(logErrorWithMessage:completion:)
