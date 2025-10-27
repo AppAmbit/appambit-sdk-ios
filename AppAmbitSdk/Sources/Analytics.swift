@@ -171,8 +171,13 @@ public final class Analytics: NSObject, @unchecked Sendable {
             return
         }
 
+        let filteredData = data.filter { key, value in
+            !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+
         let truncatedData = Dictionary(
-            data
+            filteredData
                 .map { key, value in
                     (
                         truncate(value: key, maxLength: AppConstants.trackEventPropertyMaxCharacters),
@@ -208,6 +213,7 @@ public final class Analytics: NSObject, @unchecked Sendable {
             }
         }
     }
+
 
     private static func truncate(value: String, maxLength: Int) -> String {
         guard !value.isEmpty else { return value }
