@@ -40,5 +40,6 @@ final class DataStore {
         try exec(SessionsConfiguration.createTable)
         try exec(LogEntityConfiguration.createTable)
         try exec(EventEntityConfiguration.createTable)
+        try exec(BreadcrumbEntityConfiguration.createTable)
     }
 }

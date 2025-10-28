@@ -771,4 +771,93 @@ final class StorableService: StorageService {
             try getSecret(column: column)
         }
     }
+    
+    // MARK: - Breadcrumbs table internals
+    
+    func getOldest100Breadcrumbs() throws -> [BreadcrumbEntity] {
+        try syncOnQueue {
+            var result: [BreadcrumbEntity] = []
+            let sql = """
+            SELECT
+                \(BreadcrumbEntityConfiguration.Column.id), \(BreadcrumbEntityConfiguration.Column.sessionId.name),
+                \(BreadcrumbEntityConfiguration.Column.name.name), \(BreadcrumbEntityConfiguration.Column.createdAt.name)
+            FROM \(BreadcrumbEntityConfiguration.tableName)
+            ORDER BY \(BreadcrumbEntityConfiguration.Column.createdAt.name) ASC
+            LIMIT 100;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let idString        = String(cString: sqlite3_column_text(stmt, 0))
+                let sessionId       = String(cString: sqlite3_column_text(stmt, 1))
+                let name            = String(cString: sqlite3_column_text(stmt, 2))
+                let createdAtString = String(cString: sqlite3_column_text(stmt, 3))
+
+                guard let createdAt = dateFromStringCustom(createdAtString) else { continue }
+
+                result.append(BreadcrumbEntity(
+                    id        : idString,
+                    sessionId : sessionId,
+                    name      : name,
+                    createdAt : createdAt,
+                ))
+            }
+            return result
+        }
+    }
+    
+    func putBreadcrumb(_ breadcrumb: BreadcrumbEntity) throws {
+        try syncOnQueue {
+            let sql = """
+            INSERT INTO \(BreadcrumbEntityConfiguration.tableName)
+            (\(BreadcrumbEntityConfiguration.Column.id.name), \(BreadcrumbEntityConfiguration.Column.sessionId.name),
+             \(BreadcrumbEntityConfiguration.Column.name.name), \(BreadcrumbEntityConfiguration.Column.createdAt.name))
+            VALUES (?, ?, ?, ?);
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            bindText(stmt, index: 1, value: breadcrumb.id)
+            bindText(stmt, index: 2, value: breadcrumb.sessionId)
+            bindText(stmt, index: 3, value: breadcrumb.name)
+            bindText(stmt, index: 4, value: stringFromDateCustom(breadcrumb.createdAt))
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
+        }
+    }
+    
+    func deleteBreadcrumbList(_ breadcrumbs: [BreadcrumbEntity]) throws {
+        try syncOnQueue {
+            let sql = """
+            DELETE FROM \(BreadcrumbEntityConfiguration.tableName)
+            WHERE TRIM(\(BreadcrumbEntityConfiguration.Column.id.name)) = TRIM(?) COLLATE NOCASE;
+            """
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            for breadcrumb in breadcrumbs {
+                let idString = breadcrumb.id.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                bindText(stmt, index: 1, value: idString)
+
+                let stepResult = sqlite3_step(stmt)
+                if stepResult != SQLITE_DONE {
+                    debugPrint("sqlite3_step failed for id: \(idString) with result \(stepResult)")
+                    throw sqliteError
+                }
+
+                sqlite3_reset(stmt)
+            }
+        }
+    }
+    
 }

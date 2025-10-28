@@ -108,14 +108,12 @@ final class SessionManager: @unchecked Sendable {
                 finishEnd(nil); return
             }
 
-            // 1) Leer en BD
             Queues.db.async {
                 do {
                     guard let end = try storage.getUnpairedSessionEnd() else {
                         finishEnd(nil); return
                     }
 
-                    // 2) Enviar por red (o usa tu cola 'batch')
                     Queues.batch.async {
                         sendEndSession(endSession: end) { errorType, _ in
                             guard errorType == .none else {
@@ -125,7 +123,6 @@ final class SessionManager: @unchecked Sendable {
                                 return
                             }
 
-                            // 3) Borrar en BD
                             Queues.db.async {
                                 do {
                                     if let id = end.id, !id.isEmpty {
@@ -378,33 +375,32 @@ final class SessionManager: @unchecked Sendable {
             }
     }
 
-    private static func sendSession( _ session: SessionData, completion: @escaping @Sendable (_ error: Error?) -> Void) {
+    private static func sendSession(_ session: SessionData, completion: @escaping @Sendable (_ error: Error?) -> Void) {
         if session.sessionType == .start {
-            sendStartSession(dateUtcNow: session.timestamp) { errorType, response in
-                if errorType != .none {
-                    
-                    let payload = session.withCopy(sessionId: (session.sessionId?.isUIntNumber ?? false) ? session.sessionId : "")
-                    
-                    try? shared.storageService?.putSessionData(payload)
-                    completion(AppAmbitLogger.buildError(message: "Failed to delete Send Start Session: \(errorType.localizedDescription)"))
-                    return
-                }
-                
-                if let sessionIdInt = response?.sessionId {
-                    SessionManager.sessionId = String(sessionIdInt)
-                }
+          sendStartSession(dateUtcNow: session.timestamp) { errorType, response in
+            if errorType != .none {
+              let payload = session.withCopy(sessionId: (session.sessionId?.isUIntNumber ?? false) ? session.sessionId : "")
+              try? shared.storageService?.putSessionData(payload)
+              completion(AppAmbitLogger.buildError(message: "Failed to send Start Session: \(errorType.localizedDescription)"))
+              return
             }
+            if let sessionIdInt = response?.sessionId {
+              SessionManager.sessionId = String(sessionIdInt)
+            }
+            completion(nil)
+          }
         } else {
-            sendEndSession(endSession: session) { errorType, response in
-                if errorType != ApiErrorType.none {
-                    SessionManager.sessionId = (session.sessionId?.isUIntNumber ?? false) ? (session.sessionId ?? "") : ""
-                    try? shared.storageService?.putSessionData(session)
-                    completion(AppAmbitLogger.buildError(message: "Failed to delete Send Start Session: \(errorType.localizedDescription)"))
-                    return
-                }
+          sendEndSession(endSession: session) { errorType, response in
+            if errorType != .none {
+              SessionManager.sessionId = (session.sessionId?.isUIntNumber ?? false) ? (session.sessionId ?? "") : ""
+              try? shared.storageService?.putSessionData(session)
+              completion(AppAmbitLogger.buildError(message: "Failed to send End Session: \(errorType.localizedDescription)"))
+              return
             }
+            completion(nil)
+          }
         }
-}
+    }
 
     private static func sendStartSession( dateUtcNow: Date, completion: @escaping @Sendable (ApiErrorType, SessionResponse?) -> Void ) {
         shared.apiService?.executeRequest(StartSessionEndpoint(utcNow: dateUtcNow), responseType: SessionResponse.self) { response in

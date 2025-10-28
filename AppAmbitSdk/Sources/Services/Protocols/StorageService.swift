@@ -34,4 +34,8 @@ protocol StorageService {
     func deleteSessionList(_ sessions: [SessionBatch]) throws
     func putSessionData(_ session: SessionData) throws -> Void
     func getOldest100Sessions() throws -> [SessionBatch]
+    
+    func putBreadcrumb(_ breadcrumb: BreadcrumbEntity) throws -> Void
+    func getOldest100Breadcrumbs() throws -> [BreadcrumbEntity]
+    func deleteBreadcrumbList(_ breadcrumbs: [BreadcrumbEntity]) throws
 }

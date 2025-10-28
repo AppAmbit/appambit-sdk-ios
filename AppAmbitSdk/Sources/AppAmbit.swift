@@ -75,6 +75,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
             self.onSleep()
+            BreadcrumbManager.shared.addAsync(name: AppConstants.appSleep)
         }
     }
 
@@ -108,6 +109,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
+        BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
 
         self.reachability = reachabilityService
 
@@ -134,13 +136,16 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 } else {
                     SessionManager.sendEndSessionFromDatabase { _ in
                         SessionManager.sendStartSessionIfExist { _ in
+                            BreadcrumbManager.shared.addAsync(name: AppConstants.online)
                             Crashes.shared.loadCrashFileIfExists { _ in
                                 self.sendAllPendingData();
                             }
                         }
                     }
                 }
+                BreadcrumbManager.shared.addAsync(name: AppConstants.online)
             } else {
+                BreadcrumbManager.shared.addAsync(name: AppConstants.offline)
                 AppAmbitLogger.log(message: "Internet connection is not available.")
             }
         }
@@ -158,6 +163,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 SessionManager.sendEndSessionFromFile {error in
                     SessionManager.startSession { _ in
                         //Crashes.shared.loadCrashFileIfExists()
+                        BreadcrumbManager.shared.flushPendingBreadcrumbs()
                     }
                 }
             }
@@ -207,6 +213,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.shared.loadCrashFileIfExists { _ in
             self.sendAllPendingData();
         }
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appStart)
     }
 
     private func onResume() {
@@ -228,6 +235,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.shared.loadCrashFileIfExists { _ in
             self.sendAllPendingData();
         }
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
     }
 
     private func sendAllPendingData() {
@@ -238,6 +247,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         SessionManager.sendBatchSessions { _ in
             Analytics.sendBatchEvents()
             Crashes.sendBatchLogs()
+            BreadcrumbManager.shared.sendPending()
         }
     }
 
@@ -251,6 +261,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
         }
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appDestroy)
     }
 
     private func tokenIsValid() -> Bool {
