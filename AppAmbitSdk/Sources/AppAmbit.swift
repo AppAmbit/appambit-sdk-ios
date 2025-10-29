@@ -11,6 +11,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private var lastPathStatus: NWPath.Status?
     private var lastSendAllAt: CFAbsoluteTime = 0
     private let minSendInterval: CFAbsoluteTime = 1.0
+    private var objcCompletion: (() -> Void)?
+
 
     private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
@@ -27,22 +29,40 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         CrashHandler.shared.register()
         setupLifecycleObservers()
     }
+   
+    @objc private func fireObjCCompletion() {
+        let cb = objcCompletion
+        objcCompletion = nil
+        cb?()
+    }
 
-    public static func start(appKey: String, completion: @escaping @Sendable () -> Void = {}) {
-        instanceQueue.async {
-            if _instance != nil {
-                AppAmbitLogger.log(message: "SDK already started")
-                DispatchQueue.main.async { completion() }
+    @nonobjc
+    public static func start(appKey: String, completion: @escaping () -> Void = {}) {
+        instanceQueue.sync {
+            if let inst = _instance {
+                inst.objcCompletion = completion
+                inst.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
                 return
             }
 
             let instance = AppAmbit(appKey: appKey)
             _instance = instance
+            instance.objcCompletion = completion
 
             instance.onStart {
-                DispatchQueue.main.async { completion() }
+                instance.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
             }
         }
+    }
+
+    @objc(start:)
+    public class func startObjC(_ appKey: String) {
+        start(appKey: appKey, completion: {})
+    }
+
+    @objc(start:completion:)
+    public class func startObjC(_ appKey: String, completion: @escaping () -> Void) {
+        start(appKey: appKey, completion: completion)
     }
 
     private func setupLifecycleObservers() {
