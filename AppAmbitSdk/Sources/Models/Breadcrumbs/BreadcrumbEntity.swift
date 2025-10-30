@@ -3,7 +3,7 @@ import Foundation
 class BreadcrumbEntity: Breadcrumb, @unchecked Sendable {
  
     var id: String
-    var sessionId: String
+    var sessionId: String?
     var createdAt: Date
     
     private enum CodingKeys: String, CodingKey {
@@ -15,7 +15,7 @@ class BreadcrumbEntity: Breadcrumb, @unchecked Sendable {
     
     public init(
         id: String,
-        sessionId: String,
+        sessionId: String? = nil,
         name: String,
         createdAt: Date,
     ) {
@@ -37,7 +37,6 @@ class BreadcrumbEntity: Breadcrumb, @unchecked Sendable {
         }
         
         let sessionIdParsed = try container.decode(String.self, forKey: .sessionId)
-        
         createdAt = parsedDate
         sessionId = sessionIdParsed
         
@@ -49,18 +48,37 @@ class BreadcrumbEntity: Breadcrumb, @unchecked Sendable {
         try super.encode(to: encoder)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
-        try container.encode(sessionId, forKey: .sessionId)
+        try container.encodeIfPresent(sessionId, forKey: .sessionId)
         let dateString = DateUtils.utcCustomFormatString(from: createdAt)
         try container.encode(dateString, forKey: .createdAt)
     }
     
     public override func toDictionary() -> [String: Any] {
         var dict = super.toDictionary()
-        dict["session_id"] = sessionId
+        
+        if let sessionId = sessionId {
+            dict["session_id"] = sessionId
+        }
         
         dict["created_at"] = DateUtils.utcCustomFormatString(from: createdAt)
         
         return dict
     }
     
+}
+
+extension BreadcrumbEntity {
+    func withCopy(
+        id: String? = nil,
+        sessionId: String? = nil,
+        name: String? = nil,
+        createdAt: Date? = nil,
+    ) -> BreadcrumbEntity {
+        BreadcrumbEntity(
+            id: id ?? self.id,
+            sessionId: sessionId ?? self.sessionId,
+            name: name ?? self.name,
+            createdAt: createdAt ?? self.createdAt,
+        )
+    }
 }

@@ -155,6 +155,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func initializeConsumer() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveSessionEndToDatabaseIfExist()
+            BreadcrumbManager.saveBreadcrumbDestroyToDatabaseIfExist()
         }
         getNewToken { _ in
             if Analytics.isManualSessionEnabled { return }
@@ -231,6 +232,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
+            BreadcrumbManager.removeSavedDestroyBreadcrumb()
         }
         
         Crashes.shared.loadCrashFileIfExists { _ in
@@ -253,15 +255,15 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func onSleep() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
+            BreadcrumbManager.saveDestroyBreadcrumb()
         }
     }
 
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
+            BreadcrumbManager.saveDestroyBreadcrumb()
         }
-        print("ON END")
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appDestroy)
     }
 
     private func tokenIsValid() -> Bool {

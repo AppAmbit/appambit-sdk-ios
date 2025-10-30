@@ -61,6 +61,42 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
     }
     
+    static func saveDestroyBreadcrumb() {
+        Queues.state.async {
+            let breadcrumbEnd = BreadcrumbEntity(
+                id: UUID().uuidString,
+                sessionId: (!SessionManager.sessionId.isEmpty ? SessionManager.sessionId : nil),
+                name: AppConstants.appDestroy,
+                createdAt: DateUtils.utcNow
+            )
+            
+            Queues.netDecode.async {
+                FileUtils.save(breadcrumbEnd)
+            }
+        }
+    }
+    
+    static func saveBreadcrumbDestroyToDatabaseIfExist() {
+        do {
+            guard let store = shared.storageService else { return }
+
+            let breadcrumbDestroy: BreadcrumbEntity? = FileUtils.getSavedSingleObject(BreadcrumbEntity.self)
+
+            guard let breadcrumb = breadcrumbDestroy else { return }
+
+            try store.putBreadcrumb(breadcrumb)
+            FileUtils.deleteSingleObject(BreadcrumbEntity.self)
+        } catch {
+            AppAmbitLogger.log(message: "saveBreadcrumbDestroyToDatabaseIfExist failed: \(error)")
+        }
+    }
+    
+    static func removeSavedDestroyBreadcrumb() {
+        Queues.netDecode.async {
+            FileUtils.deleteSingleObject(BreadcrumbEntity.self)
+        }
+    }
+    
     static func sendBatchBreadcrumbs(completion: @escaping ErrorCompletion = { _ in }) {
         let finish: ErrorCompletion = { err in
             Queues.batch.async {
