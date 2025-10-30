@@ -203,7 +203,7 @@ final class SessionManager: @unchecked Sendable {
                 ]
 
                 do {
-                    try shared.storageService?.updateLogsAndEventsSessionIds(payload)
+                    try shared.storageService?.updateSessionIdsForAllTrackingData(payload)
                     try shared.storageService?.deleteSessionList(payload)
                     completion?(nil)
                 } catch {
@@ -363,7 +363,7 @@ final class SessionManager: @unchecked Sendable {
                     
                     do {
                         if !resolved.isEmpty {
-                            try shared.storageService?.updateLogsAndEventsSessionIds(resolved)
+                            try shared.storageService?.updateSessionIdsForAllTrackingData(resolved)
                         }
                         try shared.storageService?.deleteSessionList(sessions)
                         finish(nil)

@@ -162,7 +162,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             SessionManager.sendEndSessionFromDatabase { error in
                 SessionManager.sendEndSessionFromFile {error in
                     SessionManager.startSession { _ in
-                        //Crashes.shared.loadCrashFileIfExists()
                         BreadcrumbManager.shared.flushPendingBreadcrumbs()
                     }
                 }
@@ -217,6 +216,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     private func onResume() {
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
         if !tokenIsValid() {
             getNewToken { [weak self] _ in
                 guard let self = self else { return }
@@ -235,8 +236,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.shared.loadCrashFileIfExists { _ in
             self.sendAllPendingData();
         }
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
     }
 
     private func sendAllPendingData() {
@@ -247,7 +246,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         SessionManager.sendBatchSessions { _ in
             Analytics.sendBatchEvents()
             Crashes.sendBatchLogs()
-            BreadcrumbManager.shared.sendPending()
+            BreadcrumbManager.sendBatchBreadcrumbs()
         }
     }
 
@@ -261,6 +260,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
         }
+        print("ON END")
         BreadcrumbManager.shared.addAsync(name: AppConstants.appDestroy)
     }
 

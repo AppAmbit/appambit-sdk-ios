@@ -1,6 +1,7 @@
 import Foundation
 
-public class BreadcrumbManager: @unchecked Sendable {
+final class BreadcrumbManager: @unchecked Sendable {
+    public typealias ErrorCompletion = @Sendable (Error?) -> Void
     
     private var apiService: ApiService?
     private var storageService: StorageService?
@@ -9,6 +10,10 @@ public class BreadcrumbManager: @unchecked Sendable {
     private var isSessionReady: Bool {
         return !(SessionManager.sessionId.isEmpty)
     }
+    private var isSendingBatch = false
+    private var waiters: [ErrorCompletion] = []
+    private var batchTimeoutTimer: DispatchSourceTimer?
+    private static let batchSendTimeoutSeconds: Int = 30
     
     static let shared = BreadcrumbManager()
     private init() {}
@@ -56,8 +61,91 @@ public class BreadcrumbManager: @unchecked Sendable {
         }
     }
     
-    func sendPending() {
-        
+    static func sendBatchBreadcrumbs(completion: @escaping ErrorCompletion = { _ in }) {
+        let finish: ErrorCompletion = { err in
+            Queues.batch.async {
+                shared.isSendingBatch = false
+                shared.batchTimeoutTimer?.cancel()
+                shared.batchTimeoutTimer = nil
+                let cbs = shared.waiters
+                shared.waiters.removeAll()
+                for cb in cbs { DispatchQueue.global(qos: .utility).async { cb(err) } }
+            }
+        }
+
+        Queues.batch.async {
+            shared.waiters.append(completion)
+            guard !shared.isSendingBatch else {
+                AppAmbitLogger.log(message: "SendBatchBreadcrumbs skipped: already in progress")
+                return
+            }
+            shared.isSendingBatch = true
+
+            let t = DispatchSource.makeTimerSource(queue: Queues.batch)
+            t.schedule(deadline: .now() + .seconds(batchSendTimeoutSeconds))
+            t.setEventHandler {
+                AppAmbitLogger.log(message: "SendBatchBreadcrumbs timeout: releasing gate")
+                finish(AppAmbitLogger.buildError(message: "SendBatchBreadcrumbs timeout"))
+            }
+            shared.batchTimeoutTimer = t
+            t.resume()
+
+            getBreadcrumbsInDbAsync { breadcrumbs, error in
+                Queues.batch.async {
+                    if let error = error {
+                        AppAmbitLogger.log(message: "Error getting breadcrumbs: \(error.localizedDescription)")
+                        finish(error); return
+                    }
+                    guard let breadcrumbs = breadcrumbs, !breadcrumbs.isEmpty else {
+                        AppAmbitLogger.log(message: "There are no breadcrumbs to send")
+                        finish(nil); return
+                    }
+
+                    let endpoint = BreadcrumbBatchEndpoint(breadcrumbBatch: breadcrumbs)
+                    shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
+                        Queues.batch.async {
+                            if response.errorType != .none {
+                                AppAmbitLogger.log(message: "Breadcrumbs were not sent: \(response.message ?? "")")
+                                finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
+                                return
+                            }
+                            do {
+                                try shared.storageService?.deleteBreadcrumbList(breadcrumbs)
+                                AppAmbitLogger.log(message: "SendBatchBreadcrumbs successfully sent")
+                                finish(nil)
+                            } catch {
+                                AppAmbitLogger.log(message: "Failed deleting breadcrumbs: \(error.localizedDescription)")
+                                finish(error)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private static func storeBreadcrumbInDb(breadcrumbEntity: BreadcrumbEntity, completion: @escaping ErrorCompletion = { _ in }) {
+        Queues.state.async {
+            do {
+                try shared.storageService?.putBreadcrumb(breadcrumbEntity)
+                DispatchQueue.main.async { completion(nil) }
+            } catch {
+                DispatchQueue.main.async { completion(error) }
+            }
+        }
+    }
+    
+    private static func getBreadcrumbsInDbAsync(
+        _ completion: @escaping @Sendable (_ breadcrumbs: [BreadcrumbEntity]?, _ error: Error?) -> Void
+    ) {
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                let breadcrumbs = try shared.storageService?.getOldest100Breadcrumbs()
+                completion(breadcrumbs, nil)
+            } catch {
+                completion(nil, AppAmbitLogger.buildError(message: error.localizedDescription))
+            }
+        }
     }
     
     func flushPendingBreadcrumbs() {
@@ -72,11 +160,7 @@ public class BreadcrumbManager: @unchecked Sendable {
         pendingBreadcrumbs.forEach { entity in
             trySendAsync(entity: entity) { errorType, response in
                 if errorType != .none {
-                    do {
-                        try self.storageService?.putBreadcrumb(entity)
-                    } catch {
-                        print("Error saving breadcrumb: \(error)")
-                    }
+                    BreadcrumbManager.storeBreadcrumbInDb(breadcrumbEntity: entity)
                 }
             }
         }

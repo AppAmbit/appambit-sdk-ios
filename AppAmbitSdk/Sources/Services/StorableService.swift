@@ -304,14 +304,16 @@ final class StorableService: StorageService {
 
     // MARK: - Sessions
 
-    func updateLogsAndEventsSessionIds(_ sessions: [SessionBatch]) throws {
+    func updateSessionIdsForAllTrackingData(_ sessions: [SessionBatch]) throws {
         guard !sessions.isEmpty else { return }
 
         try syncOnQueue {
-            let logsTable = LogEntityConfiguration.tableName
-            let logsCol   = LogEntityConfiguration.Column.sessionId.name
-            let evtsTable = EventEntityConfiguration.tableName
-            let evtsCol   = EventEntityConfiguration.Column.sessionId.name
+            let logsTable  = LogEntityConfiguration.tableName
+            let logsCol    = LogEntityConfiguration.Column.sessionId.name
+            let evtsTable  = EventEntityConfiguration.tableName
+            let evtsCol    = EventEntityConfiguration.Column.sessionId.name
+            let brcmbTable = BreadcrumbEntityConfiguration.tableName
+            let brcmbCol   = BreadcrumbEntityConfiguration.Column.sessionId.name
 
             let sqlLogs = """
             UPDATE \(logsTable)
@@ -324,17 +326,26 @@ final class StorableService: StorageService {
             SET \(evtsCol) = TRIM(?)
             WHERE TRIM(\(evtsCol)) = TRIM(?) COLLATE NOCASE;
             """
-
-            var stmtLogs: OpaquePointer?
-            var stmtEvts: OpaquePointer?
+            
+            let sqlBreadcrumbs = """
+            UPDATE \(brcmbTable)
+            SET \(brcmbCol) = TRIM(?)
+            WHERE TRIM(\(brcmbCol)) = TRIM(?) COLLATE NOCASE;
+            """
+            
+            var stmtLogs:  OpaquePointer?
+            var stmtEvts:  OpaquePointer?
+            var stmtBrcmbs: OpaquePointer?
 
             guard sqlite3_prepare_v2(db, sqlLogs, -1, &stmtLogs, nil) == SQLITE_OK,
-                  sqlite3_prepare_v2(db, sqlEvents, -1, &stmtEvts, nil) == SQLITE_OK else {
+                  sqlite3_prepare_v2(db, sqlEvents, -1, &stmtEvts, nil) == SQLITE_OK,
+                  sqlite3_prepare_v2(db, sqlBreadcrumbs, -1, &stmtBrcmbs, nil) == SQLITE_OK else {
                 throw sqliteError
             }
             defer {
                 sqlite3_finalize(stmtLogs)
                 sqlite3_finalize(stmtEvts)
+                sqlite3_finalize(stmtBrcmbs)
             }
 
             guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION", nil, nil, nil) == SQLITE_OK else {
@@ -347,7 +358,7 @@ final class StorableService: StorageService {
                 }
             }
 
-            var seen = Set<String>() // clave: "\(old.lowercased())\u{1F}\(new.lowercased())"
+            var seen = Set<String>() // "\(old.lowercased())\u{1F}\(new.lowercased())"
 
             for s in sessions {
                 let oldRaw = s.id.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -383,6 +394,16 @@ final class StorableService: StorageService {
                 
                 sqlite3_reset(stmtEvts)
                 sqlite3_clear_bindings(stmtEvts)
+                
+                bindText(stmtBrcmbs, index: 1, value: newRaw0)
+                bindText(stmtBrcmbs, index: 2, value: oldRaw)
+                let rc3 = sqlite3_step(stmtBrcmbs)
+                if rc3 != SQLITE_DONE {
+                    debugPrint("sqlite3_step BREADCRUMBS rc=\(rc3)  \(oldRaw) -> \(newRaw0)")
+                }
+                
+                sqlite3_reset(stmtBrcmbs)
+                sqlite3_clear_bindings(stmtBrcmbs)
             }
 
             guard sqlite3_exec(db, "COMMIT", nil, nil, nil) == SQLITE_OK else {

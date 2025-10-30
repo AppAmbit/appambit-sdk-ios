@@ -26,7 +26,7 @@ protocol StorageService {
     func getOldest100Events() throws -> [EventEntity]
     func deleteEventList(_ events: [EventEntity]) throws
     
-    func updateLogsAndEventsSessionIds(_ sessions: [SessionBatch]) throws
+    func updateSessionIdsForAllTrackingData(_ sessions: [SessionBatch]) throws
 
     func getUnpairedSessionStart() throws -> SessionData?
     func getUnpairedSessionEnd() throws -> SessionData?
