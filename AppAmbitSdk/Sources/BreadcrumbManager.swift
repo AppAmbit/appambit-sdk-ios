@@ -23,6 +23,16 @@ final class BreadcrumbManager: @unchecked Sendable {
         shared.storageService = storageService
     }
     
+    static func saveBreadcrumbFile(breadcrumbName: String) {
+        let entity = BreadcrumbEntity(
+            id: UUID().uuidString,
+            sessionId: SessionManager.sessionId,
+            name: breadcrumbName,
+            createdAt: DateUtils.utcNow
+        )
+        FileUtils.saveBreadcrumb(entity)
+    }
+    
     func addAsync(name: String) {
         if(apiService == nil || storageService == nil) {
             return;
@@ -58,42 +68,6 @@ final class BreadcrumbManager: @unchecked Sendable {
             self.apiService?.executeRequest(breadcrumbEndpoint, responseType: BreadcrumbResponse.self) { response in
                 completion(response.errorType, response.data)
             }
-        }
-    }
-    
-    static func saveDestroyBreadcrumb() {
-        Queues.state.async {
-            let breadcrumbEnd = BreadcrumbEntity(
-                id: UUID().uuidString,
-                sessionId: (!SessionManager.sessionId.isEmpty ? SessionManager.sessionId : nil),
-                name: AppConstants.appDestroy,
-                createdAt: DateUtils.utcNow
-            )
-            
-            Queues.netDecode.async {
-                FileUtils.save(breadcrumbEnd)
-            }
-        }
-    }
-    
-    static func saveBreadcrumbDestroyToDatabaseIfExist() {
-        do {
-            guard let store = shared.storageService else { return }
-
-            let breadcrumbDestroy: BreadcrumbEntity? = FileUtils.getSavedSingleObject(BreadcrumbEntity.self)
-
-            guard let breadcrumb = breadcrumbDestroy else { return }
-
-            try store.putBreadcrumb(breadcrumb)
-            FileUtils.deleteSingleObject(BreadcrumbEntity.self)
-        } catch {
-            AppAmbitLogger.log(message: "saveBreadcrumbDestroyToDatabaseIfExist failed: \(error)")
-        }
-    }
-    
-    static func removeSavedDestroyBreadcrumb() {
-        Queues.netDecode.async {
-            FileUtils.deleteSingleObject(BreadcrumbEntity.self)
         }
     }
     
@@ -160,6 +134,43 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
     }
     
+    static func sendBreadcrumbsToDatabaseIfExist(completion: @escaping ErrorCompletion = { _ in }) {
+
+        guard let breadcrumbs = FileUtils.loadAll(), !breadcrumbs.isEmpty else {
+            AppAmbitLogger.log(message: "No file breadcrumbs to send")
+            completion(nil)
+            return
+        }
+
+        AppAmbitLogger.log(message: "Sending \(breadcrumbs.count) file breadcrumbs to DB")
+
+        let errors: [Error] = []
+        let group = DispatchGroup()
+
+        for entity in breadcrumbs {
+            group.enter()
+
+            if entity.sessionId == nil || entity.sessionId?.isEmpty == true {
+                entity.sessionId = SessionManager.sessionId
+            }
+
+            storeBreadcrumbInDb(breadcrumbEntity: entity) { err in
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .global()) {
+            if errors.isEmpty {
+                AppAmbitLogger.log(message: "All file breadcrumbs successfully sent to DB")
+                FileUtils.deleteAll()
+                completion(nil)
+            } else {
+                AppAmbitLogger.log(message: "Some file breadcrumbs failed: \(errors.count)")
+                completion(errors.first)
+            }
+        }
+    }
+
     private static func storeBreadcrumbInDb(breadcrumbEntity: BreadcrumbEntity, completion: @escaping ErrorCompletion = { _ in }) {
         Queues.state.async {
             do {

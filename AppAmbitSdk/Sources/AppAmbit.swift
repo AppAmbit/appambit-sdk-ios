@@ -18,6 +18,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     private let appKey: String
     private var isCreatingConsumer = false
+    private var hasSlept = false
     private var consumerCreationCallbacks: [(Bool) -> Void] = []
     private var reachability: ReachabilityService?
 
@@ -26,6 +27,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         super.init()
         CrashHandler.shared.register()
         setupLifecycleObservers()
+        setupViewControllerLifecycleTracking()
         onStart()
     }
 
@@ -46,6 +48,19 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         nc.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         nc.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         nc.addObserver(self, selector: #selector(appWillTerminate), name: UIApplication.willTerminateNotification, object: nil)
+    }
+    
+    private func setupViewControllerLifecycleTracking() {
+        DispatchQueue.main.async {
+            let originalDidAppear = #selector(UIViewController.viewDidAppear(_:))
+            let swizzledDidAppear = #selector(UIViewController.swizzled_viewDidAppear(_:))
+            
+            let originalDidDisappear = #selector(UIViewController.viewDidDisappear(_:))
+            let swizzledDidDisappear = #selector(UIViewController.swizzled_viewDidDisappear(_:))
+
+            UIViewController.swizzleMethod(original: originalDidAppear, swizzled: swizzledDidAppear)
+            UIViewController.swizzleMethod(original: originalDidDisappear, swizzled: swizzledDidDisappear)
+        }
     }
 
     deinit {
@@ -75,7 +90,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
             self.onSleep()
-            BreadcrumbManager.shared.addAsync(name: AppConstants.appSleep)
         }
     }
 
@@ -155,7 +169,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func initializeConsumer() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveSessionEndToDatabaseIfExist()
-            BreadcrumbManager.saveBreadcrumbDestroyToDatabaseIfExist()
+            BreadcrumbManager.sendBreadcrumbsToDatabaseIfExist()
         }
         getNewToken { _ in
             if Analytics.isManualSessionEnabled { return }
@@ -217,8 +231,10 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     private func onResume() {
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
+        hasSlept = false
+        if !Analytics.isManualSessionEnabled {
+            BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
+        }
         if !tokenIsValid() {
             getNewToken { [weak self] _ in
                 guard let self = self else { return }
@@ -232,7 +248,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
-            BreadcrumbManager.removeSavedDestroyBreadcrumb()
         }
         
         Crashes.shared.loadCrashFileIfExists { _ in
@@ -253,21 +268,66 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     private func onSleep() {
+        if hasSlept { return }
+        hasSlept = true
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveDestroyBreadcrumb()
+            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appSleep)
         }
     }
 
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveDestroyBreadcrumb()
+            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appDestroy)
         }
     }
 
     private func tokenIsValid() -> Bool {
         guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
+    }
+}
+
+private extension UIViewController {
+
+    private var isValidScreen: Bool {
+        let screenName = String(describing: type(of: self))
+        
+        let excludedPrefixes = [
+            "UI",
+            "_UI",
+            "WK",
+            "Tab",
+        ]
+        
+        return excludedPrefixes.allSatisfy { prefix in
+            !screenName.hasPrefix(prefix)
+        }
+    }
+    
+    @objc func swizzled_viewDidAppear(_ animated: Bool) {
+        self.swizzled_viewDidAppear(animated)
+
+        guard isValidScreen else { return }
+        
+        let screenName = String(describing: type(of: self))
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
+        print(screenName)
+    }
+
+    @objc func swizzled_viewDidDisappear(_ animated: Bool) {
+        self.swizzled_viewDidDisappear(animated)
+
+        guard isValidScreen else { return }
+        
+        BreadcrumbManager.shared.addAsync(name: AppConstants.appDisappear)
+    }
+
+    static func swizzleMethod(original: Selector, swizzled: Selector) {
+        guard let originalMethod = class_getInstanceMethod(Self.self, original),
+              let swizzledMethod = class_getInstanceMethod(Self.self, swizzled) else { return }
+        
+        method_exchangeImplementations(originalMethod, swizzledMethod)
     }
 }

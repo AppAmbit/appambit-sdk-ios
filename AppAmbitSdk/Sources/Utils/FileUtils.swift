@@ -8,6 +8,72 @@ final class FileUtils {
     private static let didInstallSpecific: Void = {
         Queues.diskRoot.setSpecific(key: diskKey, value: 1)
     }()
+    
+    private static var breadcrumbsURL: URL {
+        let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+        let documentsDirectory = urls[0]
+        return documentsDirectory.appendingPathComponent("breadcrumbs.json")
+    }
+    
+    static func saveBreadcrumb(_ breadcrumb: BreadcrumbEntity) {
+        safeSync {
+            var existing: [BreadcrumbEntity] = loadAll() ?? []
+            existing.append(breadcrumb)
+            
+            do {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .prettyPrinted
+                encoder.dateEncodingStrategy = .custom { date, encoder in
+                    var c = encoder.singleValueContainer()
+                    try c.encode(DateUtils.utcCustomFormatString(from: date))
+                }
+                let data = try encoder.encode(existing)
+                try data.write(to: breadcrumbsURL, options: .atomic)
+                AppAmbitLogger.log(message: "Breadcrumb saved successfully")
+            } catch {
+                AppAmbitLogger.log(message: "Error saving breadcrumb: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    static func loadAll() -> [BreadcrumbEntity]? {
+        safeSync {
+            guard fileManager.fileExists(atPath: breadcrumbsURL.path) else {
+                return []
+            }
+            do {
+                let data = try Data(contentsOf: breadcrumbsURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateStr = try container.decode(String.self)
+                    guard let date = DateUtils.utcCustomFormatDate(from: dateStr) else {
+                        throw DecodingError.dataCorruptedError(in: container,
+                            debugDescription: "Invalid date format: \(dateStr)")
+                    }
+                    return date
+                }
+                return try decoder.decode([BreadcrumbEntity].self, from: data)
+            } catch {
+                AppAmbitLogger.log(message: "Error loading breadcrumbs: \(error.localizedDescription)")
+                return nil
+            }
+        }
+    }
+    
+    static func deleteAll() {
+        safeSync {
+            do {
+                if fileManager.fileExists(atPath: breadcrumbsURL.path) {
+                    try fileManager.removeItem(at: breadcrumbsURL)
+                    AppAmbitLogger.log(message: "All breadcrumbs deleted")
+                }
+            } catch {
+                AppAmbitLogger.log(message: "Error deleting breadcrumbs: \(error.localizedDescription)")
+            }
+        }
+    }
+    
     private static func safeSync<R>(_ work: () throws -> R) rethrows -> R {
         _ = didInstallSpecific
         if DispatchQueue.getSpecific(key: diskKey) != nil {
