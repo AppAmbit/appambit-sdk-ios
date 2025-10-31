@@ -29,12 +29,12 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 ## Features
 
 * Session analytics with automatic lifecycle tracking
-* Event tracking with rich properties
-* Structured logs with levels and tags
+* Event tracking with custom properties
+* Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
-* Network-safe batching, retry, and offline queue
-* Configurable endpoints for staging and production
-* Small footprint, modern Swift API
+* Offline support with batching, retry, and queue
+* Create mutliple app profiles for staging and production
+* Small footprint, modern Swift API with full Objective-C support
 
 ---
 
@@ -58,9 +58,9 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 Add this to your Podfile:
 
 ```ruby
-pod 'AppAmbit'
+pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbit', '~> 1.0.0'
+pod 'AppAmbitSdk', '~> 0.0.9'
 ```
 
 Then run:
@@ -71,7 +71,7 @@ pod install
 
 Open the generated `.xcworkspace` project.
 
-*(If you get an error like “Unable to find a specification for `AppAmbit`”: run `pod repo update`, then `pod install`.)*
+*(If you get an error like “Unable to find a specification for `AppAmbitSdk`”: run `pod repo update`, then `pod install`.)*
 
 ---
 
@@ -84,7 +84,7 @@ Configure the SDK at app launch with your **API Key**.
 ```swift
 
 // AppDelegate
-AppAmbit.start(appKey: "<YOUR-APIKEY>")
+AppAmbit.start(appKey: "<YOUR-APPKEY>")
 ```
 
 ### Objective-C
@@ -92,23 +92,43 @@ AppAmbit.start(appKey: "<YOUR-APIKEY>")
 ```objective-c
 
 // AppDelegate
-[AppAmbit startWithAppKey:@"<YOUR-APIKEY>"];
+[AppAmbit startWithAppKey:@"<YOUR-APPKEY>"];
 ```
 ---
 
 ## Usage
 
-* **Identify Users**: attach traits and metadata to your sessions
-* **Track Events**: send structured events with custom properties
+* **Session activity** – automatically tracks user session starts, stops, and durations
+* **Track events** – send structured events with custom properties
+  ### Swift
+  ```swift
+    Analytics.trackEvent(eventTitle: "Test TrackEvent", data: ["test1":"test1"])
+  ```
+  ### Objective-C
+  ```objetive-c
+    [Analytics trackEventWithEventTitle:@"Test TrackEvent" data:@{ @"test1": @"test1" } createdAt:nil completion:nil];
+  ```
 * **Logs**: add structured log messages for debugging
-* **Crash Reporting**: uncaught crashes are automatically captured
+  ### Swift
+  ```swift
+    let properties: [String: String] = ["user_id": "1"]
+    let message = "Error NullPointerException"
+    Crashes.logError(message: message, properties: properties, exception: error)
+  ```
+  ### Objective-C
+  ```objetive-c
+    [props setObject:@"123" forKey:@"userId"];
+    NSDictionary *userInfo = @{ NSLocalizedDescriptionKey: exception.reason };
+    NSError *error = [NSError errorWithDomain:exception.name code:0 userInfo:userInfo];
+    [Crashes logErrorWithMessage:(@"Error ArrayIndex") properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 createdAt:nil completion:nil];
+  ```
+* **Crash Reporting**: uncaught crashes are automatically captured and uploaded on next launch
 
 ---
 
 ## Release Distribution
 
-* Optionally enable in-app build update checks for tester workflows
-* Safe to omit for production apps that only use telemetry
+* Push the artifact to your AppAmbit dashboard for distribution via email and direct installation.
 
 ---
 
@@ -170,7 +190,8 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
 * **Dashboard**: [appambit.com](https://appambit.com)
-* **Examples**: Sample swift test app AppAmbitTestApp include in repo. Objective-c test app coming soon. 
+* **Discord**: [discord.gg](https://discord.gg/nJyetYue2s)
+* **Examples**: Sample swift test app AppAmbitTestApp included in repo. Objective-C test app coming soon. 
 
 ---
 

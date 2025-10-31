@@ -5,120 +5,111 @@ import Network
 @objcMembers
 public final class AppAmbit: NSObject, @unchecked Sendable {
     private nonisolated(unsafe) static var _instance: AppAmbit?
-    private static let instanceQueue = DispatchQueue(label: "com.appambit.init")
+    private static let instanceQueue = Queues.state
+
     let monitor = NWPathMonitor()
     private var lastPathStatus: NWPath.Status?
     private var lastSendAllAt: CFAbsoluteTime = 0
     private let minSendInterval: CFAbsoluteTime = 1.0
+    private var objcCompletion: (() -> Void)?
 
 
     private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
     }
-    
+
     private let appKey: String
     private var isCreatingConsumer = false
-    private var consumerCreationCallbacks: [(Bool) -> Void] = []
+    private var consumerCreationCallbacks: [(@Sendable (Bool) -> Void)] = []
     private var reachability: ReachabilityService?
-    
+
     private init(appKey: String) {
         self.appKey = appKey
         super.init()
-        AppAmbitLogger.log(message: "INIT")
         CrashHandler.shared.register()
         setupLifecycleObservers()
-        onStart()
     }
-    
-    public static func start(appKey: String) {
-        instanceQueue.async {
-            if _instance == nil {
-                _instance = AppAmbit(appKey: appKey)
-            } else {
-                AppAmbitLogger.log(message: "SDK already started")
+   
+    @objc private func fireObjCCompletion() {
+        let cb = objcCompletion
+        objcCompletion = nil
+        cb?()
+    }
+
+    @nonobjc
+    public static func start(appKey: String, completion: @escaping () -> Void = {}) {
+        instanceQueue.sync {
+            if let inst = _instance {
+                inst.objcCompletion = completion
+                inst.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
+                return
+            }
+
+            let instance = AppAmbit(appKey: appKey)
+            _instance = instance
+            instance.objcCompletion = completion
+
+            instance.onStart {
+                instance.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
             }
         }
     }
-    
+
+    @objc(start:)
+    public class func startObjC(_ appKey: String) {
+        start(appKey: appKey, completion: {})
+    }
+
+    @objc(start:completion:)
+    public class func startObjC(_ appKey: String, completion: @escaping () -> Void) {
+        start(appKey: appKey, completion: completion)
+    }
+
     private func setupLifecycleObservers() {
         let nc = NotificationCenter.default
-        nc.addObserver(self,
-                       selector: #selector(appDidBecomeActive),
-                       name: UIApplication.didBecomeActiveNotification,
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(appWillResignActive),
-                       name: UIApplication.willResignActiveNotification,
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(appDidEnterBackground),
-                       name: UIApplication.didEnterBackgroundNotification,
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(appWillEnterForeground),
-                       name: UIApplication.willEnterForegroundNotification,
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(appWillTerminate),
-                       name: UIApplication.willTerminateNotification,
-                       object: nil)
+        nc.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appWillTerminate), name: UIApplication.willTerminateNotification, object: nil)
     }
-    
+
     deinit {
         NotificationCenter.default.removeObserver(self)
         monitor.cancel()
         AppAmbitLogger.log(message: "Deinit called - Observers removed")
     }
-    
+
     @objc private func appDidBecomeActive() {
-        AppAmbitLogger.log(message: "appDidBecomeActive")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onResume()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onResume() }
     }
-    
+
     @objc private func appWillResignActive() {
-        AppAmbitLogger.log(message: "appWillResignActive")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onSleep()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onSleep() }
     }
-    
+
     @objc private func appDidEnterBackground() {
-        AppAmbitLogger.log(message: "appDidEnterBackground")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onSleep()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onSleep() }
     }
-    
+
     @objc private func appWillEnterForeground() {
-        AppAmbitLogger.log(message: "appWillEnterForeground")
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
-            
-            if !tokenIsValid() {
+            if !self.tokenIsValid() {
                 self.getNewToken { success in
-                    if success {
-                        self.sendAllPendingData()
-                    }
+                    if success { self.sendAllPendingData() }
                 }
             } else {
                 self.sendAllPendingData()
             }
         }
     }
-    
+
     @objc private func appWillTerminate() {
-        AppAmbitLogger.log(message: "appWillTerminate")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onEnd()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onEnd() }
     }
-    
+
+    // MARK: - Services
     private func initializeServices() {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
@@ -127,50 +118,74 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
-
         self.reachability = reachabilityService
-        
-        monitor.pathUpdateHandler = { [weak self] path in
-            guard let self = self else { return }
 
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
             if self.lastPathStatus == path.status { return }
             self.lastPathStatus = path.status
 
             if path.status == .satisfied {
-                AppAmbitLogger.log(message: "Connected via \(path.debugDescription)")
-
                 if !self.tokenIsValid() {
                     self.getNewToken { success in
                         guard success else { return }
-                        SessionManager.sendStartSessionIfExist { _ in
-                            self.sendAllPendingData()
+                        SessionManager.sendEndSessionFromDatabase { _ in
+                            SessionManager.sendStartSessionIfExist { _ in
+                                Crashes.shared.loadCrashFileIfExists { _ in
+                                    self.sendAllPendingData()
+                                }
+                            }
                         }
                     }
                 } else {
-                    self.sendAllPendingData()
+                    SessionManager.sendEndSessionFromDatabase { _ in
+                        SessionManager.sendStartSessionIfExist { _ in
+                            Crashes.shared.loadCrashFileIfExists { _ in
+                                self.sendAllPendingData()
+                            }
+                        }
+                    }
                 }
-            } else {
-                AppAmbitLogger.log(message: "Internet connection is not available.")
             }
         }
-        
         monitor.start(queue: Self.instanceQueue)
     }
-    
-    private func initializeConsumer() {
+
+    // MARK: - Main startup
+    private func onStart(completion: @escaping @Sendable () -> Void) {
+        initializeServices()
+
+        initializeConsumer {
+            Crashes.shared.loadCrashFileIfExists { _ in
+                self.sendAllPendingData()
+                completion()
+            }
+        }
+    }
+
+    private func initializeConsumer(completion: @escaping @Sendable () -> Void) {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveSessionEndToDatabaseIfExist()
-            _ = SessionManager.initializeStartSession()
         }
 
-        getNewToken { _ in
-            if Analytics.isManualSessionEnabled {
-                AppAmbitLogger.log(message: "Manual session enabled")
+        getNewToken { success in
+            guard success else {
+                AppAmbitLogger.log(message: "Invalid token, aborting boot")
+                completion()
                 return
             }
 
-            SessionManager.startSession { _ in
-                Crashes.shared.loadCrashFileIfExists()
+            if Analytics.isManualSessionEnabled {
+                completion()
+                return
+            }
+
+            SessionManager.sendEndSessionFromDatabase { _ in
+                SessionManager.sendEndSessionFromFile { _ in
+                    SessionManager.startSession { _ in
+                        completion()
+                    }
+                }
             }
         }
     }
@@ -178,99 +193,83 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func getNewToken(completion: @escaping @Sendable (Bool) -> Void) {
         Self.instanceQueue.async {
             if self.isCreatingConsumer {
-                AppAmbitLogger.log(message: "Token operation already in progress, queuing callback...")
                 self.consumerCreationCallbacks.append(completion)
                 return
             }
-            
+
             self.isCreatingConsumer = true
             self.consumerCreationCallbacks.append(completion)
-            
+
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                
-                if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
-                    AppAmbitLogger.log(message: "Consumer ID exists (\(consumerId)), renewing token...")
-                    
+                if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
+                   !consumerId.isEmpty {
                     ServiceContainer.shared.apiService.getNewToken { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 } else {
-                    AppAmbitLogger.log(message: "There is no consumerId, creating a new one...")
-                    
-                    ConsumerService.shared.createConsumer() { errorType in
+                    ConsumerService.shared.createConsumer { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 }
             } catch {
-                AppAmbitLogger.log(message: "Error reading consumerId: \(error)")
+                AppAmbitLogger.log(message: "Error reading consumer Id: \(error)")
                 self.handleTokenResult(errorType: .unknown)
             }
         }
     }
-    
+
     private func handleTokenResult(errorType: ApiErrorType) {
         let success = (errorType == .none)
-        AppAmbitLogger.log(message: "Operation completed with: \(errorType)")
-
         Self.instanceQueue.async {
             self.isCreatingConsumer = false
             let callbacks = self.consumerCreationCallbacks
-            self.consumerCreationCallbacks = []
+            self.consumerCreationCallbacks.removeAll()
             callbacks.forEach { $0(success) }
         }
     }
-    
-    private func onStart() {
-        AppAmbitLogger.log(message: "OnStart")
-        self.initializeServices()
-        self.initializeConsumer()
-    }
-    
+
+    // MARK: - Resume / Sleep / End
     private func onResume() {
         if !tokenIsValid() {
-            getNewToken { [weak self] success in
-                guard let self = self else { return }
-                
-                self.continueOnResume()
-            }
+            getNewToken { [weak self] _ in self?.continueOnResume() }
         } else {
             continueOnResume()
         }
     }
-    
+
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
-        }        
-        sendAllPendingData();
+        }
+        Crashes.shared.loadCrashFileIfExists { _ in self.sendAllPendingData() }
     }
-    
+
     private func sendAllPendingData() {
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastSendAllAt < minSendInterval { return }
+        lastSendAllAt = now
+
         SessionManager.sendBatchSessions { _ in
-            Crashes.shared.loadCrashFileIfExists { _ in
-                Analytics.sendBatchEvents()
-                Crashes.sendBatchLogs()
-            }
+            Analytics.sendBatchEvents()
+            Crashes.sendBatchLogs()
         }
     }
-    
+
     private func onSleep() {
         if !Analytics.isManualSessionEnabled {
-            SessionManager.saveEndSessionToFile()
+            SessionManager.saveEndSession()
         }
     }
-    
+
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
-            SessionManager.saveEndSessionToFile()
+            SessionManager.saveEndSession()
         }
     }
-    
+
     private func tokenIsValid() -> Bool {
-        guard let token = ServiceContainer.shared.apiService.token else {
-            return false
-        }
+        guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
     }
 }

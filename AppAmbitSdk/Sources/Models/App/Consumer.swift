@@ -1,5 +1,6 @@
 struct Consumer: DictionaryConvertible {
     var appKey: String
+    var appVersion: String
     var deviceId: String
     var deviceModel: String
     var userId: String
@@ -11,6 +12,7 @@ struct Consumer: DictionaryConvertible {
     func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "app_key": appKey,
+            "app_version": appVersion,
             "device_id": deviceId,
             "device_model": deviceModel,
             "user_id": userId,

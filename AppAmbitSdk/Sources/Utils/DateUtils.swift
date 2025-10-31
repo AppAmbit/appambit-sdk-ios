@@ -2,7 +2,6 @@ import Foundation
 
 struct DateUtils {
     private init() {}
-    private static let formatterQueue = DispatchQueue(label: "com.appambit.dateFormatterQueue")
 
     /// Formatter for "yyyy-MM-dd'T'HH:mm:ssZ" (ISO 8601)
     private static let isoFormatter: DateFormatter = {
@@ -23,11 +22,9 @@ struct DateUtils {
     }()
    
      private static var iso8601FullFormatter: ISO8601DateFormatter {
-         formatterQueue.sync {
-             let f = ISO8601DateFormatter()
-             f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-             return f
-         }
+         let f = ISO8601DateFormatter()
+         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+         return f
      }
 
 

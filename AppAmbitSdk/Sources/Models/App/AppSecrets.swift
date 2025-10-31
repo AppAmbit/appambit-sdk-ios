@@ -3,6 +3,7 @@ import Foundation
 struct AppSecrets {
     var id: Int = 0
     var appId: String?
+    var appVersion: String?
     var deviceId: String?
     var token: String?
     var sessionId: String?

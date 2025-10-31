@@ -59,14 +59,15 @@ struct AnalyticsView: View {
                 .padding(.horizontal)
                 
                 Button("Generate the last 30 daily sessions") {
-                    generateTestSessionsForLast30Days()
+                    
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
+                .disabled(true)
                 
                 Button("Send 'Button Clicked' Event w/ property") {
                     Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
@@ -119,6 +120,17 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+
+                Button("Send 30 Daily Events") {
+                    
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .foregroundColor(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                .disabled(true)
                 
                 Button("Send Batch of 220 Events") {
                     onGenerateBatchEvents()
@@ -129,6 +141,7 @@ struct AnalyticsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
                 .padding(.horizontal)
+                
                 
             }
             .padding()
@@ -202,9 +215,8 @@ struct AnalyticsView: View {
         let concurrentQueue = DispatchQueue.global(qos: .utility)
         let serialEventQueue = DispatchQueue(label: "com.appambit.analytics.eventQueue")
         
-        overallGroup.enter() // Start of the entire process
+        overallGroup.enter()
         
-        // 1. Error log phase (They run in parallel)
         let logsGroup = DispatchGroup()
         debugPrint("[AnalyticsView] Starting 5 concurrent error logs")
         
@@ -214,9 +226,8 @@ struct AnalyticsView: View {
                 let message = "Sending logs 5 after invalid token"
                 let classFqn = "AnalyticsView"
                 let properties = ["user_id": "1"]
-                let createdAt = Date()
                 
-                Crashes.logError(message: message, properties: properties, classFqn: classFqn, createdAt: createdAt) { error in
+                Crashes.logError(message: message, properties: properties, classFqn: classFqn) { error in
                     if let error = error {
                         debugPrint("Failed to log error \(i): \(error.localizedDescription)")
                     } else {
@@ -240,7 +251,6 @@ struct AnalyticsView: View {
                     Analytics.trackEvent(
                         eventTitle: "Sending event 5 after invalid token",
                         data: ["Test Token": "5 events sent"],
-                        createdAt: nil
                     ) { error in
                         if let error = error {
                             debugPrint("Event \(i) failed: \(error.localizedDescription)")
@@ -266,51 +276,7 @@ struct AnalyticsView: View {
             debugPrint("[AnalyticsView] Full test sequence completed")
         }
     }
-    
-    func generateTestSessionsForLast30Days() {
-        if !NetworkMonitor.isConnected() {
-            self.messageAlert = "Turn off internet and try again"
-            self.showCompletionAlert = true
-            return
-        }
-        
-        let calendar = Calendar.current
-        let now = Date()
-        let startDate = calendar.date(byAdding: .day, value: -30, to: now)!
-        let sessionCount = 30
-        let fixedDurationMinutes = 90
-        for i in 0..<sessionCount {
-            
-            guard let sessionDay = calendar.date(byAdding: .day, value: i, to: startDate) else { continue }
-            
-            let randomHour = Int.random(in: 0..<23)
-            let randomMinute = Int.random(in: 0..<60)
-            let startSessionDate = calendar.date(bySettingHour: randomHour, minute: randomMinute, second: 0, of: sessionDay)!
-            
-            do {
-                try StorableApp.shared.putSessionData(timestamp: startSessionDate, sessionType: "start")
-            } catch {
-                debugPrint("Error inserting start session: \(error)")
-            }
-            
-            let endSessionDate = startSessionDate.addingTimeInterval(TimeInterval(fixedDurationMinutes * 60))
-            
-            do {
-                try StorableApp.shared.putSessionData(timestamp: endSessionDate, sessionType: "end")
-            } catch {
-                debugPrint("Error inserting end session: \(error)")
-            }
-        }
-        
-        DispatchQueue.main.async {
-            self.messageAlert = "Sessions generated, turn on internet"
-            self.showCompletionAlert = true
-        }
-        
-        debugPrint("\(sessionCount) test sessions were inserted.")
-    }
 
-    
     func onGenerateBatchEvents() {
         if NetworkMonitor.isConnected() {
             self.messageAlert = "Turn off internet and try again"
