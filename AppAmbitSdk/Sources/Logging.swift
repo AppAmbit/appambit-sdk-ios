@@ -42,6 +42,11 @@ final class Logging: @unchecked Sendable {
         let build = ServiceContainer.shared.appInfoService.build ?? ""
         let appVersionInfo = "\(version) (\(build))"
 
+        let cleanedProperties = (properties ?? [:]).filter { key, value in
+            !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+
         let log = LogEntity()
         log.id = UUID().uuidString
         if let sessionId = exceptionInfo?.sessionId, !sessionId.isEmpty {
@@ -50,14 +55,20 @@ final class Logging: @unchecked Sendable {
             log.sessionId = SessionManager.sessionId
         }
         log.appVersion = appVersionInfo
-        log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true) ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn) : exceptionInfo?.classFullName
-        log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true) ? (fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName) : exceptionInfo?.fileNameFromStackTrace
+        log.classFQN = (exceptionInfo?.classFullName.isEmpty ?? true)
+            ? (classFqn?.isEmpty ?? true ? AppConstants.unknownClass : classFqn)
+            : exceptionInfo?.classFullName
+        log.fileName = (exceptionInfo?.fileNameFromStackTrace.isEmpty ?? true)
+            ? (fileName?.isEmpty ?? true ? AppConstants.unknownFileName : fileName)
+            : exceptionInfo?.fileNameFromStackTrace
         log.lineNumber = (exceptionInfo != nil && exceptionInfo!.lineNumberFromStackTrace != 0)
             ? exceptionInfo!.lineNumberFromStackTrace
             : lineNumber
-        log.message = (exceptionInfo?.message?.isEmpty == false) ? exceptionInfo!.message! : (message ?? "")
+        log.message = (exceptionInfo?.message?.isEmpty == false)
+            ? exceptionInfo!.message!
+            : (message ?? "")
         log.stackTrace = stackTrace
-        log.context = properties ?? [:]
+        log.context = cleanedProperties
         log.type = logType
         log.file = logType == .crash ? getFile(exceptionIn: exceptionInfo) : nil
         log.createdAt = DateUtils.utcNow

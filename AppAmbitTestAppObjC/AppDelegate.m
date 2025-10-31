@@ -13,7 +13,7 @@
     // Uncomment the line for manual session management
     //[Analytics enableManualSession];
 
-    [AppAmbit startWithAppKey:@"<YOUR-APPKEY>"];
+    [AppAmbit start:@"<YOUR-APPKEY>"];
 
     return YES;
 }

@@ -59,9 +59,8 @@ final class SessionManager: @unchecked Sendable {
                     completion?(error)
                     return
                 }
-                
-                completion?(nil)
                 AppAmbitLogger.log(message: "Session Start was sent")
+                completion?(nil)
             }
         }
     }
@@ -378,33 +377,35 @@ final class SessionManager: @unchecked Sendable {
             }
     }
 
-    private static func sendSession( _ session: SessionData, completion: @escaping @Sendable (_ error: Error?) -> Void) {
+    private static func sendSession(_ session: SessionData, completion: @escaping @Sendable (_ error: Error?) -> Void) {
         if session.sessionType == .start {
             sendStartSession(dateUtcNow: session.timestamp) { errorType, response in
                 if errorType != .none {
-                    
                     let payload = session.withCopy(sessionId: (session.sessionId?.isUIntNumber ?? false) ? session.sessionId : "")
-                    
                     try? shared.storageService?.putSessionData(payload)
-                    completion(AppAmbitLogger.buildError(message: "Failed to delete Send Start Session: \(errorType.localizedDescription)"))
+                    completion(AppAmbitLogger.buildError(message: "Failed to send Start Session: \(errorType.localizedDescription)"))
                     return
                 }
-                
+
                 if let sessionIdInt = response?.sessionId {
                     SessionManager.sessionId = String(sessionIdInt)
                 }
+                completion(nil)
             }
         } else {
             sendEndSession(endSession: session) { errorType, response in
-                if errorType != ApiErrorType.none {
+                if errorType != .none {
                     SessionManager.sessionId = (session.sessionId?.isUIntNumber ?? false) ? (session.sessionId ?? "") : ""
                     try? shared.storageService?.putSessionData(session)
-                    completion(AppAmbitLogger.buildError(message: "Failed to delete Send Start Session: \(errorType.localizedDescription)"))
+                    completion(AppAmbitLogger.buildError(message: "Failed to send End Session: \(errorType.localizedDescription)"))
                     return
                 }
+                
+                completion(nil)
             }
         }
-}
+    }
+
 
     private static func sendStartSession( dateUtcNow: Date, completion: @escaping @Sendable (ApiErrorType, SessionResponse?) -> Void ) {
         shared.apiService?.executeRequest(StartSessionEndpoint(utcNow: dateUtcNow), responseType: SessionResponse.self) { response in
