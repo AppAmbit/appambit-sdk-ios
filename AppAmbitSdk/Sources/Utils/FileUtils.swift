@@ -17,7 +17,7 @@ final class FileUtils {
     
     static func saveBreadcrumb(_ breadcrumb: BreadcrumbEntity) {
         safeSync {
-            var existing: [BreadcrumbEntity] = loadAll() ?? []
+            var existing: [BreadcrumbEntity] = getAllBreadcrumbsFile() ?? []
             existing.append(breadcrumb)
             
             do {
@@ -36,7 +36,7 @@ final class FileUtils {
         }
     }
     
-    static func loadAll() -> [BreadcrumbEntity]? {
+    static func getAllBreadcrumbsFile() -> [BreadcrumbEntity]? {
         safeSync {
             guard fileManager.fileExists(atPath: breadcrumbsURL.path) else {
                 return []
@@ -61,7 +61,34 @@ final class FileUtils {
         }
     }
     
-    static func deleteAll() {
+    static func removeLastDestroyBreadcrumb() {
+        safeSync {
+            guard fileManager.fileExists(atPath: breadcrumbsURL.path) else { return }
+
+            do {
+                var breadcrumbs = getAllBreadcrumbsFile() ?? []
+
+                if let last = breadcrumbs.last, last.name == AppConstants.appDestroy {
+                    breadcrumbs.removeLast()
+
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = .prettyPrinted
+                    encoder.dateEncodingStrategy = .custom { date, encoder in
+                        var c = encoder.singleValueContainer()
+                        try c.encode(DateUtils.utcCustomFormatString(from: date))
+                    }
+                    let data = try encoder.encode(breadcrumbs)
+                    try data.write(to: breadcrumbsURL, options: .atomic)
+                    
+                    AppAmbitLogger.log(message: "Last appDestroy breadcrumb removed")
+                }
+            } catch {
+                AppAmbitLogger.log(message: "Error removing destroy breadcrumb: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    static func deleteBreadcrumbsFile() {
         safeSync {
             do {
                 if fileManager.fileExists(atPath: breadcrumbsURL.path) {

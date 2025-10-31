@@ -71,6 +71,10 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
     }
     
+    static func removeLastDestroyBreadcrumb() {
+        FileUtils.removeLastDestroyBreadcrumb()
+    }
+    
     static func sendBatchBreadcrumbs(completion: @escaping ErrorCompletion = { _ in }) {
         let finish: ErrorCompletion = { err in
             Queues.batch.async {
@@ -136,7 +140,7 @@ final class BreadcrumbManager: @unchecked Sendable {
     
     static func sendBreadcrumbsToDatabaseIfExist(completion: @escaping ErrorCompletion = { _ in }) {
 
-        guard let breadcrumbs = FileUtils.loadAll(), !breadcrumbs.isEmpty else {
+        guard let breadcrumbs = FileUtils.getAllBreadcrumbsFile(), !breadcrumbs.isEmpty else {
             AppAmbitLogger.log(message: "No file breadcrumbs to send")
             completion(nil)
             return
@@ -162,7 +166,7 @@ final class BreadcrumbManager: @unchecked Sendable {
         group.notify(queue: .global()) {
             if errors.isEmpty {
                 AppAmbitLogger.log(message: "All file breadcrumbs successfully sent to DB")
-                FileUtils.deleteAll()
+                FileUtils.deleteBreadcrumbsFile()
                 completion(nil)
             } else {
                 AppAmbitLogger.log(message: "Some file breadcrumbs failed: \(errors.count)")

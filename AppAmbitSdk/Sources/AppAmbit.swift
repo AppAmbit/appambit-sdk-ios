@@ -248,6 +248,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func continueOnResume() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
+            BreadcrumbManager.removeLastDestroyBreadcrumb()
         }
         
         Crashes.shared.loadCrashFileIfExists { _ in
@@ -273,13 +274,13 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
             BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appSleep)
+            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appDestroy)
         }
     }
 
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appDestroy)
         }
     }
 
