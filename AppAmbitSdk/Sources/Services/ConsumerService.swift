@@ -19,6 +19,7 @@ final class ConsumerService: @unchecked Sendable {
         let deviceModel = appInfoService.deviceModel ?? "Unknown Model"
         let country     = appInfoService.country ?? Locale.current.regionCode ?? "Unknown country"
         let language    = appInfoService.language ?? Locale.current.languageCode ?? "Unknown language"
+        let appVersion = appInfoService.appVersion ?? "Unknown"
 
         var appId: String?
         var deviceId: String?, userId: String?, userEmail: String?
@@ -45,6 +46,7 @@ final class ConsumerService: @unchecked Sendable {
 
         return RegisterEndpoint(consumer: Consumer(
             appKey: appId ?? "",
+            appVersion: appVersion,
             deviceId: deviceId ?? "",
             deviceModel: deviceModel,
             userId: userId ?? "",

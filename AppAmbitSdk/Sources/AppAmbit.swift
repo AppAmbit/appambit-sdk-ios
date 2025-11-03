@@ -11,6 +11,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private var lastPathStatus: NWPath.Status?
     private var lastSendAllAt: CFAbsoluteTime = 0
     private let minSendInterval: CFAbsoluteTime = 1.0
+    private var objcCompletion: (() -> Void)?
+
 
     private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
@@ -19,7 +21,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private let appKey: String
     private var isCreatingConsumer = false
     private var hasSlept = false
-    private var consumerCreationCallbacks: [(Bool) -> Void] = []
+    private var consumerCreationCallbacks: [(@Sendable (Bool) -> Void)] = []
     private var reachability: ReachabilityService?
 
     private init(appKey: String) {
@@ -28,17 +30,42 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         CrashHandler.shared.register()
         setupLifecycleObservers()
         setupViewControllerLifecycleTracking()
-        onStart()
+        onStart() {}
+    }
+   
+    @objc private func fireObjCCompletion() {
+        let cb = objcCompletion
+        objcCompletion = nil
+        cb?()
     }
 
-    public static func start(appKey: String) {
-        instanceQueue.async {
-            if _instance == nil {
-                _instance = AppAmbit(appKey: appKey)
-            } else {
-                AppAmbitLogger.log(message: "SDK already started")
+    @nonobjc
+    public static func start(appKey: String, completion: @escaping () -> Void = {}) {
+        instanceQueue.sync {
+            if let inst = _instance {
+                inst.objcCompletion = completion
+                inst.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
+                return
+            }
+
+            let instance = AppAmbit(appKey: appKey)
+            _instance = instance
+            instance.objcCompletion = completion
+
+            instance.onStart {
+                instance.performSelector(onMainThread: #selector(AppAmbit.fireObjCCompletion), with: nil, waitUntilDone: false)
             }
         }
+    }
+
+    @objc(start:)
+    public class func startObjC(_ appKey: String) {
+        start(appKey: appKey, completion: {})
+    }
+
+    @objc(start:completion:)
+    public class func startObjC(_ appKey: String, completion: @escaping () -> Void) {
+        start(appKey: appKey, completion: completion)
     }
 
     private func setupLifecycleObservers() {
@@ -70,34 +97,21 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     @objc private func appDidBecomeActive() {
-        AppAmbitLogger.log(message: "appDidBecomeActive")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onResume()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onResume() }
     }
 
     @objc private func appWillResignActive() {
-        AppAmbitLogger.log(message: "appWillResignActive")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onSleep()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onSleep() }
     }
 
     @objc private func appDidEnterBackground() {
-        AppAmbitLogger.log(message: "appDidEnterBackground")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onSleep()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onSleep() }
     }
 
     @objc private func appWillEnterForeground() {
-        AppAmbitLogger.log(message: "appWillEnterForeground")
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
-            if !tokenIsValid() {
+            if !self.tokenIsValid() {
                 self.getNewToken { success in
                     if success { self.sendAllPendingData() }
                 }
@@ -108,13 +122,10 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     @objc private func appWillTerminate() {
-        AppAmbitLogger.log(message: "appWillTerminate")
-        Self.instanceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.onEnd()
-        }
+        Self.instanceQueue.async { [weak self] in self?.onEnd() }
     }
 
+    // MARK: - Services
     private func initializeServices() {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
@@ -128,21 +139,18 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         self.reachability = reachabilityService
 
         monitor.pathUpdateHandler = { [weak self] path in
-            guard let self = self else { return }
+            guard let self else { return }
             if self.lastPathStatus == path.status { return }
             self.lastPathStatus = path.status
-            
+
             if path.status == .satisfied {
-                AppAmbitLogger.log(message: "Connected via \(path.debugDescription)")
-                
                 if !self.tokenIsValid() {
                     self.getNewToken { success in
                         guard success else { return }
-                        
                         SessionManager.sendEndSessionFromDatabase { _ in
                             SessionManager.sendStartSessionIfExist { _ in
                                 Crashes.shared.loadCrashFileIfExists { _ in
-                                    self.sendAllPendingData();
+                                    self.sendAllPendingData()
                                 }
                             }
                         }
@@ -152,7 +160,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                         SessionManager.sendStartSessionIfExist { _ in
                             BreadcrumbManager.shared.addAsync(name: AppConstants.online)
                             Crashes.shared.loadCrashFileIfExists { _ in
-                                self.sendAllPendingData();
+                                self.sendAllPendingData()
                             }
                         }
                     }
@@ -166,18 +174,41 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         monitor.start(queue: Self.instanceQueue)
     }
 
-    private func initializeConsumer() {
+    // MARK: - Main startup
+    private func onStart(completion: @escaping @Sendable () -> Void) {
+        initializeServices()
+
+        initializeConsumer {
+            Crashes.shared.loadCrashFileIfExists { _ in
+                self.sendAllPendingData()
+                completion()
+            }
+        }
+    }
+
+    private func initializeConsumer(completion: @escaping @Sendable () -> Void) {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveSessionEndToDatabaseIfExist()
             BreadcrumbManager.sendBreadcrumbsToDatabaseIfExist()
         }
-        getNewToken { _ in
-            if Analytics.isManualSessionEnabled { return }
-            
-            SessionManager.sendEndSessionFromDatabase { error in
-                SessionManager.sendEndSessionFromFile {error in
+
+        getNewToken { success in
+            guard success else {
+                AppAmbitLogger.log(message: "Invalid token, aborting boot")
+                completion()
+                return
+            }
+
+            if Analytics.isManualSessionEnabled {
+                completion()
+                return
+            }
+
+            SessionManager.sendEndSessionFromDatabase { _ in
+                SessionManager.sendEndSessionFromFile { _ in
                     SessionManager.startSession { _ in
                         BreadcrumbManager.shared.flushPendingBreadcrumbs()
+                        completion()
                     }
                 }
             }
@@ -190,21 +221,24 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 self.consumerCreationCallbacks.append(completion)
                 return
             }
+
             self.isCreatingConsumer = true
             self.consumerCreationCallbacks.append(completion)
+
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(), !consumerId.isEmpty {
+                if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
+                   !consumerId.isEmpty {
                     ServiceContainer.shared.apiService.getNewToken { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 } else {
-                    ConsumerService.shared.createConsumer() { errorType in
+                    ConsumerService.shared.createConsumer { errorType in
                         self.handleTokenResult(errorType: errorType)
                     }
                 }
             } catch {
-                AppAmbitLogger.log(message: "Error reading consumerId: \(error)")
+                AppAmbitLogger.log(message: "Error reading consumer Id: \(error)")
                 self.handleTokenResult(errorType: .unknown)
             }
         }
@@ -215,14 +249,14 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Self.instanceQueue.async {
             self.isCreatingConsumer = false
             let callbacks = self.consumerCreationCallbacks
-            self.consumerCreationCallbacks = []
+            self.consumerCreationCallbacks.removeAll()
             callbacks.forEach { $0(success) }
         }
     }
 
     private func onStart() {
         initializeServices()
-        initializeConsumer()
+        initializeConsumer(){}
         
         Crashes.shared.loadCrashFileIfExists { _ in
             self.sendAllPendingData();
@@ -230,16 +264,14 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         BreadcrumbManager.shared.addAsync(name: AppConstants.appStart)
     }
 
+    // MARK: - Resume / Sleep / End
     private func onResume() {
         hasSlept = false
         if !Analytics.isManualSessionEnabled {
             BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
         }
         if !tokenIsValid() {
-            getNewToken { [weak self] _ in
-                guard let self = self else { return }
-                self.continueOnResume()
-            }
+            getNewToken { [weak self] _ in self?.continueOnResume() }
         } else {
             continueOnResume()
         }
@@ -250,10 +282,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             SessionManager.removeSavedEndSession()
             BreadcrumbManager.removeLastDestroyBreadcrumb()
         }
-        
-        Crashes.shared.loadCrashFileIfExists { _ in
-            self.sendAllPendingData();
-        }
+        Crashes.shared.loadCrashFileIfExists { _ in self.sendAllPendingData() }
     }
 
     private func sendAllPendingData() {
