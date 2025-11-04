@@ -12,7 +12,7 @@ final class FileUtils {
     private static var breadcrumbsURL: URL {
         let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
         let documentsDirectory = urls[0]
-        return documentsDirectory.appendingPathComponent("breadcrumbs.json")
+        return documentsDirectory.appendingPathComponent("\(BreadcrumbsConstants.fileName).json")
     }
     
     static func saveBreadcrumb(_ breadcrumb: BreadcrumbEntity) {
@@ -68,7 +68,7 @@ final class FileUtils {
             do {
                 var breadcrumbs = getAllBreadcrumbsFile() ?? []
 
-                if let last = breadcrumbs.last, last.name == AppConstants.appDestroy {
+                if let last = breadcrumbs.last, last.name == BreadcrumbsConstants.appDestroy {
                     breadcrumbs.removeLast()
 
                     let encoder = JSONEncoder()

@@ -30,7 +30,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         CrashHandler.shared.register()
         setupLifecycleObservers()
         setupViewControllerLifecycleTracking()
-        onStart() {}
     }
    
     @objc private func fireObjCCompletion() {
@@ -158,16 +157,16 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 } else {
                     SessionManager.sendEndSessionFromDatabase { _ in
                         SessionManager.sendStartSessionIfExist { _ in
-                            BreadcrumbManager.shared.addAsync(name: AppConstants.online)
+                            BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.online)
                             Crashes.shared.loadCrashFileIfExists { _ in
                                 self.sendAllPendingData()
                             }
                         }
                     }
                 }
-                BreadcrumbManager.shared.addAsync(name: AppConstants.online)
+                BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.online)
             } else {
-                BreadcrumbManager.shared.addAsync(name: AppConstants.offline)
+                BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.offline)
                 AppAmbitLogger.log(message: "Internet connection is not available.")
             }
         }
@@ -184,6 +183,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 completion()
             }
         }
+        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appStart)
     }
 
     private func initializeConsumer(completion: @escaping @Sendable () -> Void) {
@@ -193,11 +193,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         }
 
         getNewToken { success in
-            guard success else {
-                AppAmbitLogger.log(message: "Invalid token, aborting boot")
-                completion()
-                return
-            }
 
             if Analytics.isManualSessionEnabled {
                 completion()
@@ -254,21 +249,11 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         }
     }
 
-    private func onStart() {
-        initializeServices()
-        initializeConsumer(){}
-        
-        Crashes.shared.loadCrashFileIfExists { _ in
-            self.sendAllPendingData();
-        }
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appStart)
-    }
-
     // MARK: - Resume / Sleep / End
     private func onResume() {
         hasSlept = false
         if !Analytics.isManualSessionEnabled {
-            BreadcrumbManager.shared.addAsync(name: AppConstants.appResume)
+            BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appResume)
         }
         if !tokenIsValid() {
             getNewToken { [weak self] _ in self?.continueOnResume() }
@@ -302,8 +287,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         hasSlept = true
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appSleep)
-            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: AppConstants.appDestroy)
+            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: BreadcrumbsConstants.appSleep)
+            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: BreadcrumbsConstants.appDestroy)
         }
     }
 
@@ -329,6 +314,7 @@ private extension UIViewController {
             "_UI",
             "WK",
             "Tab",
+            "PlatformAlertController"
         ]
         
         return excludedPrefixes.allSatisfy { prefix in
@@ -342,7 +328,7 @@ private extension UIViewController {
         guard isValidScreen else { return }
         
         let screenName = String(describing: type(of: self))
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appAppear)
+        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appAppear)
         print(screenName)
     }
 
@@ -351,7 +337,7 @@ private extension UIViewController {
 
         guard isValidScreen else { return }
         
-        BreadcrumbManager.shared.addAsync(name: AppConstants.appDisappear)
+        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appDisappear)
     }
 
     static func swizzleMethod(original: Selector, swizzled: Selector) {
