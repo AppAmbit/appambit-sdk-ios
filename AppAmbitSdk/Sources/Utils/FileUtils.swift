@@ -3,103 +3,11 @@ import Foundation
 
 final class FileUtils {
     private nonisolated(unsafe) static let fileManager = FileManager.default
-    
     private static let diskKey = DispatchSpecificKey<UInt8>()
     private static let didInstallSpecific: Void = {
         Queues.diskRoot.setSpecific(key: diskKey, value: 1)
     }()
-    
-    private static var breadcrumbsURL: URL {
-        let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
-        let documentsDirectory = urls[0]
-        return documentsDirectory.appendingPathComponent("\(BreadcrumbsConstants.fileName).json")
-    }
-    
-    static func saveBreadcrumb(_ breadcrumb: BreadcrumbEntity) {
-        safeSync {
-            var existing: [BreadcrumbEntity] = getAllBreadcrumbsFile() ?? []
-            existing.append(breadcrumb)
-            
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = .prettyPrinted
-                encoder.dateEncodingStrategy = .custom { date, encoder in
-                    var c = encoder.singleValueContainer()
-                    try c.encode(DateUtils.utcCustomFormatString(from: date))
-                }
-                let data = try encoder.encode(existing)
-                try data.write(to: breadcrumbsURL, options: .atomic)
-                AppAmbitLogger.log(message: "Breadcrumb saved successfully")
-            } catch {
-                AppAmbitLogger.log(message: "Error saving breadcrumb: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    static func getAllBreadcrumbsFile() -> [BreadcrumbEntity]? {
-        safeSync {
-            guard fileManager.fileExists(atPath: breadcrumbsURL.path) else {
-                return []
-            }
-            do {
-                let data = try Data(contentsOf: breadcrumbsURL)
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .custom { decoder in
-                    let container = try decoder.singleValueContainer()
-                    let dateStr = try container.decode(String.self)
-                    guard let date = DateUtils.utcCustomFormatDate(from: dateStr) else {
-                        throw DecodingError.dataCorruptedError(in: container,
-                            debugDescription: "Invalid date format: \(dateStr)")
-                    }
-                    return date
-                }
-                return try decoder.decode([BreadcrumbEntity].self, from: data)
-            } catch {
-                AppAmbitLogger.log(message: "Error loading breadcrumbs: \(error.localizedDescription)")
-                return nil
-            }
-        }
-    }
-    
-    static func removeLastDestroyBreadcrumb() {
-        safeSync {
-            guard fileManager.fileExists(atPath: breadcrumbsURL.path) else { return }
-
-            do {
-                var breadcrumbs = getAllBreadcrumbsFile() ?? []
-
-                if let last = breadcrumbs.last, last.name == BreadcrumbsConstants.appDestroy {
-                    breadcrumbs.removeLast()
-
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = .prettyPrinted
-                    encoder.dateEncodingStrategy = .custom { date, encoder in
-                        var c = encoder.singleValueContainer()
-                        try c.encode(DateUtils.utcCustomFormatString(from: date))
-                    }
-                    let data = try encoder.encode(breadcrumbs)
-                    try data.write(to: breadcrumbsURL, options: .atomic)
-                    
-                    AppAmbitLogger.log(message: "Last appDestroy breadcrumb removed")
-                }
-            } catch {
-                AppAmbitLogger.log(message: "Error removing destroy breadcrumb: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    static func deleteBreadcrumbsFile() {
-        safeSync {
-            do {
-                if fileManager.fileExists(atPath: breadcrumbsURL.path) {
-                    try fileManager.removeItem(at: breadcrumbsURL)
-                    AppAmbitLogger.log(message: "All breadcrumbs deleted")
-                }
-            } catch {
-                AppAmbitLogger.log(message: "Error deleting breadcrumbs: \(error.localizedDescription)")
-            }
-        }
-    }
+    private static let baseDir: URL = getBaseDir()
     
     private static func safeSync<R>(_ work: () throws -> R) rethrows -> R {
         _ = didInstallSpecific
@@ -110,14 +18,33 @@ final class FileUtils {
         }
     }
     
-    private static func fileName<T>(for type: T.Type) -> String {
+    private static func getBaseDir() -> URL {
+        let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+        let dir = urls[0]
+        if !fileManager.fileExists(atPath: dir.path) {
+            try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+    
+    static func getFilePath(_ fileName: String) -> String {
+        baseDir.appendingPathComponent(fileName).path
+    }
+    
+    static func getFileName(_ type: Any.Type) -> String {
         "\(String(describing: type)).json"
     }
     
-    private static func fileURL<T>(for type: T.Type) -> URL {
-        let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
-        let documentsDirectory = urls[0]
-        return documentsDirectory.appendingPathComponent(fileName(for: type))
+    static func saveToFile<T>(_ type: T.Type, json: String) {
+        let url = baseDir.appendingPathComponent(getFileName(type))
+        safeSync {
+            do {
+                try Data(json.utf8).write(to: url, options: .atomic)
+                AppAmbitLogger.log(message: "Saved \(T.self) to \(url.path)")
+            } catch {
+                AppAmbitLogger.log(message: "Error saving \(T.self) to file: \(error.localizedDescription)")
+            }
+        }
     }
     
     static func save<T: Encodable>(_ object: T) {
@@ -129,11 +56,8 @@ final class FileUtils {
                 try c.encode(DateUtils.utcIsoFormatString(from: date))
             }
             let data = try encoder.encode(object)
-            let url  = fileURL(for: T.self)
-            
-            try safeSync {
-                try data.write(to: url, options: .atomic)
-            }
+            let url  = baseDir.appendingPathComponent(getFileName(T.self))
+            try safeSync { try data.write(to: url, options: .atomic) }
             AppAmbitLogger.log(message: "Saved \(T.self)")
         } catch {
             AppAmbitLogger.log(message: "Error saving \(T.self): \(error.localizedDescription)")
@@ -142,17 +66,12 @@ final class FileUtils {
     
     static func getSavedSingleObject<T: Decodable>(_ type: T.Type) -> T? {
         do {
-            let url = fileURL(for: T.self)
-
+            let url = baseDir.appendingPathComponent(getFileName(T.self))
             let dataOrNil: Data? = try safeSync {
-                guard fileManager.fileExists(atPath: url.path) else {
-                    AppAmbitLogger.log(message: "File for \(T.self) does not exist")
-                    return nil
-                }
+                guard fileManager.fileExists(atPath: url.path) else { return nil }
                 return try Data(contentsOf: url)
             }
             guard let data = dataOrNil else { return nil }
-
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .custom { decoder in
                 let c = try decoder.singleValueContainer()
@@ -162,29 +81,96 @@ final class FileUtils {
                 }
                 return d
             }
-
-            let object = try decoder.decode(T.self, from: data)
-            AppAmbitLogger.log(message: "Loaded \(T.self)")
-            return object
+            return try decoder.decode(T.self, from: data)
         } catch {
             AppAmbitLogger.log(message: "Error loading \(T.self): \(error.localizedDescription)")
             return nil
         }
     }
-
+    
     static func deleteSingleObject<T>(_ type: T.Type) {
         do {
-            let url = fileURL(for: T.self)
+            let url = baseDir.appendingPathComponent(getFileName(T.self))
             try safeSync {
                 if fileManager.fileExists(atPath: url.path) {
                     try fileManager.removeItem(at: url)
                     AppAmbitLogger.log(message: "Deleted \(T.self)")
-                } else {
-                    AppAmbitLogger.log(message: "No file to delete for \(T.self)")
                 }
             }
         } catch {
             AppAmbitLogger.log(message: "Error deleting \(T.self): \(error.localizedDescription)")
         }
+    }
+    
+    static func getSaveJsonArray<T: Codable & IIdentifiable>(_ fileName: String, entry: T?) -> [T] {
+        do {
+            let prepared = prepareFileSettings(fileName)
+            let url = prepared.url
+            let encoder = prepared.encoder
+            let decoder = prepared.decoder
+            
+            var list: [T] = []
+            if fileManager.fileExists(atPath: url.path) {
+                let data = try Data(contentsOf: url)
+                list = (try? decoder.decode([T].self, from: data)) ?? []
+            }
+            
+            if let entry = entry, !list.contains(where: { $0.id == entry.id }) {
+                list.append(entry)
+                let listSorted = list.sorted { $0.timestamp < $1.timestamp }
+                let out = try encoder.encode(listSorted)
+                try safeSync { try out.write(to: url, options: .atomic) }
+            }
+            
+            return list
+        } catch {
+            AppAmbitLogger.log(message: "File Exception: \(error.localizedDescription)")
+            return []
+        }
+    }
+    
+    static func updateJsonArray<T: Codable>(_ fileName: String, updatedList: [T]) {
+        do {
+            let prepared = prepareFileSettings(fileName)
+            let url = prepared.url
+            let encoder = prepared.encoder
+            
+            if updatedList.isEmpty {
+                if fileManager.fileExists(atPath: url.path) {
+                    try safeSync { try fileManager.removeItem(at: url) }
+                }
+                return
+            }
+            
+            let out = try encoder.encode(updatedList)
+            try safeSync { try out.write(to: url, options: .atomic) }
+        } catch {
+            AppAmbitLogger.log(message: "Error to save file json")
+        }
+    }
+    
+    private static func prepareFileSettings(_ fileName: String) -> (fileName: String, encoder: JSONEncoder, decoder: JSONDecoder, url: URL) {
+        var name = fileName
+        if !name.lowercased().hasSuffix(".json") { name += ".json" }
+        let url = baseDir.appendingPathComponent(name)
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var c = encoder.singleValueContainer()
+            try c.encode(DateUtils.utcIsoFormatString(from: date))
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            let s = try c.decode(String.self)
+            guard let d = DateUtils.utcIsoFormatDate(from: s) else {
+                throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid date format: \(s)")
+            }
+            return d
+        }
+        
+        return (name, encoder, decoder, url)
     }
 }

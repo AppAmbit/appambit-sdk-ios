@@ -82,3 +82,9 @@ extension BreadcrumbEntity {
         )
     }
 }
+
+extension BreadcrumbEntity {
+    func toData(sessionId: String) -> BreadcrumbData {
+        BreadcrumbData(id: id, sessionId: sessionId, name: name, timestamp: createdAt)
+    }
+}

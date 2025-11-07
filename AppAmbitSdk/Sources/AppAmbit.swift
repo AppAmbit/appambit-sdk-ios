@@ -1,6 +1,7 @@
 import UIKit
 import Foundation
 import Network
+import ObjectiveC.runtime
 
 @objcMembers
 public final class AppAmbit: NSObject, @unchecked Sendable {
@@ -13,7 +14,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private let minSendInterval: CFAbsoluteTime = 1.0
     private var objcCompletion: (() -> Void)?
 
-
     private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
     }
@@ -24,6 +24,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private var consumerCreationCallbacks: [(@Sendable (Bool) -> Void)] = []
     private var reachability: ReachabilityService?
 
+    private var didSendOnStart = false
+
     private init(appKey: String) {
         self.appKey = appKey
         super.init()
@@ -31,7 +33,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         setupLifecycleObservers()
         setupViewControllerLifecycleTracking()
     }
-   
+
     @objc private func fireObjCCompletion() {
         let cb = objcCompletion
         objcCompletion = nil
@@ -75,12 +77,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         nc.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         nc.addObserver(self, selector: #selector(appWillTerminate), name: UIApplication.willTerminateNotification, object: nil)
     }
-    
+
     private func setupViewControllerLifecycleTracking() {
         DispatchQueue.main.async {
             let originalDidAppear = #selector(UIViewController.viewDidAppear(_:))
             let swizzledDidAppear = #selector(UIViewController.swizzled_viewDidAppear(_:))
-            
+
             let originalDidDisappear = #selector(UIViewController.viewDidDisappear(_:))
             let swizzledDidDisappear = #selector(UIViewController.swizzled_viewDidDisappear(_:))
 
@@ -110,21 +112,27 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     @objc private func appWillEnterForeground() {
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
+            let afterTokenReady: @Sendable () -> Void = {
+                Crashes.shared.loadCrashFileIfExists { _ in
+                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                        self.sendAllPendingData()
+                    }
+                }
+            }
+
             if !self.tokenIsValid() {
                 self.getNewToken { success in
-                    if success { self.sendAllPendingData() }
+                    if success { afterTokenReady() }
                 }
             } else {
-                self.sendAllPendingData()
+                afterTokenReady()
             }
         }
     }
-
     @objc private func appWillTerminate() {
         Self.instanceQueue.async { [weak self] in self?.onEnd() }
     }
 
-    // MARK: - Services
     private func initializeServices() {
         let apiService = ServiceContainer.shared.apiService
         _ = ServiceContainer.shared.appInfoService
@@ -143,57 +151,67 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             self.lastPathStatus = path.status
 
             if path.status == .satisfied {
-                if !self.tokenIsValid() {
-                    self.getNewToken { success in
-                        guard success else { return }
-                        SessionManager.sendEndSessionFromDatabase { _ in
-                            SessionManager.sendStartSessionIfExist { _ in
-                                Crashes.shared.loadCrashFileIfExists { _ in
+                guard self.didSendOnStart else { return }
+
+                let afterTokenReady: @Sendable () -> Void = {
+                    guard SessionManager.isSessionActive else { return }
+
+                    SessionManager.sendEndSessionFromDatabase { _ in
+                        SessionManager.sendStartSessionIfExist { _ in
+                            Crashes.shared.loadCrashFileIfExists { _ in
+                                BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
+
                                     self.sendAllPendingData()
                                 }
                             }
                         }
                     }
-                } else {
-                    SessionManager.sendEndSessionFromDatabase { _ in
-                        SessionManager.sendStartSessionIfExist { _ in
-                            BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.online)
-                            Crashes.shared.loadCrashFileIfExists { _ in
-                                self.sendAllPendingData()
-                            }
-                        }
-                    }
                 }
-                BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.online)
+
+                if !self.tokenIsValid() {
+                    self.getNewToken { success in
+                        guard success else { return }
+                        afterTokenReady()
+                    }
+                } else {
+                    afterTokenReady()
+                }
             } else {
-                BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.offline)
+                guard SessionManager.isSessionActive else {
+                    AppAmbitLogger.log(message: "Skipping Offline breadcrumb: no active session.")
+                    return
+                }
+
+                BreadcrumbManager.saveFile(name: BreadcrumbsConstants.offline)
                 AppAmbitLogger.log(message: "Internet connection is not available.")
             }
         }
         monitor.start(queue: Self.instanceQueue)
     }
 
-    // MARK: - Main startup
     private func onStart(completion: @escaping @Sendable () -> Void) {
         initializeServices()
 
         initializeConsumer {
+            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+            self.didSendOnStart = true
+
             Crashes.shared.loadCrashFileIfExists { _ in
-                self.sendAllPendingData()
-                completion()
+                BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                    self.sendAllPendingData()
+                    completion()
+                }
             }
         }
-        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appStart)
     }
 
     private func initializeConsumer(completion: @escaping @Sendable () -> Void) {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveSessionEndToDatabaseIfExist()
-            BreadcrumbManager.sendBreadcrumbsToDatabaseIfExist()
         }
 
         getNewToken { success in
-
             if Analytics.isManualSessionEnabled {
                 completion()
                 return
@@ -202,7 +220,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             SessionManager.sendEndSessionFromDatabase { _ in
                 SessionManager.sendEndSessionFromFile { _ in
                     SessionManager.startSession { _ in
-                        BreadcrumbManager.shared.flushPendingBreadcrumbs()
                         completion()
                     }
                 }
@@ -249,32 +266,41 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Resume / Sleep / End
     private func onResume() {
+        let shouldSendResume = hasSlept
         hasSlept = false
-        if !Analytics.isManualSessionEnabled {
-            BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appResume)
-        }
+
         if !tokenIsValid() {
-            getNewToken { [weak self] _ in self?.continueOnResume() }
+            getNewToken { [weak self] _ in
+                guard let self else { return }
+                self.continueOnResume(shouldSendResume)
+            }
         } else {
-            continueOnResume()
+            continueOnResume(shouldSendResume)
         }
     }
 
-    private func continueOnResume() {
+    private func continueOnResume(_ shouldSendResume: Bool) {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
-            BreadcrumbManager.removeLastDestroyBreadcrumb()
         }
-        Crashes.shared.loadCrashFileIfExists { _ in self.sendAllPendingData() }
+        Crashes.shared.loadCrashFileIfExists { [weak self] _ in
+            BreadcrumbManager.loadBreadcrumbsFromFile { [weak self] _ in
+                guard let self = self else { return }
+                if shouldSendResume {
+                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                }
+                
+                self.sendAllPendingData()
+            }
+        }
     }
 
     private func sendAllPendingData() {
         let now = CFAbsoluteTimeGetCurrent()
         if now - lastSendAllAt < minSendInterval { return }
         lastSendAllAt = now
-        
+
         SessionManager.sendBatchSessions { _ in
             Analytics.sendBatchEvents()
             Crashes.sendBatchLogs()
@@ -287,14 +313,14 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         hasSlept = true
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: BreadcrumbsConstants.appSleep)
-            BreadcrumbManager.saveBreadcrumbFile(breadcrumbName: BreadcrumbsConstants.appDestroy)
+            BreadcrumbManager.saveFile(name: BreadcrumbsConstants.onPause)
         }
     }
 
     private func onEnd() {
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
+            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onDestroy)
         }
     }
 
@@ -304,46 +330,69 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 }
 
-private extension UIViewController {
+@MainActor
+private enum AmbitAssoc { static var tracked: UInt8 = 0 }
 
-    private var isValidScreen: Bool {
-        let screenName = String(describing: type(of: self))
-        
-        let excludedPrefixes = [
-            "UI",
-            "_UI",
-            "WK",
-            "Tab",
-            "PlatformAlertController"
-        ]
-        
-        return excludedPrefixes.allSatisfy { prefix in
-            !screenName.hasPrefix(prefix)
+fileprivate extension UIViewController {
+    @MainActor private var isWindowRoot: Bool {
+        (view.window?.rootViewController === self) || (parent == nil && presentingViewController == nil)
+    }
+
+    @MainActor private var isTabRootHost: Bool {
+        if let nav = navigationController, nav.viewControllers.first === self { return true }
+        return parent is UITabBarController
+    }
+
+    @MainActor private var isPushedInsideNavNow: Bool {
+        guard let nav = navigationController else { return false }
+        return nav.viewControllers.count > 1 && nav.topViewController === self
+    }
+
+    @MainActor private var isPresentedModallyNow: Bool {
+        presentingViewController != nil
+    }
+
+    @MainActor private var shouldTrackAppear: Bool {
+        if self is UINavigationController || self is UITabBarController { return false }
+        if isWindowRoot { return false }
+        if isTabRootHost { return false }
+        if isPushedInsideNavNow { return true }
+        if isPresentedModallyNow { return true }
+        return false
+    }
+
+    @MainActor private var didTrackAppear: Bool {
+        get {
+            withUnsafePointer(to: &AmbitAssoc.tracked) { key in
+                (objc_getAssociatedObject(self, key) as? Bool) == true
+            }
+        }
+        set {
+            withUnsafePointer(to: &AmbitAssoc.tracked) { key in
+                objc_setAssociatedObject(self, key, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
         }
     }
-    
-    @objc func swizzled_viewDidAppear(_ animated: Bool) {
-        self.swizzled_viewDidAppear(animated)
 
-        guard isValidScreen else { return }
-        
+    @MainActor @objc dynamic func swizzled_viewDidAppear(_ animated: Bool) {
+        self.swizzled_viewDidAppear(animated)
+        guard shouldTrackAppear else { return }
+        didTrackAppear = true
         let screenName = String(describing: type(of: self))
-        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appAppear)
+        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onAppear)
         print(screenName)
     }
 
-    @objc func swizzled_viewDidDisappear(_ animated: Bool) {
+    @MainActor @objc dynamic func swizzled_viewDidDisappear(_ animated: Bool) {
         self.swizzled_viewDidDisappear(animated)
-
-        guard isValidScreen else { return }
-        
-        BreadcrumbManager.shared.addAsync(name: BreadcrumbsConstants.appDisappear)
+        guard didTrackAppear else { return }
+        didTrackAppear = false
+        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onDisappear)
     }
 
     static func swizzleMethod(original: Selector, swizzled: Selector) {
-        guard let originalMethod = class_getInstanceMethod(Self.self, original),
-              let swizzledMethod = class_getInstanceMethod(Self.self, swizzled) else { return }
-        
-        method_exchangeImplementations(originalMethod, swizzledMethod)
+        guard let m1 = class_getInstanceMethod(Self.self, original),
+              let m2 = class_getInstanceMethod(Self.self, swizzled) else { return }
+        method_exchangeImplementations(m1, m2)
     }
 }

@@ -1,220 +1,225 @@
 import Foundation
 
 final class BreadcrumbManager: @unchecked Sendable {
-    public typealias ErrorCompletion = @Sendable (Error?) -> Void
-    
-    private var apiService: ApiService?
-    private var storageService: StorageService?
-    
-    private var pendingBreadcrumbs: [BreadcrumbEntity] = []
-    private var isSessionReady: Bool {
-        return !(SessionManager.sessionId.isEmpty)
-    }
+    private var api: ApiService?
+    private var storage: StorageService?
+    private var lastBreadcrumb: String?
     private var isSendingBatch = false
-    private var waiters: [ErrorCompletion] = []
-    private var batchTimeoutTimer: DispatchSourceTimer?
-    private static let batchSendTimeoutSeconds: Int = 30
-    
+    private var waiters: [(@Sendable (Error?) -> Void)] = []
+    private var isLoadingBreadcrumbs = false
+
+    private static let batchLock = NSLock()
+    private static let batchSendTimeout: TimeInterval = 10
+
+    private static let stateKey = DispatchSpecificKey<UInt8>()
+    private static let didInstallSpecific: Void = {
+        Queues.state.setSpecific(key: stateKey, value: 1)
+    }()
+
     static let shared = BreadcrumbManager()
     private init() {}
-    
-    static func initialize(apiService: ApiService, storageService: StorageService) {
-        shared.apiService = apiService
-        shared.storageService = storageService
-    }
-    
-    static func saveBreadcrumbFile(breadcrumbName: String) {
-        let entity = BreadcrumbEntity(
-            id: UUID().uuidString,
-            sessionId: SessionManager.sessionId,
-            name: breadcrumbName,
-            createdAt: DateUtils.utcNow
-        )
-        FileUtils.saveBreadcrumb(entity)
-    }
-    
-    func addAsync(name: String) {
-        if(apiService == nil || storageService == nil) {
-            return;
-        }
-        
-        let entity = createEntity(name: name)
-        
-        if !isSessionReady {
-            pendingBreadcrumbs.append(entity)
-            return
-        }
-        
-        trySendAsync(entity: entity) { errorType, response in}
-    }
-    
-    private func createEntity(name: String) -> BreadcrumbEntity {
-        let breadcrumb = BreadcrumbEntity(
-            id: UUID().uuidString,
-            sessionId: SessionManager.sessionId,
-            name: name,
-            createdAt: DateUtils.utcNow
-        )
-        return breadcrumb
-    }
-    
-    func trySendAsync(
-        entity: BreadcrumbEntity,
-        completion: @escaping @Sendable (ApiErrorType, BreadcrumbResponse?) -> Void
-    ) {
-        Queues.state.async {
-            let breadcrumbEndpoint = BreadcrumbEndpoint(breadcrumbEntity: entity)
-            
-            self.apiService?.executeRequest(breadcrumbEndpoint, responseType: BreadcrumbResponse.self) { response in
-                completion(response.errorType, response.data)
-            }
-        }
-    }
-    
-    static func removeLastDestroyBreadcrumb() {
-        FileUtils.removeLastDestroyBreadcrumb()
-    }
-    
-    static func sendBatchBreadcrumbs(completion: @escaping ErrorCompletion = { _ in }) {
-        let finish: ErrorCompletion = { err in
-            Queues.batch.async {
-                shared.isSendingBatch = false
-                shared.batchTimeoutTimer?.cancel()
-                shared.batchTimeoutTimer = nil
-                let cbs = shared.waiters
-                shared.waiters.removeAll()
-                for cb in cbs { DispatchQueue.global(qos: .utility).async { cb(err) } }
-            }
-        }
 
-        Queues.batch.async {
-            shared.waiters.append(completion)
-            guard !shared.isSendingBatch else {
-                AppAmbitLogger.log(message: "SendBatchBreadcrumbs skipped: already in progress")
+    static func initialize(apiService: ApiService, storageService: StorageService) {
+        shared.api = apiService
+        shared.storage = storageService
+    }
+
+    static func addAsync(name: String) {
+        var shouldProceed = true
+        safeStateSync {
+            if shared.lastBreadcrumb == name { shouldProceed = false } else { shared.lastBreadcrumb = name }
+        }
+        if !shouldProceed { return }
+        let entity = createBreadcrumb(name: name)
+        sendBreadcumbs(entity: entity)
+    }
+
+    static func saveFile(name: String) {
+        safeStateSync { shared.lastBreadcrumb = name }
+        let breadcrumb = createBreadcrumb(name: name)
+        let data = breadcrumb.toData(sessionId: SessionManager.sessionId)
+        _ = FileUtils.getSaveJsonArray(BreadcrumbsConstants.fileName, entry: data)
+    }
+
+    static func loadBreadcrumbsFromFile(completion: (@Sendable (Error?) -> Void)? = nil) {
+        Queues.diskRoot.async {
+            guard !shared.isLoadingBreadcrumbs else {
+                completion?(AppAmbitLogger.buildError(message: "Already processing breadcrumb files"))
                 return
             }
-            shared.isSendingBatch = true
-
-            let t = DispatchSource.makeTimerSource(queue: Queues.batch)
-            t.schedule(deadline: .now() + .seconds(batchSendTimeoutSeconds))
-            t.setEventHandler {
-                AppAmbitLogger.log(message: "SendBatchBreadcrumbs timeout: releasing gate")
-                finish(AppAmbitLogger.buildError(message: "SendBatchBreadcrumbs timeout"))
+            shared.isLoadingBreadcrumbs = true
+            let release: @Sendable () -> Void = {
+                Queues.diskRoot.async { shared.isLoadingBreadcrumbs = false }
             }
-            shared.batchTimeoutTimer = t
-            t.resume()
 
-            getBreadcrumbsInDbAsync { breadcrumbs, error in
-                Queues.batch.async {
-                    if let error = error {
-                        AppAmbitLogger.log(message: "Error getting breadcrumbs: \(error.localizedDescription)")
-                        finish(error); return
-                    }
-                    guard let breadcrumbs = breadcrumbs, !breadcrumbs.isEmpty else {
-                        AppAmbitLogger.log(message: "There are no breadcrumbs to send")
-                        finish(nil); return
-                    }
+            guard SessionManager.isSessionActive else {
+                AppAmbitLogger.log(message: "There is no active session")
+                completion?(AppAmbitLogger.buildError(message: "There is no active session"))
+                release()
+                return
+            }
 
-                    let endpoint = BreadcrumbBatchEndpoint(breadcrumbBatch: breadcrumbs)
-                    shared.apiService?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
-                        Queues.batch.async {
-                            if response.errorType != .none {
-                                AppAmbitLogger.log(message: "Breadcrumbs were not sent: \(response.message ?? "")")
-                                finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
-                                return
-                            }
-                            do {
-                                try shared.storageService?.deleteBreadcrumbList(breadcrumbs)
-                                AppAmbitLogger.log(message: "SendBatchBreadcrumbs successfully sent")
-                                finish(nil)
-                            } catch {
-                                AppAmbitLogger.log(message: "Failed deleting breadcrumbs: \(error.localizedDescription)")
-                                finish(error)
-                            }
-                        }
+            let files: [BreadcrumbData] = FileUtils.getSaveJsonArray(BreadcrumbsConstants.fileName, entry: Optional<BreadcrumbData>.none)
+            let count = files.count
+
+            guard count > 0 else {
+                completion?(nil)
+                release()
+                return
+            }
+
+            AppAmbitLogger.log(message: "Processing \(count) breadcrumb file(s)")
+
+            func overrideIfRemote(_ e: BreadcrumbEntity) -> BreadcrumbEntity {
+                let sid = SessionManager.sessionId
+                if Int64(sid) != nil {
+                    return BreadcrumbEntity(id: e.id, sessionId: sid, name: e.name, createdAt: e.createdAt)
+                }
+                return e
+            }
+
+            if count == 1, let only = files.first {
+                var leftovers: [BreadcrumbData] = []
+                do {
+                    let e0 = only.toEntity()
+                    let e  = overrideIfRemote(e0)
+                    try shared.storage?.putBreadcrumb(e)
+                } catch {
+                    leftovers.append(only)
+                }
+                FileUtils.updateJsonArray(BreadcrumbsConstants.fileName, updatedList: leftovers)
+                completion?(leftovers.isEmpty ? nil : AppAmbitLogger.buildError(message: "Failed to store one breadcrumb"))
+                release()
+            } else {
+                var notSent: [BreadcrumbData] = []
+                for item in files {
+                    do {
+                        let e0 = item.toEntity()
+                        let e  = overrideIfRemote(e0)
+                        try shared.storage?.putBreadcrumb(e)
+                    } catch {
+                        notSent.append(item)
                     }
+                }
+                FileUtils.updateJsonArray(BreadcrumbsConstants.fileName, updatedList: notSent)
+                completion?(notSent.isEmpty ? nil : AppAmbitLogger.buildError(message: "Some breadcrumbs failed: \(notSent.count)"))
+                release()
+            }
+        }
+    }
+
+
+    static func sendBatchBreadcrumbs(completion: (@Sendable (Error?) -> Void)? = nil) {
+        batchLock.lock()
+        if let completion { shared.waiters.append(completion) }
+        if shared.isSendingBatch {
+            batchLock.unlock()
+            return
+        }
+        shared.isSendingBatch = true
+        batchLock.unlock()
+
+        let finish: @Sendable (_ err: Error?) -> Void = { err in
+            batchLock.lock()
+            shared.isSendingBatch = false
+            let callbacks = shared.waiters
+            shared.waiters.removeAll()
+            batchLock.unlock()
+            for cb in callbacks { DispatchQueue.global().async { cb(err) } }
+        }
+
+        DispatchQueue.main.async {
+            Timer.scheduledTimer(withTimeInterval: batchSendTimeout, repeats: false) { _ in
+                batchLock.lock()
+                let stillSending = shared.isSendingBatch
+                batchLock.unlock()
+                if stillSending {
+                    finish(AppAmbitLogger.buildError(message: "SendBatchBreadcrumbs timeout"))
+                }
+            }
+        }
+
+        getBreadcrumbsInDb { breadcrumbs, error in
+            if let error = error {
+                AppAmbitLogger.log(message: "Error getting breadcrumbs: \(error.localizedDescription)")
+                finish(error)
+                return
+            }
+
+            guard let breadcrumbs = breadcrumbs, !breadcrumbs.isEmpty else {
+                AppAmbitLogger.log(message: "There are no breadcrumbs to send")
+                finish(nil)
+                return
+            }
+
+            let endpoint = BreadcrumbBatchEndpoint(breadcrumbBatch: breadcrumbs)
+            shared.api?.executeRequest(endpoint, responseType: BatchResponse.self) { response in
+                if response.errorType != .none {
+                    AppAmbitLogger.log(message: "Breadcrumbs were not sent: \(response.message ?? "")")
+                    finish(AppAmbitLogger.buildError(message: response.message ?? "Unknown error"))
+                    return
+                }
+
+                do {
+                    try shared.storage?.deleteBreadcrumbList(breadcrumbs)
+                    AppAmbitLogger.log(message: "SendBatchBreadcrumbs successfully sent")
+                    finish(nil)
+                } catch {
+                    AppAmbitLogger.log(message: "Failed deleting breadcrumbs: \(error.localizedDescription)")
+                    finish(error)
                 }
             }
         }
     }
-    
-    static func sendBreadcrumbsToDatabaseIfExist(completion: @escaping ErrorCompletion = { _ in }) {
 
-        guard let breadcrumbs = FileUtils.getAllBreadcrumbsFile(), !breadcrumbs.isEmpty else {
-            AppAmbitLogger.log(message: "No file breadcrumbs to send")
-            completion(nil)
-            return
+    private static func trySendAsync(
+        entity: BreadcrumbEntity,
+        completion: @escaping @Sendable (Bool) -> Void
+    ) {
+        guard let api = shared.api else { completion(false); return }
+        let ep = BreadcrumbEndpoint(breadcrumbEntity: entity)
+        api.executeRequest(ep, responseType: BreadcrumbResponse.self) { response in
+            let ok = response.errorType == .none
+            DispatchQueue.global(qos: .utility).async { completion(ok) }
         }
+    }
 
-        AppAmbitLogger.log(message: "Sending \(breadcrumbs.count) file breadcrumbs to DB")
-
-        let errors: [Error] = []
-        let group = DispatchGroup()
-
-        for entity in breadcrumbs {
-            group.enter()
-
-            if entity.sessionId == nil || entity.sessionId?.isEmpty == true {
-                entity.sessionId = SessionManager.sessionId
-            }
-
-            storeBreadcrumbInDb(breadcrumbEntity: entity) { err in
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .global()) {
-            if errors.isEmpty {
-                AppAmbitLogger.log(message: "All file breadcrumbs successfully sent to DB")
-                FileUtils.deleteBreadcrumbsFile()
-                completion(nil)
-            } else {
-                AppAmbitLogger.log(message: "Some file breadcrumbs failed: \(errors.count)")
-                completion(errors.first)
+    private static func sendBreadcumbs(entity: BreadcrumbEntity) {
+        trySendAsync(entity: entity) { sent in
+            if !sent {
+                try? shared.storage?.putBreadcrumb(entity)
             }
         }
     }
 
-    private static func storeBreadcrumbInDb(breadcrumbEntity: BreadcrumbEntity, completion: @escaping ErrorCompletion = { _ in }) {
-        Queues.state.async {
-            do {
-                try shared.storageService?.putBreadcrumb(breadcrumbEntity)
-                DispatchQueue.main.async { completion(nil) }
-            } catch {
-                DispatchQueue.main.async { completion(error) }
-            }
-        }
-    }
-    
-    private static func getBreadcrumbsInDbAsync(
+    private static func getBreadcrumbsInDb(
         _ completion: @escaping @Sendable (_ breadcrumbs: [BreadcrumbEntity]?, _ error: Error?) -> Void
     ) {
-        DispatchQueue.global(qos: .utility).async {
+        Queues.batch.async {
             do {
-                let breadcrumbs = try shared.storageService?.getOldest100Breadcrumbs()
+                let breadcrumbs = try shared.storage?.getOldest100Breadcrumbs()
                 completion(breadcrumbs, nil)
             } catch {
                 completion(nil, AppAmbitLogger.buildError(message: error.localizedDescription))
             }
         }
     }
-    
-    func flushPendingBreadcrumbs() {
-        guard isSessionReady else { return }
-        
-        for i in 0..<pendingBreadcrumbs.count {
-            pendingBreadcrumbs[i].sessionId = SessionManager.sessionId
+
+    private static func createBreadcrumb(name: String) -> BreadcrumbEntity {
+        BreadcrumbEntity(
+            id: UUID().uuidString,
+            sessionId: SessionManager.sessionId,
+            name: name,
+            createdAt: DateUtils.utcNow
+        )
+    }
+
+    private static func safeStateSync<R>(_ work: () -> R) -> R {
+        _ = didInstallSpecific
+        if DispatchQueue.getSpecific(key: stateKey) != nil {
+            return work()
+        } else {
+            return Queues.state.sync(execute: work)
         }
-        
-        print("Sending \(pendingBreadcrumbs.count) breadcrumbs…")
-        
-        pendingBreadcrumbs.forEach { entity in
-            trySendAsync(entity: entity) { errorType, response in
-                if errorType != .none {
-                    BreadcrumbManager.storeBreadcrumbInDb(breadcrumbEntity: entity)
-                }
-            }
-        }
-        pendingBreadcrumbs.removeAll()
     }
 }
