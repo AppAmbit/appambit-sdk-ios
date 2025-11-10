@@ -22,6 +22,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private var isCreatingConsumer = false
     private var hasSlept = false
     private var consumerCreationCallbacks: [(@Sendable (Bool) -> Void)] = []
+    private var reachability: ReachabilityService?
 
     private var didSendOnStart = false
 
@@ -30,6 +31,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         super.init()
         CrashHandler.shared.register()
         setupLifecycleObservers()
+        setupViewControllerLifecycleTracking()
     }
 
     @objc private func fireObjCCompletion() {
@@ -76,6 +78,19 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         nc.addObserver(self, selector: #selector(appWillTerminate), name: UIApplication.willTerminateNotification, object: nil)
     }
 
+    private func setupViewControllerLifecycleTracking() {
+        DispatchQueue.main.async {
+            let originalDidAppear = #selector(UIViewController.viewDidAppear(_:))
+            let swizzledDidAppear = #selector(UIViewController.swizzled_viewDidAppear(_:))
+
+            let originalDidDisappear = #selector(UIViewController.viewDidDisappear(_:))
+            let swizzledDidDisappear = #selector(UIViewController.swizzled_viewDidDisappear(_:))
+
+            UIViewController.swizzleMethod(original: originalDidAppear, swizzled: swizzledDidAppear)
+            UIViewController.swizzleMethod(original: originalDidDisappear, swizzled: swizzledDidDisappear)
+        }
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
         monitor.cancel()
@@ -114,7 +129,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             }
         }
     }
-
     @objc private func appWillTerminate() {
         Self.instanceQueue.async { [weak self] in self?.onEnd() }
     }
@@ -129,6 +143,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         SessionManager.initialize(apiService: apiService, storageService: storageService)
         BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
 
+        self.reachability = reachabilityService
 
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
@@ -275,6 +290,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 if shouldSendResume {
                     BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
                 }
+                
                 self.sendAllPendingData()
             }
         }
@@ -311,5 +327,99 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func tokenIsValid() -> Bool {
         guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
+    }
+}
+
+@MainActor
+private enum AmbitAssoc {
+    static var tracked: UInt8 = 0
+    static var lastName: UInt8 = 0
+}
+
+fileprivate extension UIViewController {
+    @MainActor private var isWindowRoot: Bool {
+        (view.window?.rootViewController === self) || (parent == nil && presentingViewController == nil)
+    }
+
+    @MainActor private var isTabRootHost: Bool {
+        if let nav = navigationController, nav.viewControllers.first === self { return true }
+        return parent is UITabBarController
+    }
+
+    @MainActor private var isPushedInsideNavNow: Bool {
+        guard let nav = navigationController else { return false }
+        return nav.viewControllers.count > 1 && nav.topViewController === self
+    }
+
+    @MainActor private var isPresentedModallyNow: Bool {
+        presentingViewController != nil || isBeingPresented
+    }
+
+    @MainActor private var shouldTrackAppear: Bool {
+        if self is UINavigationController || self is UITabBarController { return false }
+        if isWindowRoot { return false }
+        if isTabRootHost { return false }
+        if isPushedInsideNavNow { return true }
+        if isPresentedModallyNow { return true }
+        return false
+    }
+
+    @MainActor private var didTrackAppear: Bool {
+        get {
+            withUnsafePointer(to: &AmbitAssoc.tracked) { key in
+                (objc_getAssociatedObject(self, key) as? Bool) == true
+            }
+        }
+        set {
+            withUnsafePointer(to: &AmbitAssoc.tracked) { key in
+                objc_setAssociatedObject(self, key, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+        }
+    }
+
+    @MainActor private var ambit_lastName: String? {
+        get {
+            withUnsafePointer(to: &AmbitAssoc.lastName) { key in
+                objc_getAssociatedObject(self, key) as? String
+            }
+        }
+        set {
+            withUnsafePointer(to: &AmbitAssoc.lastName) { key in
+                objc_setAssociatedObject(self, key, newValue, .OBJC_ASSOCIATION_COPY_NONATOMIC)
+            }
+        }
+    }
+
+    @MainActor private func ambit_resolveName() -> String {
+        if let t = navigationItem.title, !t.isEmpty { return t }
+        if let nav = navigationController, nav.topViewController === self,
+           let t = nav.navigationBar.topItem?.title, !t.isEmpty { return t }
+        return String(describing: type(of: self))
+    }
+
+    @MainActor @objc dynamic func swizzled_viewDidAppear(_ animated: Bool) {
+        self.swizzled_viewDidAppear(animated)
+        guard shouldTrackAppear else { return }
+        DispatchQueue.main.async {
+            let name = self.ambit_resolveName()
+            self.didTrackAppear = true
+            self.ambit_lastName = name
+            BreadcrumbManager.addAsync(name: "\(BreadcrumbsConstants.onAppear): \(name)")
+        }
+    }
+
+    @MainActor @objc dynamic func swizzled_viewDidDisappear(_ animated: Bool) {
+        self.swizzled_viewDidDisappear(animated)
+        guard didTrackAppear else { return }
+        didTrackAppear = false
+        let name = ambit_lastName ?? ambit_resolveName()
+        BreadcrumbManager.addAsync(name: "\(BreadcrumbsConstants.onDisappear): \(name)")
+        ambit_lastName = nil
+    }
+
+    static func swizzleMethod(original: Selector, swizzled: Selector) {
+        guard let m1 = class_getInstanceMethod(Self.self, original),
+              let m2 = class_getInstanceMethod(Self.self, swizzled) else { return }
+        method_exchangeImplementations(m1, m2)
     }
 }
