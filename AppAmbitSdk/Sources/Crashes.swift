@@ -251,19 +251,10 @@ public final class Crashes: NSObject, @unchecked Sendable {
             AppAmbitLogger.log(message: "Processing \(crashFilesCount) crash file(s)")
             CrashHandler.setCrashFlag(true)
 
-            if crashFilesCount == 1 {
-                let exceptionInfo = crashesFiles[0]
-                Self.logCrash(exceptionInfo: exceptionInfo) { _ in
-                    CrashHandler.shared.clearCrashLogs()
-                    completion?(nil)
-                    release()
-                }
-            } else {
-                self.storeBatchCrashesLog(files: crashesFiles)
-                CrashHandler.shared.clearCrashLogs()
-                completion?(nil)
-                release()
-            }
+            self.storeBatchCrashesLog(files: crashesFiles)
+            CrashHandler.shared.clearCrashLogs()
+            completion?(nil)
+            release()
         }
     }
 
