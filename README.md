@@ -123,6 +123,24 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     [Crashes logErrorWithMessage:(@"Error ArrayIndex") properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 createdAt:nil completion:nil];
   ```
 * **Crash Reporting**: uncaught crashes are automatically captured and uploaded on next launch
+* **Breadcrumbs**: automatic screen-change breadcrumbs (push/pop, present/dismiss). To display the intended screen name, set a navigation title (`navigationTitle` in SwiftUI / `title` in UIKit/Objective-C). Without a title, it will appear in the dashboard using the default view/controller name.
+
+  ### Swift
+
+  ```swift
+    NavigationStack {
+      MyMview()
+        .navigationTitle("MyMview")
+    }
+  ```
+
+  ### Objective-C
+
+  ```objetive-c
+    UIViewController *vc = [UIViewController new];
+    vc.title = @"MyMview";
+    [self.navigationController pushViewController:vc animated:YES];
+  ```
 
 ---
 
