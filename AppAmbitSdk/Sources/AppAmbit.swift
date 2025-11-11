@@ -113,9 +113,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Self.instanceQueue.async { [weak self] in
             guard let self = self else { return }
             let afterTokenReady: @Sendable () -> Void = {
-                Crashes.shared.loadCrashFileIfExists { _ in
-                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                        self.sendAllPendingData()
+                Crashes.shared.loadCrashFileIfExists { error in
+                    guard error == nil else { return }
+                    Queues.crashFiles.async {
+                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                            self.sendAllPendingData()
+                        }
                     }
                 }
             }
@@ -129,6 +132,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             }
         }
     }
+
     @objc private func appWillTerminate() {
         Self.instanceQueue.async { [weak self] in self?.onEnd() }
     }
@@ -158,11 +162,13 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
                     SessionManager.sendEndSessionFromDatabase { _ in
                         SessionManager.sendStartSessionIfExist { _ in
-                            Crashes.shared.loadCrashFileIfExists { _ in
-                                BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
-
-                                    self.sendAllPendingData()
+                            Crashes.shared.loadCrashFileIfExists { error in
+                                guard error == nil else { return }
+                                Queues.crashFiles.async {
+                                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
+                                        self.sendAllPendingData()
+                                    }
                                 }
                             }
                         }
@@ -197,10 +203,16 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
 
-            Crashes.shared.loadCrashFileIfExists { _ in
-                BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                    self.sendAllPendingData()
+            Crashes.shared.loadCrashFileIfExists { error in
+                if error != nil {
                     completion()
+                    return
+                }
+                Queues.crashFiles.async {
+                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                        self.sendAllPendingData()
+                        completion()
+                    }
                 }
             }
         }
@@ -284,14 +296,17 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-        Crashes.shared.loadCrashFileIfExists { [weak self] _ in
-            BreadcrumbManager.loadBreadcrumbsFromFile { [weak self] _ in
-                guard let self = self else { return }
-                if shouldSendResume {
-                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+
+        Crashes.shared.loadCrashFileIfExists { error in
+            guard error == nil else { return }
+            Queues.crashFiles.async {
+                BreadcrumbManager.loadBreadcrumbsFromFile { [weak self] _ in
+                    guard let self = self else { return }
+                    if shouldSendResume {
+                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                    }
+                    self.sendAllPendingData()
                 }
-                
-                self.sendAllPendingData()
             }
         }
     }
