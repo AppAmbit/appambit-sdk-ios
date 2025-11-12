@@ -1,4 +1,3 @@
-
 class AppConstants {
     static let databaseFileName = "AppAmbit"
     static let noStackTraceAvailable = "NoStackTraceAvailable";

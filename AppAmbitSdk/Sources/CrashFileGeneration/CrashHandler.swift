@@ -107,7 +107,7 @@ class CrashHandler: @unchecked Sendable {
             }
             sigaction(sig, &action, nil)
         }
-        debugPrint("[CrashHandler] Signal Handlers configurados.")
+        debugPrint("[CrashHandler] Signal Handlers configured.")
     }
     
     // MARK: - Helpers

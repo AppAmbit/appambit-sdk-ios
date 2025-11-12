@@ -93,7 +93,8 @@ final class Logging: @unchecked Sendable {
         queue.async {
             let apiService = ServiceContainer.shared.apiService
 
-            let endpointLog = Log()
+            let endpointLog = LogEntity()
+            endpointLog.sessionId = localLogEntity.sessionId
             endpointLog.appVersion = localLogEntity.appVersion
             endpointLog.classFQN = localLogEntity.classFQN
             endpointLog.fileName = localLogEntity.fileName
@@ -103,7 +104,7 @@ final class Logging: @unchecked Sendable {
             endpointLog.context = localLogEntity.context
             endpointLog.type = localLogEntity.type
             endpointLog.file = localLogEntity.file
-
+            
             let logEndpoint = LogEndpoint(log: endpointLog)
             apiService.executeRequest(logEndpoint, responseType: LogResponse.self) { (result: ApiResult<LogResponse>) in
                 handleLogRequestResult(result: result, logEntity: localLogEntity, completion: completion)

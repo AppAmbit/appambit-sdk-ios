@@ -26,7 +26,7 @@ protocol StorageService {
     func getOldest100Events() throws -> [EventEntity]
     func deleteEventList(_ events: [EventEntity]) throws
     
-    func updateLogsAndEventsSessionIds(_ sessions: [SessionBatch]) throws
+    func updateSessionIdsForAllTrackingData(_ sessions: [SessionBatch]) throws
 
     func getUnpairedSessionStart() throws -> SessionData?
     func getUnpairedSessionEnd() throws -> SessionData?
@@ -34,4 +34,8 @@ protocol StorageService {
     func deleteSessionList(_ sessions: [SessionBatch]) throws
     func putSessionData(_ session: SessionData) throws -> Void
     func getOldest100Sessions() throws -> [SessionBatch]
+    
+    func putBreadcrumb(_ breadcrumb: BreadcrumbEntity) throws -> Void
+    func getOldest100Breadcrumbs() throws -> [BreadcrumbEntity]
+    func deleteBreadcrumbList(_ breadcrumbs: [BreadcrumbEntity]) throws
 }
