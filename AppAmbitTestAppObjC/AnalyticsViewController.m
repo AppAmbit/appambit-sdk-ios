@@ -1,5 +1,6 @@
 #import "AnalyticsViewController.h"
 #import "NetworkMonitor.h"
+#import "SecondViewController.h"
 
 
 @import AppAmbit;
@@ -25,56 +26,60 @@
 - (void)buildUI {
     self.scroll = [[UIScrollView alloc] init];
     self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
-
+    
     self.stack = [[UIStackView alloc] init];
     self.stack.axis = UILayoutConstraintAxisVertical;
     self.stack.spacing = 16.0;
     self.stack.translatesAutoresizingMaskIntoConstraints = NO;
-
+    
     [self.view addSubview:self.scroll];
     [self.scroll addSubview:self.stack];
-
+    
     [NSLayoutConstraint activateConstraints:@[
         [self.scroll.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
         [self.scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-
+        
         [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:20],
         [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
         [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-20],
         [self.stack.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor constant:-32],
     ]];
-
+    
     [self.stack addArrangedSubview:[self makeButton:@"Invalidate Token"
-                                              action:@selector(onInvalidateToken)]];
+                                             action:@selector(onInvalidateToken)]];
     [self.stack addArrangedSubview:[self makeButton:@"Token refresh test"
-                                              action:@selector(onTokenRefreshTest)]];
+                                             action:@selector(onTokenRefreshTest)]];
     [self.stack addArrangedSubview:[self makeButton:@"Start Session"
-                                              action:@selector(onStartSession)]];
+                                             action:@selector(onStartSession)]];
     [self.stack addArrangedSubview:[self makeButton:@"End Session"
-                                              action:@selector(onEndSession)]];
-
+                                             action:@selector(onEndSession)]];
+    
     UIButton *sessions30Btn = [self makeDisabledButton:@"Generate the last 30 daily sessions"];
     [sessions30Btn addTarget:self action:@selector(onGenerateLast30DailySessions) forControlEvents:UIControlEventTouchUpInside];
     [self.stack addArrangedSubview:sessions30Btn];
-
+    
     [self.stack addArrangedSubview:[self makeButton:@"Send 'Button Clicked' Event w/ property"
-                                              action:@selector(onSendButtonClickedEvent)]];
+                                             action:@selector(onSendButtonClickedEvent)]];
     [self.stack addArrangedSubview:[self makeButton:@"Send Default Event w/ property"
-                                              action:@selector(onSendDefaultEvent)]];
+                                             action:@selector(onSendDefaultEvent)]];
     [self.stack addArrangedSubview:[self makeButton:@"Send Max-300-Length Event"
-                                              action:@selector(onSendMax300LengthEvent)]];
+                                             action:@selector(onSendMax300LengthEvent)]];
     [self.stack addArrangedSubview:[self makeButton:@"Send Max-20-Properties Event"
-                                              action:@selector(onSendMax20PropertiesEvent)]];
-
+                                             action:@selector(onSendMax20PropertiesEvent)]];
+    
     UIButton *events30Btn = [self makeDisabledButton:@"Send 30 Daily Events"];
     [events30Btn addTarget:self action:@selector(onSend30DailyEvents) forControlEvents:UIControlEventTouchUpInside];
     [self.stack addArrangedSubview:events30Btn];
-
+    
     [self.stack addArrangedSubview:[self makeButton:@"Send Batch of 220 Events"
-                                              action:@selector(onGenerateBatchEvents)]];
+                                             action:@selector(onGenerateBatchEvents)]];
+
+    [self.stack addArrangedSubview:[self makeButton:@"Change to Second Activity"
+                                              action:@selector(onChangeToSecondActivity)]];
+
 }
 
 - (UIButton *)makeButton:(NSString *)title action:(SEL)action {
@@ -285,5 +290,26 @@
         [self presentInfoWithMessage:@"Events generated, turn on internet"];
     });
 }
+
+- (void)onChangeToSecondActivity {
+    UIViewController *vc = [SecondViewController new];
+
+    if (self.navigationController) {
+        [self.navigationController pushViewController:vc animated:YES];
+    } else {
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+        nav.modalPresentationStyle = UIModalPresentationFullScreen;
+        vc.navigationItem.rightBarButtonItem =
+            [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemClose
+                                                          target:self
+                                                          action:@selector(onClosePresentedPage)];
+        [self presentViewController:nav animated:YES completion:nil];
+    }
+}
+
+- (void)onClosePresentedPage {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
 
 @end

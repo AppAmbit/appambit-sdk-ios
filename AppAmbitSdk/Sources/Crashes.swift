@@ -227,45 +227,35 @@ public final class Crashes: NSObject, @unchecked Sendable {
                 return
             }
             self.isLoadingCrashes = true
-            let release: @Sendable () -> Void = {
-                Queues.crashFiles.async { self.isLoadingCrashes = false }
-            }
+            defer { self.isLoadingCrashes = false }
 
             guard SessionManager.isSessionActive else {
                 AppAmbitLogger.log(message: "There is no active session")
                 completion?(AppAmbitLogger.buildError(message: "There is no active session"))
-                release()
                 return
             }
 
             let crashesFiles = CrashHandler.shared.loadCrashInfos()
-            let crashFilesCount = crashesFiles.count
-
-            guard crashFilesCount > 0 else {
+            guard !crashesFiles.isEmpty else {
                 CrashHandler.setCrashFlag(false)
                 completion?(nil)
-                release()
                 return
             }
 
-            AppAmbitLogger.log(message: "Processing \(crashFilesCount) crash file(s)")
+            AppAmbitLogger.log(message: "Processing \(crashesFiles.count) crash file(s)")
             CrashHandler.setCrashFlag(true)
 
-            if crashFilesCount == 1 {
-                let exceptionInfo = crashesFiles[0]
-                Self.logCrash(exceptionInfo: exceptionInfo) { _ in
-                    CrashHandler.shared.clearCrashLogs()
-                    completion?(nil)
-                    release()
-                }
-            } else {
-                self.storeBatchCrashesLog(files: crashesFiles)
+            self.storeBatchCrashesLog(files: crashesFiles)
+
+            DispatchQueue.global(qos: .utility).async {
                 CrashHandler.shared.clearCrashLogs()
+                AppAmbitLogger.log(message: "Crash logs cleared after DB write")
                 completion?(nil)
-                release()
             }
         }
     }
+
+
 
     static func sendBatchLogs(completion: (@Sendable (Error?) -> Void)? = nil) {
         let finishOnBatch: (@Sendable (Error?) -> Void) = { err in

@@ -4,153 +4,168 @@ import AppAmbit
 struct AnalyticsView: View {
     @State private var showCompletionAlert = false
     @State private var messageAlert = ""
+    @State private var navigateToSecond = false
     var body: some View {
-        ScrollView {
-            VStack(spacing: 25) {
-                Button("Invalidate Token") {
-                    Analytics.clearToken()
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                Button("Token refresh test") {
-                    onTokenRefreshTest()
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                Button("Start Session") {
-                    Analytics.startSession { error in
-                        if let error = error {
-                            debugPrint("Error Start Session: \(error.localizedDescription)")
-                        } else {
-                            debugPrint("Successful Start Session")
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 25) {
+                    Button("Invalidate Token") {
+                        Analytics.clearToken()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Token refresh test") {
+                        onTokenRefreshTest()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    Button("Start Session") {
+                        Analytics.startSession { error in
+                            if let error = error {
+                                debugPrint("Error Start Session: \(error.localizedDescription)")
+                            } else {
+                                debugPrint("Successful Start Session")
+                            }
                         }
                     }
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                Button("End Session") {
-                    Analytics.endSession { response in
-                        if let response = response {
-                            debugPrint("Error Start Session: \(response.localizedDescription)")
-                        } else {
-                            debugPrint("Successful End Session")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("End Session") {
+                        Analytics.endSession { response in
+                            if let response = response {
+                                debugPrint("Error Start Session: \(response.localizedDescription)")
+                            } else {
+                                debugPrint("Successful End Session")
+                            }
                         }
                     }
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                Button("Generate the last 30 daily sessions") {
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Generate the last 30 daily sessions") {
+                        
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(red: 96/255, green: 120/255, blue: 141/255))
+                    .foregroundColor(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .disabled(true)
+                    
+                    Button("Send 'Button Clicked' Event w/ property") {
+                        Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
+                            if let response = response {
+                                debugPrint("Error Track Event: \(response.localizedDescription)")
+                            } else {
+                                debugPrint("Event sent successfully")
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Send Default Event w/ property") {
+                        Analytics.generateTestEvent() { response in
+                            if let response = response {
+                                debugPrint("Error Track Event: \(response.localizedDescription)")
+                            } else {
+                                debugPrint("Event sent successfully")
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Send Max-300-Length Event") {
+                        onClickedTestLimitsEvent()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Send Max-20-Properties Event") {
+                        onClickedTestMaxPropertiesEven()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Send 30 Daily Events") {
+                        
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(red: 96/255, green: 120/255, blue: 141/255))
+                    .foregroundColor(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .disabled(true)
+                    
+                    Button("Send Batch of 220 Events") {
+                        onGenerateBatchEvents()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    
+                    Button("Change to Second Activity") {
+                        navigateToSecond = true
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
                     
                 }
-                .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
-                .foregroundColor(Color(.systemGray6))
-                .cornerRadius(8)
-                .padding(.horizontal)
-                .disabled(true)
-                
-                Button("Send 'Button Clicked' Event w/ property") {
-                    Analytics.trackEvent(eventTitle: "ButtonClicked", data: ["Count": "41"]) { response in
-                        if let response = response {
-                            debugPrint("Error Track Event: \(response.localizedDescription)")
-                        } else {
-                            debugPrint("Event sent successfully")
-                        }
-                    }
+                .alert(isPresented: $showCompletionAlert) {
+                    Alert(
+                        title: Text("Info"),
+                        message: Text(messageAlert),
+                        dismissButton: .default(Text("OK"))
+                    )
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                            
-                Button("Send Default Event w/ property") {
-                    Analytics.generateTestEvent() { response in
-                        if let response = response {
-                            debugPrint("Error Track Event: \(response.localizedDescription)")
-                        } else {
-                            debugPrint("Event sent successfully")
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                Button("Send Max-300-Length Event") {
-                    onClickedTestLimitsEvent()
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-
-                Button("Send Max-20-Properties Event") {
-                    onClickedTestMaxPropertiesEven()                    
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-
-                Button("Send 30 Daily Events") {
-                    
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
-                .foregroundColor(Color(.systemGray6))
-                .cornerRadius(8)
-                .padding(.horizontal)
-                .disabled(true)
-                
-                Button("Send Batch of 220 Events") {
-                    onGenerateBatchEvents()
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                
             }
-            .padding()
-            .alert(isPresented: $showCompletionAlert) {
-                Alert(
-                    title: Text("Info"),
-                    message: Text(messageAlert),
-                    dismissButton: .default(Text("OK"))
-                )
+            .navigationDestination(isPresented: $navigateToSecond) {
+                SecondView()
             }
         }
     }

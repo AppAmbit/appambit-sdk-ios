@@ -107,14 +107,12 @@ final class SessionManager: @unchecked Sendable {
                 finishEnd(nil); return
             }
 
-            // 1) Leer en BD
             Queues.db.async {
                 do {
                     guard let end = try storage.getUnpairedSessionEnd() else {
                         finishEnd(nil); return
                     }
 
-                    // 2) Enviar por red (o usa tu cola 'batch')
                     Queues.batch.async {
                         sendEndSession(endSession: end) { errorType, _ in
                             guard errorType == .none else {
@@ -124,7 +122,6 @@ final class SessionManager: @unchecked Sendable {
                                 return
                             }
 
-                            // 3) Borrar en BD
                             Queues.db.async {
                                 do {
                                     if let id = end.id, !id.isEmpty {
@@ -205,7 +202,7 @@ final class SessionManager: @unchecked Sendable {
                 ]
 
                 do {
-                    try shared.storageService?.updateLogsAndEventsSessionIds(payload)
+                    try shared.storageService?.updateSessionIdsForAllTrackingData(payload)
                     try shared.storageService?.deleteSessionList(payload)
                     completion?(nil)
                 } catch {
@@ -365,7 +362,7 @@ final class SessionManager: @unchecked Sendable {
                     
                     do {
                         if !resolved.isEmpty {
-                            try shared.storageService?.updateLogsAndEventsSessionIds(resolved)
+                            try shared.storageService?.updateSessionIdsForAllTrackingData(resolved)
                         }
                         try shared.storageService?.deleteSessionList(sessions)
                         finish(nil)
@@ -400,12 +397,10 @@ final class SessionManager: @unchecked Sendable {
                     completion(AppAmbitLogger.buildError(message: "Failed to send End Session: \(errorType.localizedDescription)"))
                     return
                 }
-                
                 completion(nil)
-            }
+          }
         }
     }
-
 
     private static func sendStartSession( dateUtcNow: Date, completion: @escaping @Sendable (ApiErrorType, SessionResponse?) -> Void ) {
         shared.apiService?.executeRequest(StartSessionEndpoint(utcNow: dateUtcNow), responseType: SessionResponse.self) { response in

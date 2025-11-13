@@ -304,14 +304,16 @@ final class StorableService: StorageService {
 
     // MARK: - Sessions
 
-    func updateLogsAndEventsSessionIds(_ sessions: [SessionBatch]) throws {
+    func updateSessionIdsForAllTrackingData(_ sessions: [SessionBatch]) throws {
         guard !sessions.isEmpty else { return }
 
         try syncOnQueue {
-            let logsTable = LogEntityConfiguration.tableName
-            let logsCol   = LogEntityConfiguration.Column.sessionId.name
-            let evtsTable = EventEntityConfiguration.tableName
-            let evtsCol   = EventEntityConfiguration.Column.sessionId.name
+            let logsTable  = LogEntityConfiguration.tableName
+            let logsCol    = LogEntityConfiguration.Column.sessionId.name
+            let evtsTable  = EventEntityConfiguration.tableName
+            let evtsCol    = EventEntityConfiguration.Column.sessionId.name
+            let brcmbTable = BreadcrumbEntityConfiguration.tableName
+            let brcmbCol   = BreadcrumbEntityConfiguration.Column.sessionId.name
 
             let sqlLogs = """
             UPDATE \(logsTable)
@@ -324,17 +326,26 @@ final class StorableService: StorageService {
             SET \(evtsCol) = TRIM(?)
             WHERE TRIM(\(evtsCol)) = TRIM(?) COLLATE NOCASE;
             """
-
-            var stmtLogs: OpaquePointer?
-            var stmtEvts: OpaquePointer?
+            
+            let sqlBreadcrumbs = """
+            UPDATE \(brcmbTable)
+            SET \(brcmbCol) = TRIM(?)
+            WHERE TRIM(\(brcmbCol)) = TRIM(?) COLLATE NOCASE;
+            """
+            
+            var stmtLogs:  OpaquePointer?
+            var stmtEvts:  OpaquePointer?
+            var stmtBrcmbs: OpaquePointer?
 
             guard sqlite3_prepare_v2(db, sqlLogs, -1, &stmtLogs, nil) == SQLITE_OK,
-                  sqlite3_prepare_v2(db, sqlEvents, -1, &stmtEvts, nil) == SQLITE_OK else {
+                  sqlite3_prepare_v2(db, sqlEvents, -1, &stmtEvts, nil) == SQLITE_OK,
+                  sqlite3_prepare_v2(db, sqlBreadcrumbs, -1, &stmtBrcmbs, nil) == SQLITE_OK else {
                 throw sqliteError
             }
             defer {
                 sqlite3_finalize(stmtLogs)
                 sqlite3_finalize(stmtEvts)
+                sqlite3_finalize(stmtBrcmbs)
             }
 
             guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION", nil, nil, nil) == SQLITE_OK else {
@@ -347,7 +358,7 @@ final class StorableService: StorageService {
                 }
             }
 
-            var seen = Set<String>() // clave: "\(old.lowercased())\u{1F}\(new.lowercased())"
+            var seen = Set<String>() // "\(old.lowercased())\u{1F}\(new.lowercased())"
 
             for s in sessions {
                 let oldRaw = s.id.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -383,6 +394,16 @@ final class StorableService: StorageService {
                 
                 sqlite3_reset(stmtEvts)
                 sqlite3_clear_bindings(stmtEvts)
+                
+                bindText(stmtBrcmbs, index: 1, value: newRaw0)
+                bindText(stmtBrcmbs, index: 2, value: oldRaw)
+                let rc3 = sqlite3_step(stmtBrcmbs)
+                if rc3 != SQLITE_DONE {
+                    debugPrint("sqlite3_step BREADCRUMBS rc=\(rc3)  \(oldRaw) -> \(newRaw0)")
+                }
+                
+                sqlite3_reset(stmtBrcmbs)
+                sqlite3_clear_bindings(stmtBrcmbs)
             }
 
             guard sqlite3_exec(db, "COMMIT", nil, nil, nil) == SQLITE_OK else {
@@ -771,4 +792,93 @@ final class StorableService: StorageService {
             try getSecret(column: column)
         }
     }
+    
+    // MARK: - Breadcrumbs table internals
+    
+    func getOldest100Breadcrumbs() throws -> [BreadcrumbEntity] {
+        try syncOnQueue {
+            var result: [BreadcrumbEntity] = []
+            let sql = """
+            SELECT
+                \(BreadcrumbEntityConfiguration.Column.id), \(BreadcrumbEntityConfiguration.Column.sessionId.name),
+                \(BreadcrumbEntityConfiguration.Column.name.name), \(BreadcrumbEntityConfiguration.Column.createdAt.name)
+            FROM \(BreadcrumbEntityConfiguration.tableName)
+            ORDER BY \(BreadcrumbEntityConfiguration.Column.createdAt.name) ASC
+            LIMIT 100;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let idString        = String(cString: sqlite3_column_text(stmt, 0))
+                let sessionId       = String(cString: sqlite3_column_text(stmt, 1))
+                let name            = String(cString: sqlite3_column_text(stmt, 2))
+                let createdAtString = String(cString: sqlite3_column_text(stmt, 3))
+
+                guard let createdAt = dateFromStringCustom(createdAtString) else { continue }
+
+                result.append(BreadcrumbEntity(
+                    id        : idString,
+                    sessionId : sessionId,
+                    name      : name,
+                    createdAt : createdAt,
+                ))
+            }
+            return result
+        }
+    }
+    
+    func putBreadcrumb(_ breadcrumb: BreadcrumbEntity) throws {
+        try syncOnQueue {
+            let sql = """
+            INSERT INTO \(BreadcrumbEntityConfiguration.tableName)
+            (\(BreadcrumbEntityConfiguration.Column.id.name), \(BreadcrumbEntityConfiguration.Column.sessionId.name),
+             \(BreadcrumbEntityConfiguration.Column.name.name), \(BreadcrumbEntityConfiguration.Column.createdAt.name))
+            VALUES (?, ?, ?, ?);
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            bindText(stmt, index: 1, value: breadcrumb.id)
+            bindText(stmt, index: 2, value: breadcrumb.sessionId)
+            bindText(stmt, index: 3, value: breadcrumb.name)
+            bindText(stmt, index: 4, value: stringFromDateCustom(breadcrumb.createdAt))
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
+        }
+    }
+    
+    func deleteBreadcrumbList(_ breadcrumbs: [BreadcrumbEntity]) throws {
+        try syncOnQueue {
+            let sql = """
+            DELETE FROM \(BreadcrumbEntityConfiguration.tableName)
+            WHERE TRIM(\(BreadcrumbEntityConfiguration.Column.id.name)) = TRIM(?) COLLATE NOCASE;
+            """
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            for breadcrumb in breadcrumbs {
+                let idString = breadcrumb.id.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                bindText(stmt, index: 1, value: idString)
+
+                let stepResult = sqlite3_step(stmt)
+                if stepResult != SQLITE_DONE {
+                    debugPrint("sqlite3_step failed for id: \(idString) with result \(stepResult)")
+                    throw sqliteError
+                }
+
+                sqlite3_reset(stmt)
+            }
+        }
+    }
+    
 }

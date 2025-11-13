@@ -29,6 +29,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 ## Features
 
 * Session analytics with automatic lifecycle tracking
+* Ambit Trail records detailed navigation for debugging
 * Event tracking with custom properties
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
@@ -60,7 +61,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 0.0.9'
+pod 'AppAmbitSdk', '~> 0.1.0'
 ```
 
 Then run:
@@ -99,6 +100,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 ## Usage
 
 * **Session activity** – automatically tracks user session starts, stops, and durations
+* **Ambit Trail** – records detailed navigation of user and system actions leading up to an issue for easier debugging
 * **Track events** – send structured events with custom properties
   ### Swift
   ```swift
@@ -123,6 +125,24 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     [Crashes logErrorWithMessage:(@"Error ArrayIndex") properties:props classFqn:nil exception:nil fileName:nil lineNumber:0 createdAt:nil completion:nil];
   ```
 * **Crash Reporting**: uncaught crashes are automatically captured and uploaded on next launch
+* **Breadcrumbs**: automatic screen-change breadcrumbs (push/pop, present/dismiss). To display the intended screen name, set a navigation title (`navigationTitle` in SwiftUI / `title` in UIKit/Objective-C). Without a title, it will appear in the dashboard using the default view/controller name.
+
+  ### Swift
+
+  ```swift
+    NavigationStack {
+      MyMview()
+        .navigationTitle("MyMview")
+    }
+  ```
+
+  ### Objective-C
+
+  ```objetive-c
+    UIViewController *vc = [UIViewController new];
+    vc.title = @"MyMview";
+    [self.navigationController pushViewController:vc animated:YES];
+  ```
 
 ---
 
