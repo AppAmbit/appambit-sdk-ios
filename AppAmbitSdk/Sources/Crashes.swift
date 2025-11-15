@@ -227,10 +227,10 @@ public final class Crashes: NSObject, @unchecked Sendable {
                 return
             }
             self.isLoadingCrashes = true
-            defer { self.isLoadingCrashes = false }
 
             guard SessionManager.isSessionActive else {
                 AppAmbitLogger.log(message: "There is no active session")
+                self.isLoadingCrashes = false
                 completion?(AppAmbitLogger.buildError(message: "There is no active session"))
                 return
             }
@@ -238,6 +238,7 @@ public final class Crashes: NSObject, @unchecked Sendable {
             let crashesFiles = CrashHandler.shared.loadCrashInfos()
             guard !crashesFiles.isEmpty else {
                 CrashHandler.setCrashFlag(false)
+                self.isLoadingCrashes = false
                 completion?(nil)
                 return
             }
@@ -250,11 +251,13 @@ public final class Crashes: NSObject, @unchecked Sendable {
             DispatchQueue.global(qos: .utility).async {
                 CrashHandler.shared.clearCrashLogs()
                 AppAmbitLogger.log(message: "Crash logs cleared after DB write")
-                completion?(nil)
+                Queues.crashFiles.async {
+                    self.isLoadingCrashes = false
+                    completion?(nil)
+                }
             }
         }
     }
-
 
 
     static func sendBatchLogs(completion: (@Sendable (Error?) -> Void)? = nil) {
