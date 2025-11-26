@@ -70,19 +70,10 @@ final class BreadcrumbManager: @unchecked Sendable {
 
             AppAmbitLogger.log(message: "Processing \(count) breadcrumb file(s)")
 
-            func overrideIfRemote(_ e: BreadcrumbEntity) -> BreadcrumbEntity {
-                let sid = SessionManager.sessionId
-                if Int64(sid) != nil {
-                    return BreadcrumbEntity(id: e.id, sessionId: sid, name: e.name, createdAt: e.createdAt)
-                }
-                return e
-            }
-
             if count == 1, let only = files.first {
                 var leftovers: [BreadcrumbData] = []
                 do {
-                    let e0 = only.toEntity()
-                    let e  = overrideIfRemote(e0)
+                    let e = only.toEntity()
                     try shared.storage?.putBreadcrumb(e)
                 } catch {
                     leftovers.append(only)
@@ -94,8 +85,7 @@ final class BreadcrumbManager: @unchecked Sendable {
                 var notSent: [BreadcrumbData] = []
                 for item in files {
                     do {
-                        let e0 = item.toEntity()
-                        let e  = overrideIfRemote(e0)
+                        let e = item.toEntity()
                         try shared.storage?.putBreadcrumb(e)
                     } catch {
                         notSent.append(item)

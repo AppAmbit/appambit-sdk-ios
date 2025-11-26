@@ -299,13 +299,17 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         Crashes.shared.loadCrashFileIfExists { error in
             guard error == nil else { return }
-            Queues.crashFiles.async {
-                BreadcrumbManager.loadBreadcrumbsFromFile { [weak self] _ in
-                    guard let self = self else { return }
-                    if shouldSendResume {
-                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                Queues.crashFiles.async {                                       
+                    SessionManager.sendEndSessionFromDatabase { _ in
+                        SessionManager.sendStartSessionIfExist { [weak self] _ in
+                            guard let self = self else { return }
+                            if shouldSendResume {
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                            }
+                            self.sendAllPendingData()
+                        }
                     }
-                    self.sendAllPendingData()
                 }
             }
         }
