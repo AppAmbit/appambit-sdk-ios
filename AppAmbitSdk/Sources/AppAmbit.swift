@@ -146,6 +146,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
         BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
+        Crashes.initialize(apiService: apiService, storageService: storageService)
+        Logging.initialize(apiService: apiService, storageService: storageService)
 
         self.reachability = reachabilityService
 

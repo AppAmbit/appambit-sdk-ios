@@ -20,6 +20,9 @@ let package = Package(
         .target(
             name: "AppAmbit"
         ),
-
+        .testTarget(
+            name: "AppAmbitTests",
+            dependencies: ["AppAmbit"]
+        ),
     ]
 )
