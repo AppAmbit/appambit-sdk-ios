@@ -9,7 +9,7 @@ env:
   CONFIGURATION: Release
   SDK: iphoneos
   DESTINATION: generic/platform=iOS
-  XCODE-VERSION: 16.2
+  XCODE-VERSION: 16.3
   SCHEME: AppAmbitTestingApp
   IOS_INFO_PLIST: AppAmbit-Testing-App-Info-plist
   ARCHIVE_PATH: AppAmbitTestingApp.xcarchive
