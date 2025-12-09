@@ -12,12 +12,18 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = AppAmbitSdk; sourceTree = "<group>"; };
-		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AppAmbit.App.Swift.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AppAmbit.App.ObjC.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		79ADE0742EE7D78C00BA4FF7 /* Exceptions for "Sdk" folder in "AppAmbit.App.ObjC" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppAmbitSdk,
+			);
+			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */;
+		};
 		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Apps" folder in "AppAmbit.App.Swift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -58,6 +64,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		79ADE0732EE7D77E00BA4FF7 /* Sdk */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				79ADE0742EE7D78C00BA4FF7 /* Exceptions for "Sdk" folder in "AppAmbit.App.ObjC" target */,
+			);
+			path = Sdk;
+			sourceTree = "<group>";
+		};
 		79BB8FE52EE7C61000E5FAB2 /* Apps */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -99,8 +113,8 @@
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
+				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
 				79BB8FE52EE7C61000E5FAB2 /* Apps */,
-				7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 			);
@@ -130,7 +144,7 @@
 			);
 			dependencies = (
 			);
-			name = "AppAmbit.App.Swift";
+			name = AppAmbit.App.Swift;
 			packageProductDependencies = (
 				7916DAD22E171C9B00CFEFA2 /* AppAmbit */,
 			);
@@ -151,13 +165,14 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
 				79BB8FE52EE7C61000E5FAB2 /* Apps */,
 			);
-			name = "AppAmbit.App.ObjC";
+			name = AppAmbit.App.ObjC;
 			packageProductDependencies = (
 				79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */,
 			);
-			productName = "AppAmbit.App.ObjC";
+			productName = AppAmbit.App.ObjC;
 			productReference = 79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -447,7 +462,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Apps/AppAmbit.App.ObjC/Info.plist";
+				INFOPLIST_FILE = Apps/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -484,7 +499,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Apps/AppAmbit.App.ObjC/Info.plist";
+				INFOPLIST_FILE = Apps/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
