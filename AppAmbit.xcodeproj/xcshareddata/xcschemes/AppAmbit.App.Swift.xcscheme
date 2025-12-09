@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-               BuildableName = "AppAmbitTestingApp.app"
-               BlueprintName = "AppAmbitTestingApp"
-               ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
+               BuildableName = "AppAmbit.App.Swift.app"
+               BlueprintName = "AppAmbit.App.Swift"
+               ReferencedContainer = "container:AppAmbit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-            BuildableName = "AppAmbitTestingApp.app"
-            BlueprintName = "AppAmbitTestingApp"
-            ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
+            BuildableName = "AppAmbit.App.Swift.app"
+            BlueprintName = "AppAmbit.App.Swift"
+            ReferencedContainer = "container:AppAmbit.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "79260B8B2E139E23008BF6CB"
-            BuildableName = "AppAmbitTestingApp.app"
-            BlueprintName = "AppAmbitTestingApp"
-            ReferencedContainer = "container:AppAmbitTestingApp.xcodeproj">
+            BuildableName = "AppAmbit.App.Swift.app"
+            BlueprintName = "AppAmbit.App.Swift"
+            ReferencedContainer = "container:AppAmbit.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
