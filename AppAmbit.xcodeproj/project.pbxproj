@@ -24,7 +24,7 @@
 			);
 			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */;
 		};
-		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Apps" folder in "AppAmbit.App.Swift" target */ = {
+		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AppAmbit.App.Swift/AnalyticsView.swift,
@@ -42,7 +42,7 @@
 			);
 			target = 79260B8B2E139E23008BF6CB /* AppAmbit.App.Swift */;
 		};
-		79BB902D2EE7C61600E5FAB2 /* Exceptions for "Apps" folder in "AppAmbit.App.ObjC" target */ = {
+		79BB902D2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.ObjC" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AppAmbit.App.ObjC/Info.plist,
@@ -72,13 +72,13 @@
 			path = Sdk;
 			sourceTree = "<group>";
 		};
-		79BB8FE52EE7C61000E5FAB2 /* Apps */ = {
+		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				79BB902C2EE7C61600E5FAB2 /* Exceptions for "Apps" folder in "AppAmbit.App.Swift" target */,
-				79BB902D2EE7C61600E5FAB2 /* Exceptions for "Apps" folder in "AppAmbit.App.ObjC" target */,
+				79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */,
+				79BB902D2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.ObjC" target */,
 			);
-			path = Apps;
+			path = Samples;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -114,7 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
-				79BB8FE52EE7C61000E5FAB2 /* Apps */,
+				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 			);
@@ -166,7 +166,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
-				79BB8FE52EE7C61000E5FAB2 /* Apps */,
+				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 			);
 			name = AppAmbit.App.ObjC;
 			packageProductDependencies = (
@@ -379,7 +379,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Apps/AppAmbit.App.Swift/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
@@ -419,7 +419,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Apps/AppAmbit.App.Swift/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
