@@ -12,18 +12,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		791D978D2EEA0506002FC398 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppAmbitSdk; sourceTree = "<group>"; };
 		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		79ADE0742EE7D78C00BA4FF7 /* Exceptions for "Sdk" folder in "AppAmbit.App.ObjC" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AppAmbitSdk,
-			);
-			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */;
-		};
 		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -64,14 +58,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		79ADE0732EE7D77E00BA4FF7 /* Sdk */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				79ADE0742EE7D78C00BA4FF7 /* Exceptions for "Sdk" folder in "AppAmbit.App.ObjC" target */,
-			);
-			path = Sdk;
-			sourceTree = "<group>";
-		};
 		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -113,10 +99,10 @@
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
-				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
+				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
 			);
 			sourceTree = "<group>";
 		};
@@ -165,7 +151,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				79ADE0732EE7D77E00BA4FF7 /* Sdk */,
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 			);
 			name = AppAmbit.App.ObjC;
@@ -462,7 +447,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Apps/AppAmbit.App.ObjC/Info.plist;
+				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -499,7 +484,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Apps/AppAmbit.App.ObjC/Info.plist;
+				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -560,7 +545,10 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = ../AppAmbitSdk;
+			repositoryURL = AppAmbitSdk;
+			requirement = {
+				kind = localPackage;
+			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
