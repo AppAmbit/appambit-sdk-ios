@@ -25,16 +25,46 @@ jobs:
         with:
           xcode-version: '16.2'
 
-      - name: Run AppAmbit unit tests
+      - name: Detect available simulator
+        id: detect-simulator
         run: |
-          xcodebuild -workspace AppAmbit.xcodeproj/project.xcworkspace \
-            -scheme AppAmbit.App.Swift \
-            -configuration Debug \
-            -sdk iphonesimulator26.1 \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=26.1' \
-            -derivedDataPath ${{ runner.temp }}/derived \
-            test \
-            -resultBundlePath ${{ runner.temp }}/xcode-results
+          dest=$(python3 <<'PY'
+          import subprocess, re
+          data = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available"]).decode()
+          current_os = None
+          preferred = "iPhone 15"
+          selected = None
+          for line in data.splitlines():
+              stripped = line.strip()
+              if stripped.startswith("-- iOS "):
+                  current_os = stripped.split("-- iOS ")[1].split(" --")[0]
+              elif stripped.startswith("iPhone"):
+                  name = stripped.split(" (")[0]
+                  if current_os:
+                      if preferred in name:
+                          selected = (name, current_os)
+                          break
+                      if selected is None:
+                          selected = (name, current_os)
+          if selected:
+              name, os = selected
+              print(f"platform=iOS Simulator,name={name},OS={os}")
+          else:
+              raise SystemExit("No iPhone simulator destination found")
+          PY
+          )
+                    echo "destination=$dest" >> $GITHUB_OUTPUT
+
+                - name: Run AppAmbit unit tests
+                  run: |
+                    xcodebuild -workspace AppAmbit.xcodeproj/project.xcworkspace \
+                      -scheme AppAmbit.App.Swift \
+                      -configuration Debug \
+                      -sdk iphonesimulator \
+                      -destination "${{ steps.detect-simulator.outputs.destination }}" \
+                      -derivedDataPath ${{ runner.temp }}/derived \
+                      test \
+                      -resultBundlePath ${{ runner.temp }}/xcode-results
 
       - name: Share iOS test artifacts
         if: always()
