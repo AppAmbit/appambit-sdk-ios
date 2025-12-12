@@ -30,8 +30,8 @@ jobs:
           xcodebuild -workspace AppAmbit.xcodeproj/project.xcworkspace \
             -scheme AppAmbit.App.Swift \
             -configuration Debug \
-            -sdk iphonesimulator17.4 \
-            -destination 'platform=iOS Simulator,OS=17.4' \
+            -sdk iphonesimulator26.1 \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=26.1' \
             -derivedDataPath ${{ runner.temp }}/derived \
             test \
             -resultBundlePath ${{ runner.temp }}/xcode-results
