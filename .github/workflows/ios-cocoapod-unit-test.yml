@@ -29,27 +29,37 @@ jobs:
         id: detect-simulator
         run: |
           dest=$(python3 <<'PY'
-          import subprocess, re
-          data = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available"]).decode()
+          import json, subprocess
           preferred = "iPhone 15"
-          selected = None
-          for line in data.splitlines():
-              stripped = line.strip()
-              if stripped.startswith("iPhone"):
-                  name = stripped.split(" (")[0]
+          raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
+          data = json.loads(raw)
+          device = None
+          for runtime, devices in data.get("devices", {}).items():
+              if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
+                  continue
+              os_version = runtime.split(".iOS-")[-1].replace("-", ".")
+              for dev in devices:
+                  if not dev.get("isAvailable"):
+                      continue
+                  name = dev.get("name", "")
+                  if "iPhone" not in name:
+                      continue
+                  candidate = (name, os_version)
                   if preferred in name:
-                      selected = name
+                      device = candidate
                       break
-                  if selected is None:
-                      selected = name
-          if selected:
-              print(f"platform=iOS Simulator,name={selected}")
-          else:
-              raise SystemExit("No iPhone simulator destination found")
+                  if device is None:
+                      device = candidate
+              if device:
+                  break
+          if not device:
+              raise SystemExit("No available iPhone simulator found")
+          name, os_version = device
+          print(f"platform=iOS Simulator,name={name},OS={os_version}")
           PY
           )
           dest=${dest//$'\n'/}
-          echo "destination=${dest:-platform=iOS Simulator,name=iPhone 17 Pro}" >> $GITHUB_OUTPUT
+          echo "destination=${dest}" >> $GITHUB_OUTPUT
 
       - name: Run AppAmbit unit tests
         run: |
