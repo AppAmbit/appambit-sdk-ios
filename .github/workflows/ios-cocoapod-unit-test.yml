@@ -29,51 +29,36 @@ jobs:
         id: detect-simulator
         run: |
           dest=$(python3 <<'PY'
-          import json, re, subprocess
+          import json, subprocess
 
           preferred = "iPhone 15"
-          fallback = ("iPhone 17 Pro", "26.1")
+          fallback_name = "iPhone 17 Pro"
 
-          sdk_output = subprocess.check_output(["xcodebuild", "-showsdks"]).decode()
-          valid_versions = set()
-          for line in sdk_output.splitlines():
-              if "Simulator - iOS" in line:
-                  match = re.search(r"Simulator - iOS ([0-9]+(?:\\.[0-9]+)?)", line)
-                  if match:
-                      valid_versions.add(match.group(1))
-
-          if not valid_versions:
-              raise SystemExit("No iOS simulator SDK available")
-
-          candidate = None
           raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
           data = json.loads(raw)
+          device = None
           for runtime, devices in data.get("devices", {}).items():
               if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
-                  continue
-              os_version = runtime.split(".iOS-")[-1].replace("-", ".")
-              if os_version not in valid_versions:
                   continue
               for dev in devices:
                   if not dev.get("isAvailable"):
                       continue
                   name = dev.get("name", "")
-                  if "iPhone" not in name:
+                  udid = dev.get("udid")
+                  if not udid or "iPhone" not in name:
                       continue
-                  pair = (name, os_version)
                   if preferred in name:
-                      candidate = pair
+                      device = udid
                       break
-                  if candidate is None:
-                      candidate = pair
-              if candidate:
+                  if device is None:
+                      device = udid
+              if device:
                   break
 
-          if not candidate:
-              candidate = fallback
+          if not device:
+              raise SystemExit("No available iPhone simulator found")
 
-          name, os_version = candidate
-          print(f"platform=iOS Simulator,name={name},OS={os_version}")
+          print(f"platform=iOS Simulator,id={device}")
           PY
           )
           dest=${dest//$'\n'/}
