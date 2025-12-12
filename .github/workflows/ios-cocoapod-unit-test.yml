@@ -31,29 +31,25 @@ jobs:
           dest=$(python3 <<'PY'
           import subprocess, re
           data = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available"]).decode()
-          current_os = None
           preferred = "iPhone 15"
           selected = None
           for line in data.splitlines():
               stripped = line.strip()
-              if stripped.startswith("-- iOS "):
-                  current_os = stripped.split("-- iOS ")[1].split(" --")[0]
-              elif stripped.startswith("iPhone") and current_os:
+              if stripped.startswith("iPhone"):
                   name = stripped.split(" (")[0]
                   if preferred in name:
-                      selected = (name, current_os)
+                      selected = name
                       break
                   if selected is None:
-                      selected = (name, current_os)
+                      selected = name
           if selected:
-              name, os = selected
-              print(f"platform=iOS Simulator,name={name},OS={os}")
+              print(f"platform=iOS Simulator,name={selected}")
           else:
               raise SystemExit("No iPhone simulator destination found")
           PY
           )
           dest=${dest//$'\n'/}
-          echo "destination=${dest:-platform=iOS Simulator,name=iPhone 17 Pro,OS=26.1}" >> $GITHUB_OUTPUT
+          echo "destination=${dest:-platform=iOS Simulator,name=iPhone 17 Pro}" >> $GITHUB_OUTPUT
 
       - name: Run AppAmbit unit tests
         run: |
