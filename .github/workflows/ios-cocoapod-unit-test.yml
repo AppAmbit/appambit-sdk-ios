@@ -1,0 +1,36 @@
+name: CocoaPods Unit Test
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  unit_tests:
+    name: Run unit tests on iOS simulator
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
+
+      - name: Run AppAmbit unit tests
+        run: |
+          xcodebuild -project AppAmbit.xcodeproj \
+            -scheme AppAmbit \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -derivedDataPath ${{ runner.temp }}/derived \
+            test

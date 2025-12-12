@@ -5,16 +5,46 @@ on:
 
 permissions:
   contents: write
+  checks: read
 
 jobs:
   cut_release:
-    name: Release (main only)
-    if: github.ref == 'refs/heads/main'
+    name: Release
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
 
     steps:
+      - name: Ensure CocoaPods Unit Test workflow succeeded
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const workflowId = 'ios-cocoapod-unit-test.yml';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = process.env.GITHUB_SHA;
+            if (!headSha) {
+              throw new Error('Missing GITHUB_SHA; unable to correlate CocoaPods Unit Test run.');
+            }
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              per_page: 30
+            });
+            const completedRuns = runs.data.workflow_runs
+              .filter(run => run.head_sha === headSha && run.status === 'completed');
+            if (completedRuns.length === 0) {
+              throw new Error('No completed CocoaPods Unit Test run found for this commit.');
+            }
+            const successfulRun = completedRuns.find(run => run.conclusion === 'success');
+            const finalRun = successfulRun ?? completedRuns[0];
+            if (!successfulRun) {
+              throw new Error(`CocoaPods Unit Test workflow concluded with '${finalRun.conclusion}'.`);
+            }
+            console.log(`CocoaPods Unit Test run succeeded: ${finalRun.html_url}`);
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -123,7 +153,7 @@ jobs:
           files:     AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
-        if: steps.check_tag.outputs.skip == 'false'
+        if: steps.check_tag.outputs.skip == 'false' && github.ref == 'refs/heads/main'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
