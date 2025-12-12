@@ -25,6 +25,10 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Install simulator runtime
+        run: |
+          sudo xcodebuild -downloadPlatform iOS 18.2 || true
+
       - name: Detect available simulator
         id: detect-simulator
         run: |
@@ -32,14 +36,14 @@ jobs:
           import json, subprocess
 
           preferred = "iPhone 15"
-          fallback_name = "iPhone 17 Pro"
-
           raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
           data = json.loads(raw)
           device = None
+          device_os = None
           for runtime, devices in data.get("devices", {}).items():
               if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
                   continue
+              os_version = runtime.split(".iOS-")[-1].replace("-", ".")
               for dev in devices:
                   if not dev.get("isAvailable"):
                       continue
@@ -49,16 +53,19 @@ jobs:
                       continue
                   if preferred in name:
                       device = udid
+                      device_os = os_version
                       break
                   if device is None:
                       device = udid
+                      device_os = os_version
               if device:
                   break
 
           if not device:
               raise SystemExit("No available iPhone simulator found")
 
-          print(f"platform=iOS Simulator,id={device}")
+          os_value = device_os or "18.2"
+          print(f"platform=iOS Simulator,name={name},OS={os_value}")
           PY
           )
           dest=${dest//$'\n'/}
