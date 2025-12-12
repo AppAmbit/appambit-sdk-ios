@@ -29,32 +29,48 @@ jobs:
         id: detect-simulator
         run: |
           dest=$(python3 <<'PY'
-          import json, subprocess
+          import json, subprocess, re
+
+          valid_versions = set()
+          show = subprocess.check_output(["xcodebuild", "-showsdks"]).decode()
+          for line in show.splitlines():
+              if "Simulator - iOS" in line:
+                  match = re.search(r"Simulator - iOS ([0-9]+\\.[0-9]+)", line)
+                  if match:
+                      valid_versions.add(match.group(1))
+
+          if not valid_versions:
+              raise SystemExit("No iOS simulator SDK available")
+
           preferred = "iPhone 15"
           raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
           data = json.loads(raw)
-          device = None
+          candidate = None
           for runtime, devices in data.get("devices", {}).items():
               if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
                   continue
               os_version = runtime.split(".iOS-")[-1].replace("-", ".")
+              if os_version not in valid_versions:
+                  continue
               for dev in devices:
                   if not dev.get("isAvailable"):
                       continue
                   name = dev.get("name", "")
                   if "iPhone" not in name:
                       continue
-                  candidate = (name, os_version)
+                  pair = (name, os_version)
                   if preferred in name:
-                      device = candidate
+                      candidate = pair
                       break
-                  if device is None:
-                      device = candidate
-              if device:
+                  if candidate is None:
+                      candidate = pair
+              if candidate:
                   break
-          if not device:
-              raise SystemExit("No available iPhone simulator found")
-          name, os_version = device
+
+          if not candidate:
+              raise SystemExit("No compatible iPhone simulator found")
+
+          name, os_version = candidate
           print(f"platform=iOS Simulator,name={name},OS={os_version}")
           PY
           )
@@ -76,9 +92,9 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          xcrun xcresulttool export --type junit \
+          xcrun xcresulttool export --type directory \
             --path ${{ runner.temp }}/xcode-results \
-            --output-path test-results/TestResults.xml \
+            --output-path test-results \
             || true
 
       - name: Upload iOS test results
