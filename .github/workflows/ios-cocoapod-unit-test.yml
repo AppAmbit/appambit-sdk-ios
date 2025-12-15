@@ -8,102 +8,204 @@ concurrency:
   group: ios-unit-tests-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  WORKSPACE_PATH: AppAmbit.xcodeproj/project.xcworkspace
-  FALLBACK_SCHEME: AppAmbit.App.Swift
-
 jobs:
-  unit_tests:
-    runs-on: macos-latest
-    timeout-minutes: 30
+  unit-tests:
+    runs-on: macos-15
+
+    env:
+      WORKSPACE_PATH: AppAmbit.xcodeproj/project.xcworkspace
+      CONFIGURATION: Debug
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "16.2"
-
-      - name: Prepare Xcode
+      - name: Select Xcode
+        shell: bash
         run: |
+          set -e
+          if [ -n "${MD_APPLE_SDK_ROOT:-}" ] && [ -d "$MD_APPLE_SDK_ROOT" ]; then
+            sudo xcode-select -s "$MD_APPLE_SDK_ROOT/Contents/Developer"
+          elif [ -d "/Applications/Xcode.app" ]; then
+            sudo xcode-select -s "/Applications/Xcode.app/Contents/Developer"
+          else
+            echo "No Xcode found at MD_APPLE_SDK_ROOT or /Applications/Xcode.app"
+            exit 1
+          fi
           sudo xcodebuild -license accept || true
           sudo xcodebuild -runFirstLaunch
+          xcodebuild -version
 
-      - name: Pick scheme (prefer a Tests scheme if it exists)
-        id: pick-scheme
+      - name: Create & Boot Simulator
+        shell: bash
         run: |
+          set -e
           python3 <<'PY'
-          import json, os, subprocess, sys
+          import json, subprocess, sys
 
-          ws = os.environ["WORKSPACE_PATH"]
-          fallback = os.environ["FALLBACK_SCHEME"]
+          def sh(cmd):
+            return subprocess.check_output(cmd, text=True).strip()
 
-          raw = subprocess.check_output(["xcodebuild","-list","-json","-workspace",ws]).decode("utf-8")
-          data = json.loads(raw)
-          schemes = (data.get("workspace") or {}).get("schemes") or []
+          runtimes = json.loads(sh(["xcrun","simctl","list","-j","runtimes"]))["runtimes"]
+          ios = [r for r in runtimes if r.get("platform") == "iOS" and r.get("isAvailable")]
 
-          def is_test_scheme(s: str) -> bool:
-            sl = s.lower()
-            return ("test" in sl) and ("uitest" not in sl)
+          if not ios:
+            print("No iOS Simulator runtimes installed. Install at least one iOS runtime in Xcode on the runner.")
+            sys.exit(1)
 
-          preferred = [s for s in schemes if is_test_scheme(s)]
-          chosen = preferred[0] if preferred else fallback
+          def ver_tuple(v):
+            try:
+              return tuple(int(x) for x in (v or "").split("."))
+            except:
+              return (0,)
 
-          if chosen not in schemes:
-            print(f"Available schemes: {schemes}")
-            raise SystemExit(f"Scheme '{chosen}' not found. Share the scheme in Xcode or set FALLBACK_SCHEME.")
+          ios.sort(key=lambda r: ver_tuple(r.get("version")), reverse=True)
+          runtime_id = ios[0]["identifier"]
 
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"scheme={chosen}\n")
+          devtypes = json.loads(sh(["xcrun","simctl","list","-j","devicetypes"]))["devicetypes"]
+          preferred = ["iPhone 17 Pro", "iPhone 16 Pro", "iPhone 15 Pro", "iPhone 14 Pro", "iPhone 13 Pro"]
+          devtype_id = None
+          for name in preferred:
+            for d in devtypes:
+              if d.get("name") == name:
+                devtype_id = d.get("identifier")
+                break
+            if devtype_id:
+              break
+          if not devtype_id:
+            devtype_id = devtypes[0]["identifier"]
 
-          print(f"Chosen scheme: {chosen}")
+          devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
+          existing_udid = None
+          for udid, lst in devices.items():
+            for dev in lst:
+              if dev.get("name") == "CI iPhone" and dev.get("isAvailable"):
+                existing_udid = dev.get("udid")
+                break
+            if existing_udid:
+              break
+
+          if existing_udid:
+            udid = existing_udid
+          else:
+            udid = sh(["xcrun","simctl","create","CI iPhone", devtype_id, runtime_id])
+
+          print(udid)
           PY
 
-      - name: Run unit tests (generic simulator; fallback to build if no test bundles)
-        env:
-          SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
+          SIM_UDID="$(python3 - <<'PY'
+          import json, subprocess, sys
+
+          def sh(cmd):
+            return subprocess.check_output(cmd, text=True).strip()
+
+          runtimes = json.loads(sh(["xcrun","simctl","list","-j","runtimes"]))["runtimes"]
+          ios = [r for r in runtimes if r.get("platform") == "iOS" and r.get("isAvailable")]
+          def ver_tuple(v):
+            try:
+              return tuple(int(x) for x in (v or "").split("."))
+            except:
+              return (0,)
+          ios.sort(key=lambda r: ver_tuple(r.get("version")), reverse=True)
+          runtime_id = ios[0]["identifier"]
+
+          devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"].get(runtime_id, [])
+          for d in devices:
+            if d.get("name") == "CI iPhone" and d.get("isAvailable"):
+              print(d.get("udid"))
+              sys.exit(0)
+
+          all_devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
+          for _, lst in all_devices.items():
+            for d in lst:
+              if d.get("name") == "CI iPhone" and d.get("isAvailable"):
+                print(d.get("udid"))
+                sys.exit(0)
+
+          sys.exit(1)
+          PY
+          )"
+
+          echo "SIM_UDID=$SIM_UDID" >> $GITHUB_ENV
+
+          xcrun simctl boot "$SIM_UDID" || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl list devices available
+
+      - name: Run Unit Tests
+        shell: bash
         run: |
           set +e
           set -o pipefail
 
-          LOG="${{ runner.temp }}/xcodebuild.log"
-          RESULT_BUNDLE="${{ runner.temp }}/xcode-results"
-          DERIVED="${{ runner.temp }}/derived"
+          LOG="$RUNNER_TEMP/xcodebuild.log"
+          RESULT_BUNDLE="$RUNNER_TEMP/xcode-results"
+          DERIVED="$RUNNER_TEMP/derived"
 
-          xcodebuild -workspace "${{ env.WORKSPACE_PATH }}" \
-            -scheme "$SCHEME" \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$DERIVED" \
-            test \
-            -resultBundlePath "$RESULT_BUNDLE" \
-            2>&1 | tee "$LOG"
+          rm -rf "$RESULT_BUNDLE" "$DERIVED"
+          mkdir -p "$RUNNER_TEMP"
 
-          RC=${PIPESTATUS[0]}
-          set -e
+          SCHEMES="$(xcodebuild -workspace "$WORKSPACE_PATH" -list | awk '
+            $0 ~ /Schemes:/ {in_s=1; next}
+            in_s && NF==0 {exit}
+            in_s {gsub(/^[ \t]+/,""); print}
+          ')"
 
-          if [ "$RC" -ne 0 ]; then
-            if grep -q "There are no test bundles available to test." "$LOG"; then
-              xcodebuild -workspace "${{ env.WORKSPACE_PATH }}" \
-                -scheme "$SCHEME" \
-                -configuration Debug \
-                -sdk iphonesimulator \
-                -destination "generic/platform=iOS Simulator" \
-                -derivedDataPath "$DERIVED" \
-                build
-            else
-              exit "$RC"
-            fi
+          if [ -z "$SCHEMES" ]; then
+            echo "No schemes found for workspace: $WORKSPACE_PATH"
+            exit 1
           fi
 
-      - name: Upload artifacts
+          CANDIDATES="$(echo "$SCHEMES" | awk '
+            /Tests/ {print "0:"$0; next}
+            /^AppAmbit$/ {print "1:"$0; next}
+            {print "2:"$0}
+          ' | sort | cut -d: -f2-)"
+
+          PASSED=0
+          LAST_RC=1
+
+          for SCHEME in $CANDIDATES; do
+            echo "Trying scheme: $SCHEME"
+            xcodebuild \
+              -workspace "$WORKSPACE_PATH" \
+              -scheme "$SCHEME" \
+              -configuration "$CONFIGURATION" \
+              -sdk iphonesimulator \
+              -destination "id=$SIM_UDID" \
+              -derivedDataPath "$DERIVED" \
+              test \
+              -resultBundlePath "$RESULT_BUNDLE" \
+              2>&1 | tee "$LOG"
+
+            RC=${PIPESTATUS[0]}
+            LAST_RC=$RC
+
+            if [ "$RC" -eq 0 ]; then
+              PASSED=1
+              break
+            fi
+
+            if grep -q "There are no test bundles available to test." "$LOG"; then
+              echo "Scheme '$SCHEME' has no test bundles. Trying next scheme."
+              continue
+            fi
+
+            echo "xcodebuild failed for scheme '$SCHEME' with exit code $RC"
+            exit "$RC"
+          done
+
+          if [ "$PASSED" -ne 1 ]; then
+            echo "No scheme produced a runnable test bundle. Schemes found:"
+            echo "$SCHEMES"
+            exit "$LAST_RC"
+          fi
+
+      - name: Upload Test Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-unit-test-results
+          name: ios-unit-tests-artifacts
           path: |
-            ${{ runner.temp }}/xcode-results
             ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/xcode-results
+          if-no-files-found: ignore
