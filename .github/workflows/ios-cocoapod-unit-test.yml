@@ -1,10 +1,11 @@
-name: iOS CI
+name: CocoaPods Unit Test
 
 on:
   push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
   workflow_dispatch:
 
 jobs:
@@ -114,7 +115,7 @@ jobs:
 
           xcrun simctl list devices | sed -n '1,160p'
 
-      - name: Test library (SPM first) + Fallback build
+      - name: Test library
         env:
           SIM_UDID: ${{ steps.sim.outputs.udid }}
         run: |
