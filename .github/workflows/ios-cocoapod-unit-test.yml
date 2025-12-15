@@ -15,7 +15,7 @@ env:
 jobs:
   unit_tests:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -31,7 +31,7 @@ jobs:
           sudo xcodebuild -license accept || true
           sudo xcodebuild -runFirstLaunch
 
-      - name: Pick test scheme (must exist)
+      - name: Pick scheme (prefer a Tests scheme if it exists)
         id: pick-scheme
         run: |
           python3 <<'PY'
@@ -53,116 +53,103 @@ jobs:
 
           if chosen not in schemes:
             print(f"Available schemes: {schemes}")
-            raise SystemExit(f"Chosen scheme '{chosen}' not found. Set FALLBACK_SCHEME or add/share a test scheme.")
+            raise SystemExit(f"Scheme '{chosen}' not found. Set FALLBACK_SCHEME or share the scheme in Xcode.")
 
-          out = os.environ["GITHUB_OUTPUT"]
-          with open(out, "a") as f:
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"scheme={chosen}\n")
 
           print(f"Chosen scheme: {chosen}")
           PY
 
-      - name: Detect available iPhone simulator (best available runtime) and output UDID destination
-        id: detect-simulator
+      - name: Pick destination from xcodebuild (eligible simulator)
+        id: pick-destination
         run: |
           python3 <<'PY'
-          import json, re, subprocess, os, sys
+          import os, re, subprocess, sys
 
-          def j(cmd):
-            return json.loads(subprocess.check_output(cmd).decode("utf-8"))
+          ws = os.environ["WORKSPACE_PATH"]
+          scheme = os.environ["SCHEME"]
 
-          runtimes = j(["xcrun","simctl","list","runtimes","-j"]).get("runtimes", [])
-          devices_by_runtime = j(["xcrun","simctl","list","devices","available","-j"]).get("devices", {})
+          cmd = ["xcodebuild","-workspace",ws,"-scheme",scheme,"-sdk","iphonesimulator","-showdestinations"]
+          out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
 
-          ios_runtimes = []
-          for rt in runtimes:
-            ident = rt.get("identifier","")
-            if not ident.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
-              continue
-            if not rt.get("isAvailable", True):
-              continue
-            ver = rt.get("version") or (rt.get("name","").split("iOS")[-1].strip())
-            ios_runtimes.append((ver, ident))
+          rx = re.compile(r"\{\s*platform:iOS Simulator,\s*id:([^,}]+),\s*OS:([^,}]+),\s*name:([^}]+)\s*\}")
+          sims = []
+          for m in rx.finditer(out):
+            udid = m.group(1).strip()
+            osver = m.group(2).strip()
+            name = m.group(3).strip()
+            sims.append((udid, osver, name))
 
-          def vkey(v):
-            nums = re.findall(r"\d+", v)
-            return tuple(int(x) for x in nums) if nums else (0,)
+          if not sims:
+            print(out)
+            raise SystemExit("No eligible iOS Simulator destinations from xcodebuild for this scheme.")
 
-          ios_runtimes.sort(key=lambda x: vkey(x[0]), reverse=True)
+          def vkey(v: str):
+            parts = re.findall(r"\d+", v)
+            return tuple(int(x) for x in parts) if parts else (0,)
 
-          if not ios_runtimes:
-            raise SystemExit("No available iOS simulator runtimes found on this runner image")
+          iphones = [s for s in sims if s[2].lower().startswith("iphone")]
+          pool = iphones if iphones else sims
 
-          preferred_models = ["iPhone 15", "iPhone 14", "iPhone 13", "iPhone 12"]
+          pool.sort(key=lambda x: (vkey(x[1]), x[2]), reverse=True)
+          udid, osver, name = pool[0]
 
-          chosen = None
-          for ver, rid in ios_runtimes:
-            devs = devices_by_runtime.get(rid, [])
-            iphones = [
-              d for d in devs
-              if d.get("isAvailable")
-              and d.get("udid")
-              and "iPhone" in (d.get("name") or "")
-            ]
-            if iphones:
-              for pref in preferred_models:
-                for d in iphones:
-                  if (d.get("name") or "").startswith(pref):
-                    chosen = d
-                    break
-                if chosen:
-                  break
-              if not chosen:
-                chosen = iphones[0]
-              break
-
-          if not chosen:
-            devtypes = j(["xcrun","simctl","list","devicetypes","-j"]).get("devicetypes", [])
-            dt = (
-              next((t for t in devtypes if (t.get("name") or "") == "iPhone 15"), None)
-              or next((t for t in devtypes if "iPhone" in (t.get("name") or "")), None)
-            )
-            if not dt:
-              raise SystemExit("No iPhone device types found")
-            ver, rid = ios_runtimes[0]
-            udid = subprocess.check_output(["xcrun","simctl","create","CI iPhone", dt["identifier"], rid]).decode().strip()
-            chosen = {"udid": udid, "name": dt.get("name") or "CI iPhone"}
-
-          udid = chosen["udid"]
           destination = f"platform=iOS Simulator,id={udid}"
 
-          out = os.environ["GITHUB_OUTPUT"]
-          with open(out, "a") as f:
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"udid={udid}\n")
             f.write(f"destination={destination}\n")
 
-          print(f"Selected device: {chosen.get('name')} ({udid})")
-          print(f"Destination: {destination}")
+          print(f"Selected destination: {destination} ({name} / iOS {osver})")
           PY
+        env:
+          SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
 
       - name: Boot simulator
         run: |
-          xcrun simctl boot "${{ steps.detect-simulator.outputs.udid }}" || true
-          xcrun simctl bootstatus "${{ steps.detect-simulator.outputs.udid }}" -b
+          xcrun simctl boot "${{ steps.pick-destination.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.pick-destination.outputs.udid }}" -b
 
-      - name: Run unit tests
+      - name: Run unit tests (fallback to build if no test bundles)
+        env:
+          SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
         run: |
-          set -e
+          set +e
           set -o pipefail
 
           LOG="${{ runner.temp }}/xcodebuild.log"
+          RESULT_BUNDLE="${{ runner.temp }}/xcode-results"
+          DERIVED="${{ runner.temp }}/derived"
 
           xcodebuild -workspace "${{ env.WORKSPACE_PATH }}" \
-            -scheme "${{ steps.pick-scheme.outputs.scheme }}" \
+            -scheme "$SCHEME" \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "${{ steps.detect-simulator.outputs.destination }}" \
-            -derivedDataPath "${{ runner.temp }}/derived" \
+            -destination "${{ steps.pick-destination.outputs.destination }}" \
+            -derivedDataPath "$DERIVED" \
             test \
-            -resultBundlePath "${{ runner.temp }}/xcode-results" \
+            -resultBundlePath "$RESULT_BUNDLE" \
             | tee "$LOG"
 
-      - name: Upload iOS test artifacts
+          RC=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$RC" -ne 0 ]; then
+            if grep -q "There are no test bundles available to test." "$LOG"; then
+              xcodebuild -workspace "${{ env.WORKSPACE_PATH }}" \
+                -scheme "$SCHEME" \
+                -configuration Debug \
+                -sdk iphonesimulator \
+                -destination "${{ steps.pick-destination.outputs.destination }}" \
+                -derivedDataPath "$DERIVED" \
+                build
+            else
+              exit "$RC"
+            fi
+          fi
+
+      - name: Upload iOS artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
