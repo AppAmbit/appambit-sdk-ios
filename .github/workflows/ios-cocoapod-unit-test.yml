@@ -53,7 +53,7 @@ jobs:
 
           if chosen not in schemes:
             print(f"Available schemes: {schemes}")
-            raise SystemExit(f"Scheme '{chosen}' not found. Set FALLBACK_SCHEME or share the scheme in Xcode.")
+            raise SystemExit(f"Scheme '{chosen}' not found. Share the scheme in Xcode or set FALLBACK_SCHEME.")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"scheme={chosen}\n")
@@ -61,57 +61,7 @@ jobs:
           print(f"Chosen scheme: {chosen}")
           PY
 
-      - name: Pick destination from xcodebuild (eligible simulator)
-        id: pick-destination
-        run: |
-          python3 <<'PY'
-          import os, re, subprocess, sys
-
-          ws = os.environ["WORKSPACE_PATH"]
-          scheme = os.environ["SCHEME"]
-
-          cmd = ["xcodebuild","-workspace",ws,"-scheme",scheme,"-sdk","iphonesimulator","-showdestinations"]
-          out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
-
-          rx = re.compile(r"\{\s*platform:iOS Simulator,\s*id:([^,}]+),\s*OS:([^,}]+),\s*name:([^}]+)\s*\}")
-          sims = []
-          for m in rx.finditer(out):
-            udid = m.group(1).strip()
-            osver = m.group(2).strip()
-            name = m.group(3).strip()
-            sims.append((udid, osver, name))
-
-          if not sims:
-            print(out)
-            raise SystemExit("No eligible iOS Simulator destinations from xcodebuild for this scheme.")
-
-          def vkey(v: str):
-            parts = re.findall(r"\d+", v)
-            return tuple(int(x) for x in parts) if parts else (0,)
-
-          iphones = [s for s in sims if s[2].lower().startswith("iphone")]
-          pool = iphones if iphones else sims
-
-          pool.sort(key=lambda x: (vkey(x[1]), x[2]), reverse=True)
-          udid, osver, name = pool[0]
-
-          destination = f"platform=iOS Simulator,id={udid}"
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"udid={udid}\n")
-            f.write(f"destination={destination}\n")
-
-          print(f"Selected destination: {destination} ({name} / iOS {osver})")
-          PY
-        env:
-          SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
-
-      - name: Boot simulator
-        run: |
-          xcrun simctl boot "${{ steps.pick-destination.outputs.udid }}" || true
-          xcrun simctl bootstatus "${{ steps.pick-destination.outputs.udid }}" -b
-
-      - name: Run unit tests (fallback to build if no test bundles)
+      - name: Run unit tests (generic iOS Simulator destination; fallback to build if no test bundles)
         env:
           SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
         run: |
@@ -126,7 +76,7 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "${{ steps.pick-destination.outputs.destination }}" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$DERIVED" \
             test \
             -resultBundlePath "$RESULT_BUNDLE" \
@@ -141,7 +91,7 @@ jobs:
                 -scheme "$SCHEME" \
                 -configuration Debug \
                 -sdk iphonesimulator \
-                -destination "${{ steps.pick-destination.outputs.destination }}" \
+                -destination "generic/platform=iOS Simulator" \
                 -derivedDataPath "$DERIVED" \
                 build
             else
@@ -149,7 +99,7 @@ jobs:
             fi
           fi
 
-      - name: Upload iOS artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
