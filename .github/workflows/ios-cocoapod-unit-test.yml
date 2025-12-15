@@ -35,12 +35,13 @@ jobs:
           sudo xcodebuild -runFirstLaunch
           xcodebuild -version
 
-      - name: Create & Boot Simulator
+      - name: Create & Boot Simulator (prefer iOS 18.x)
         shell: bash
         run: |
           set -e
-          python3 <<'PY'
-          import json, subprocess, sys
+
+          SIM_UDID="$(python3 - <<'PY'
+          import json, subprocess, sys, re
 
           def sh(cmd):
             return subprocess.check_output(cmd, text=True).strip()
@@ -49,7 +50,7 @@ jobs:
           ios = [r for r in runtimes if r.get("platform") == "iOS" and r.get("isAvailable")]
 
           if not ios:
-            print("No iOS Simulator runtimes installed. Install at least one iOS runtime in Xcode on the runner.")
+            print("No iOS Simulator runtimes installed.")
             sys.exit(1)
 
           def ver_tuple(v):
@@ -58,11 +59,19 @@ jobs:
             except:
               return (0,)
 
-          ios.sort(key=lambda r: ver_tuple(r.get("version")), reverse=True)
-          runtime_id = ios[0]["identifier"]
+          def is_18(r):
+            name = (r.get("name") or "")
+            v = (r.get("version") or "")
+            return name.startswith("iOS 18") or v.startswith("18.")
+
+          ios18 = [r for r in ios if is_18(r)]
+          pick = sorted(ios18, key=lambda r: ver_tuple(r.get("version")), reverse=True)[0] if ios18 else \
+                 sorted(ios, key=lambda r: ver_tuple(r.get("version")), reverse=True)[0]
+
+          runtime_id = pick["identifier"]
 
           devtypes = json.loads(sh(["xcrun","simctl","list","-j","devicetypes"]))["devicetypes"]
-          preferred = ["iPhone 17 Pro", "iPhone 16 Pro", "iPhone 15 Pro", "iPhone 14 Pro", "iPhone 13 Pro"]
+          preferred = ["iPhone 16 Pro", "iPhone 15 Pro", "iPhone 14 Pro", "iPhone 13 Pro"]
           devtype_id = None
           for name in preferred:
             for d in devtypes:
@@ -74,64 +83,56 @@ jobs:
           if not devtype_id:
             devtype_id = devtypes[0]["identifier"]
 
-          devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
+          devices_all = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
+          devices = devices_all.get(runtime_id, [])
+
           existing_udid = None
-          for udid, lst in devices.items():
-            for dev in lst:
-              if dev.get("name") == "CI iPhone" and dev.get("isAvailable"):
-                existing_udid = dev.get("udid")
-                break
-            if existing_udid:
+          for dev in devices:
+            if dev.get("name") == "CI iPhone" and dev.get("isAvailable"):
+              existing_udid = dev.get("udid")
               break
 
           if existing_udid:
-            udid = existing_udid
+            print(existing_udid)
           else:
             udid = sh(["xcrun","simctl","create","CI iPhone", devtype_id, runtime_id])
-
-          print(udid)
-          PY
-
-          SIM_UDID="$(python3 - <<'PY'
-          import json, subprocess, sys
-
-          def sh(cmd):
-            return subprocess.check_output(cmd, text=True).strip()
-
-          runtimes = json.loads(sh(["xcrun","simctl","list","-j","runtimes"]))["runtimes"]
-          ios = [r for r in runtimes if r.get("platform") == "iOS" and r.get("isAvailable")]
-          def ver_tuple(v):
-            try:
-              return tuple(int(x) for x in (v or "").split("."))
-            except:
-              return (0,)
-          ios.sort(key=lambda r: ver_tuple(r.get("version")), reverse=True)
-          runtime_id = ios[0]["identifier"]
-
-          devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"].get(runtime_id, [])
-          for d in devices:
-            if d.get("name") == "CI iPhone" and d.get("isAvailable"):
-              print(d.get("udid"))
-              sys.exit(0)
-
-          all_devices = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
-          for _, lst in all_devices.items():
-            for d in lst:
-              if d.get("name") == "CI iPhone" and d.get("isAvailable"):
-                print(d.get("udid"))
-                sys.exit(0)
-
-          sys.exit(1)
+            print(udid)
           PY
           )"
 
           echo "SIM_UDID=$SIM_UDID" >> $GITHUB_ENV
 
           xcrun simctl boot "$SIM_UDID" || true
-          xcrun simctl bootstatus "$SIM_UDID" -b
+
+          python3 - <<'PY'
+          import json, subprocess, time, os, sys
+
+          udid = os.environ["SIM_UDID"]
+
+          def sh(cmd):
+            return subprocess.check_output(cmd, text=True).strip()
+
+          def is_booted():
+            data = json.loads(sh(["xcrun","simctl","list","-j","devices"]))
+            for _, lst in data.get("devices", {}).items():
+              for d in lst:
+                if d.get("udid") == udid:
+                  return d.get("state") == "Booted"
+            return False
+
+          t0 = time.time()
+          while time.time() - t0 < 240:
+            if is_booted():
+              sys.exit(0)
+            time.sleep(2)
+
+          print("Simulator did not reach Booted state within timeout.")
+          sys.exit(1)
+          PY
+
           xcrun simctl list devices available
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests (skip schemes without tests)
         shell: bash
         run: |
           set +e
@@ -150,6 +151,9 @@ jobs:
             in_s {gsub(/^[ \t]+/,""); print}
           ')"
 
+          echo "Schemes found:"
+          echo "$SCHEMES"
+
           if [ -z "$SCHEMES" ]; then
             echo "No schemes found for workspace: $WORKSPACE_PATH"
             exit 1
@@ -157,8 +161,7 @@ jobs:
 
           CANDIDATES="$(echo "$SCHEMES" | awk '
             /Tests/ {print "0:"$0; next}
-            /^AppAmbit$/ {print "1:"$0; next}
-            {print "2:"$0}
+            {print "1:"$0}
           ' | sort | cut -d: -f2-)"
 
           PASSED=0
@@ -185,8 +188,13 @@ jobs:
               break
             fi
 
+            if grep -q "Scheme .* is not currently configured for the test action" "$LOG"; then
+              echo "Scheme '$SCHEME' has no Test action. Skipping."
+              continue
+            fi
+
             if grep -q "There are no test bundles available to test." "$LOG"; then
-              echo "Scheme '$SCHEME' has no test bundles. Trying next scheme."
+              echo "Scheme '$SCHEME' has no test bundles. Skipping."
               continue
             fi
 
@@ -195,8 +203,8 @@ jobs:
           done
 
           if [ "$PASSED" -ne 1 ]; then
-            echo "No scheme produced a runnable test bundle. Schemes found:"
-            echo "$SCHEMES"
+            echo "No scheme produced a runnable test bundle."
+            echo "This usually means your test scheme is NOT shared/committed."
             exit "$LAST_RC"
           fi
 
