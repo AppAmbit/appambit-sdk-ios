@@ -1,20 +1,21 @@
-name: CocoaPods Unit Test
+name: iOS Unit Tests
 
 on:
   push:
-    branches:
-      - develop
-      - main
-  pull_request:
-    branches:
-      - develop
-      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ios-unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  WORKSPACE_PATH: AppAmbit.xcodeproj/project.xcworkspace
+  FALLBACK_SCHEME: AppAmbit.App.Swift
 
 jobs:
   unit_tests:
-    name: Run unit tests on iOS simulator
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -25,13 +26,41 @@ jobs:
         with:
           xcode-version: "16.2"
 
-      - name: Prepare Xcode + iOS Simulator Platform (no pinned iOS version)
+      - name: Prepare Xcode
         run: |
           sudo xcodebuild -license accept || true
           sudo xcodebuild -runFirstLaunch
-          sudo xcodebuild -downloadPlatform iOS || true
-          xcrun simctl list runtimes
-          xcrun simctl list devices available
+
+      - name: Pick test scheme (must exist)
+        id: pick-scheme
+        run: |
+          python3 <<'PY'
+          import json, os, subprocess, sys
+
+          ws = os.environ["WORKSPACE_PATH"]
+          fallback = os.environ["FALLBACK_SCHEME"]
+
+          raw = subprocess.check_output(["xcodebuild","-list","-json","-workspace",ws]).decode("utf-8")
+          data = json.loads(raw)
+          schemes = (data.get("workspace") or {}).get("schemes") or []
+
+          def is_test_scheme(s: str) -> bool:
+            sl = s.lower()
+            return ("test" in sl) and ("uitest" not in sl)
+
+          preferred = [s for s in schemes if is_test_scheme(s)]
+          chosen = preferred[0] if preferred else fallback
+
+          if chosen not in schemes:
+            print(f"Available schemes: {schemes}")
+            raise SystemExit(f"Chosen scheme '{chosen}' not found. Set FALLBACK_SCHEME or add/share a test scheme.")
+
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a") as f:
+            f.write(f"scheme={chosen}\n")
+
+          print(f"Chosen scheme: {chosen}")
+          PY
 
       - name: Detect available iPhone simulator (best available runtime) and output UDID destination
         id: detect-simulator
@@ -62,13 +91,11 @@ jobs:
           ios_runtimes.sort(key=lambda x: vkey(x[0]), reverse=True)
 
           if not ios_runtimes:
-            raise SystemExit("No available iOS simulator runtimes found")
+            raise SystemExit("No available iOS simulator runtimes found on this runner image")
 
           preferred_models = ["iPhone 15", "iPhone 14", "iPhone 13", "iPhone 12"]
 
           chosen = None
-          chosen_runtime = None
-
           for ver, rid in ios_runtimes:
             devs = devices_by_runtime.get(rid, [])
             iphones = [
@@ -82,13 +109,11 @@ jobs:
                 for d in iphones:
                   if (d.get("name") or "").startswith(pref):
                     chosen = d
-                    chosen_runtime = (ver, rid)
                     break
                 if chosen:
                   break
               if not chosen:
                 chosen = iphones[0]
-                chosen_runtime = (ver, rid)
               break
 
           if not chosen:
@@ -99,11 +124,9 @@ jobs:
             )
             if not dt:
               raise SystemExit("No iPhone device types found")
-
             ver, rid = ios_runtimes[0]
             udid = subprocess.check_output(["xcrun","simctl","create","CI iPhone", dt["identifier"], rid]).decode().strip()
             chosen = {"udid": udid, "name": dt.get("name") or "CI iPhone"}
-            chosen_runtime = (ver, rid)
 
           udid = chosen["udid"]
           destination = f"platform=iOS Simulator,id={udid}"
@@ -122,35 +145,28 @@ jobs:
           xcrun simctl boot "${{ steps.detect-simulator.outputs.udid }}" || true
           xcrun simctl bootstatus "${{ steps.detect-simulator.outputs.udid }}" -b
 
-      - name: Run AppAmbit unit tests
+      - name: Run unit tests
         run: |
           set -e
-          xcodebuild -workspace AppAmbit.xcodeproj/project.xcworkspace \
-            -scheme AppAmbit.App.Swift \
+          set -o pipefail
+
+          LOG="${{ runner.temp }}/xcodebuild.log"
+
+          xcodebuild -workspace "${{ env.WORKSPACE_PATH }}" \
+            -scheme "${{ steps.pick-scheme.outputs.scheme }}" \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination "${{ steps.detect-simulator.outputs.destination }}" \
             -derivedDataPath "${{ runner.temp }}/derived" \
             test \
-            -resultBundlePath "${{ runner.temp }}/xcode-results"
+            -resultBundlePath "${{ runner.temp }}/xcode-results" \
+            | tee "$LOG"
 
-      - name: Share iOS test artifacts
-        if: always()
-        run: |
-          mkdir -p test-results
-          if [ -d "${{ runner.temp }}/xcode-results" ]; then
-            xcrun xcresulttool export --type directory \
-              --path "${{ runner.temp }}/xcode-results" \
-              --output-path test-results \
-              --legacy \
-              || true
-          fi
-
-      - name: Upload iOS test results
+      - name: Upload iOS test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-unit-test-results
           path: |
             ${{ runner.temp }}/xcode-results
-            test-results
+            ${{ runner.temp }}/xcodebuild.log
