@@ -114,20 +114,31 @@ jobs:
 
           xcrun simctl list devices | sed -n '1,160p'
 
-      - name: Build/Test (auto-pick a test scheme; fallback to build)
+      - name: Test library (SPM first) + Fallback build
         env:
           SIM_UDID: ${{ steps.sim.outputs.udid }}
         run: |
           set +e
           set -o pipefail
 
-          LOG="$RUNNER_TEMP/xcodebuild.log"
-          RESULT_BUNDLE="$RUNNER_TEMP/xcode-results"
           DERIVED="$RUNNER_TEMP/derived"
-
-          rm -rf "$RESULT_BUNDLE" "$DERIVED"
+          rm -rf "$DERIVED"
           mkdir -p "$RUNNER_TEMP"
 
+          echo "== 1) Trying Swift Package tests (library) =="
+          if [ -f "AppAmbitSdk/Package.swift" ]; then
+            swift test --package-path AppAmbitSdk -c debug 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
+            RC=${PIPESTATUS[0]}
+            if [ "$RC" -eq 0 ]; then
+              echo "swift test OK"
+              exit 0
+            fi
+            echo "swift test failed (RC=$RC). Will try xcodebuild schemes next."
+          else
+            echo "AppAmbitSdk/Package.swift not found. Skipping swift test."
+          fi
+
+          echo "== 2) Trying xcodebuild schemes (only Tests schemes) =="
           SCHEMES="$(xcodebuild -workspace "$WORKSPACE_PATH" -list | awk '
             $0 ~ /Schemes:/ {in_s=1; next}
             in_s && NF==0 {exit}
@@ -139,68 +150,69 @@ jobs:
             exit 1
           fi
 
-          CANDIDATES="$(echo "$SCHEMES" | awk '
-            /UITests/ {print "0:"$0; next}
-            /Tests/ {print "0:"$0; next}
-            {print "1:"$0}
-          ' | sort | cut -d: -f2-)"
+          TEST_SCHEMES="$(echo "$SCHEMES" | grep -E 'Tests|Test' | grep -vE '\.App\.|ObjC|Samples|Example' || true)"
 
-          PASSED=0
-          LAST_RC=1
+          if [ -n "$TEST_SCHEMES" ]; then
+            LAST_RC=1
+            for SCHEME in $TEST_SCHEMES; do
+              SCHEME_SAFE="$(echo "$SCHEME" | tr '/: ' '___')"
+              LOG="$RUNNER_TEMP/xcodebuild-$SCHEME_SAFE.log"
+              RESULT_BUNDLE="$RUNNER_TEMP/xcode-results-$SCHEME_SAFE"
+              rm -rf "$RESULT_BUNDLE"
 
-          for SCHEME in $CANDIDATES; do
-            echo "Trying scheme: $SCHEME"
+              echo "Trying test scheme: $SCHEME"
+              xcodebuild \
+                -workspace "$WORKSPACE_PATH" \
+                -scheme "$SCHEME" \
+                -configuration "$CONFIGURATION" \
+                -sdk iphonesimulator \
+                -destination "id=$SIM_UDID" \
+                -derivedDataPath "$DERIVED" \
+                -resultBundlePath "$RESULT_BUNDLE" \
+                CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+                test \
+                2>&1 | tee "$LOG"
 
-            xcodebuild \
-              -workspace "$WORKSPACE_PATH" \
-              -scheme "$SCHEME" \
-              -configuration "$CONFIGURATION" \
-              -sdk iphonesimulator \
-              -destination "id=$SIM_UDID" \
-              -derivedDataPath "$DERIVED" \
-              -resultBundlePath "$RESULT_BUNDLE" \
-              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-              test \
-              2>&1 | tee "$LOG"
+              RC=${PIPESTATUS[0]}
+              LAST_RC=$RC
 
-            RC=${PIPESTATUS[0]}
-            LAST_RC=$RC
+              if [ "$RC" -eq 0 ]; then
+                echo "xcodebuild test OK with scheme: $SCHEME"
+                exit 0
+              fi
 
-            if [ "$RC" -eq 0 ]; then
-              PASSED=1
-              break
-            fi
+              if grep -q "Scheme .* is not currently configured for the test action" "$LOG"; then
+                echo "Scheme '$SCHEME' not configured for test. Skipping."
+                continue
+              fi
 
-            if grep -q "Scheme .* is not currently configured for the test action" "$LOG"; then
-              echo "Scheme '$SCHEME' is not configured for test. Skipping."
-              continue
-            fi
+              if grep -q "There are no test bundles available to test." "$LOG"; then
+                echo "Scheme '$SCHEME' has no test bundles. Skipping."
+                continue
+              fi
 
-            if grep -q "There are no test bundles available to test." "$LOG"; then
-              echo "Scheme '$SCHEME' has no test bundles. Skipping."
-              continue
-            fi
+              echo "xcodebuild test failed for scheme '$SCHEME' (RC=$RC)"
+              exit "$RC"
+            done
 
-            echo "xcodebuild failed for scheme '$SCHEME' with exit code $RC"
-            exit "$RC"
-          done
-
-          if [ "$PASSED" -ne 1 ]; then
-            echo "No runnable test scheme found. Building fallback scheme: $FALLBACK_SCHEME"
-
-            xcodebuild \
-              -workspace "$WORKSPACE_PATH" \
-              -scheme "$FALLBACK_SCHEME" \
-              -configuration "$CONFIGURATION" \
-              -sdk iphonesimulator \
-              -destination "id=$SIM_UDID" \
-              -derivedDataPath "$DERIVED" \
-              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-              build \
-              2>&1 | tee "$LOG"
-
-            exit ${PIPESTATUS[0]}
+            echo "No test scheme succeeded."
+            exit "$LAST_RC"
           fi
+
+          echo "== 3) No test schemes found. Building fallback scheme only =="
+          LOG="$RUNNER_TEMP/xcodebuild-build.log"
+          xcodebuild \
+            -workspace "$WORKSPACE_PATH" \
+            -scheme "$FALLBACK_SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphonesimulator \
+            -destination "id=$SIM_UDID" \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build \
+            2>&1 | tee "$LOG"
+
+          exit ${PIPESTATUS[0]}
 
       - name: Upload xcodebuild logs
         if: always()
