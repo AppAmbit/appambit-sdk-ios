@@ -1,12 +1,18 @@
 name: CocoaPods Unit Test
 
 on:
-  push:
   pull_request:
+    branches: [main, develop]
+  push:
     branches:
-      - main
-      - develop
+      - "**"
+    tags-ignore:
+      - "**"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build_test:
@@ -155,7 +161,9 @@ jobs:
 
           if [ -n "$TEST_SCHEMES" ]; then
             LAST_RC=1
-            for SCHEME in $TEST_SCHEMES; do
+            while IFS= read -r SCHEME; do
+              [ -z "$SCHEME" ] && continue
+
               SCHEME_SAFE="$(echo "$SCHEME" | tr '/: ' '___')"
               LOG="$RUNNER_TEMP/xcodebuild-$SCHEME_SAFE.log"
               RESULT_BUNDLE="$RUNNER_TEMP/xcode-results-$SCHEME_SAFE"
@@ -194,7 +202,7 @@ jobs:
 
               echo "xcodebuild test failed for scheme '$SCHEME' (RC=$RC)"
               exit "$RC"
-            done
+            done <<< "$TEST_SCHEMES"
 
             echo "No test scheme succeeded."
             exit "$LAST_RC"
@@ -221,8 +229,10 @@ jobs:
         with:
           name: xcodebuild-logs
           path: |
-            ${{ runner.temp }}/xcodebuild.log
-            ${{ runner.temp }}/xcode-results
+            ${{ runner.temp }}/swift-test.log
+            ${{ runner.temp }}/xcodebuild-*.log
+            ${{ runner.temp }}/xcodebuild-build.log
+            ${{ runner.temp }}/xcode-results-*
           if-no-files-found: ignore
 
       - name: Shutdown simulator

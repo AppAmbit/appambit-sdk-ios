@@ -1,6 +1,10 @@
 name: CocoaPods Library Build & Release
 
 on:
+  workflow_run:
+    workflows: ["CocoaPods Unit Test"]
+    branches: [main, develop]
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -10,46 +14,19 @@ permissions:
 jobs:
   cut_release:
     name: Release
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
-      - name: Ensure CocoaPods Unit Test workflow succeeded
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const workflowId = 'ios-cocoapod-unit-test.yml';
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const headSha = process.env.GITHUB_SHA;
-            if (!headSha) {
-              throw new Error('Missing GITHUB_SHA; unable to correlate CocoaPods Unit Test run.');
-            }
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner,
-              repo,
-              workflow_id: workflowId,
-              per_page: 30
-            });
-            const completedRuns = runs.data.workflow_runs
-              .filter(run => run.head_sha === headSha && run.status === 'completed');
-            if (completedRuns.length === 0) {
-              throw new Error('No completed CocoaPods Unit Test run found for this commit.');
-            }
-            const successfulRun = completedRuns.find(run => run.conclusion === 'success');
-            const finalRun = successfulRun ?? completedRuns[0];
-            if (!successfulRun) {
-              throw new Error(`CocoaPods Unit Test workflow concluded with '${finalRun.conclusion}'.`);
-            }
-            console.log(`CocoaPods Unit Test run succeeded: ${finalRun.html_url}`);
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Install CocoaPods
         run: |
@@ -78,21 +55,16 @@ jobs:
         run: |
           set -e
           [ -f CHANGELOG.md ] || { echo "CHANGELOG.md is missing"; exit 1; }
-
-          # ex; "## 1.2.3" o "## Version 1.2.3"
           TITLE_LINE_NUM=$(grep -nE '^##[[:space:]]+(Version[[:space:]]+)?[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?[[:space:]]*$' CHANGELOG.md | head -n1 | cut -d: -f1)
           [ -n "$TITLE_LINE_NUM" ] || { echo "No release header found (## [Version ]X.Y.Z)"; exit 1; }
-
           TITLE=$(sed -n "${TITLE_LINE_NUM}p" CHANGELOG.md)
           VER_IN_TITLE=$(echo "$TITLE" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-(?:alpha|beta|rc)\.[0-9]+)?')
           [ -n "$VER_IN_TITLE" ] || { echo "Could not extract version from: $TITLE"; exit 1; }
-
           START=$((TITLE_LINE_NUM + 1))
           TOTAL_LINES=$(wc -l < CHANGELOG.md | tr -d ' ')
           NEXT_HEADER_LINE=$(tail -n +"$START" CHANGELOG.md | grep -nE '^##[[:space:]]+' | head -n1 | cut -d: -f1 || true)
           [ -z "$NEXT_HEADER_LINE" ] && END=$TOTAL_LINES || END=$((START + NEXT_HEADER_LINE - 2))
           sed -n "${START},${END}p" CHANGELOG.md > CHANGELOG_LATEST.md
-
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "ver_from_title=$VER_IN_TITLE" >> $GITHUB_OUTPUT
           echo "notes_path=CHANGELOG_LATEST.md" >> $GITHUB_OUTPUT
@@ -127,7 +99,7 @@ jobs:
         if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
-          git tag "${{ steps.ver.outputs.full }}" "$GITHUB_SHA"
+          git tag "${{ steps.ver.outputs.full }}" "$TARGET_SHA"
           git push origin "${{ steps.ver.outputs.full }}"
 
       - name: Build SDK zip (only AppAmbitSdk/)
@@ -153,7 +125,7 @@ jobs:
           files:     AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
-        if: steps.check_tag.outputs.skip == 'false' && github.ref == 'refs/heads/main'
+        if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main' || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main'))
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
