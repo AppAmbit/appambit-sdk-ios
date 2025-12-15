@@ -61,7 +61,7 @@ jobs:
           print(f"Chosen scheme: {chosen}")
           PY
 
-      - name: Run unit tests (generic iOS Simulator destination; fallback to build if no test bundles)
+      - name: Run unit tests (generic simulator; fallback to build if no test bundles)
         env:
           SCHEME: ${{ steps.pick-scheme.outputs.scheme }}
         run: |
@@ -80,7 +80,7 @@ jobs:
             -derivedDataPath "$DERIVED" \
             test \
             -resultBundlePath "$RESULT_BUNDLE" \
-            |& tee "$LOG"
+            2>&1 | tee "$LOG"
 
           RC=${PIPESTATUS[0]}
           set -e
