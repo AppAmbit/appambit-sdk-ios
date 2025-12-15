@@ -80,7 +80,7 @@ jobs:
             -derivedDataPath "$DERIVED" \
             test \
             -resultBundlePath "$RESULT_BUNDLE" \
-            | tee "$LOG"
+            |& tee "$LOG"
 
           RC=${PIPESTATUS[0]}
           set -e
