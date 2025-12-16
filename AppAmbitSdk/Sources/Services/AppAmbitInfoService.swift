@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 final class AppAmbitInfoService: AppInfoService {
     let appVersion:  String?
@@ -19,6 +20,7 @@ final class AppAmbitInfoService: AppInfoService {
         let locale = Locale.current
         self.country   = locale.regionCode  ?? "Unknown"
         self.language  = locale.languageCode ?? "Unknown"
+        
 
         let tz   = TimeZone.current
         let secs = tz.secondsFromGMT()
@@ -33,12 +35,35 @@ final class AppAmbitInfoService: AppInfoService {
     }
 
     private static func getDeviceModelIdentifier() -> String {
+        if let sysctlValue = sysctlString(for: "hw.machine"), !sysctlValue.isEmpty {
+            return sysctlValue
+        }
+
         var info = utsname()
         uname(&info)
-        let mirror = Mirror(reflecting: info.machine)
-        return mirror.children.compactMap { element in
-            guard let value = element.value as? Int8, value != 0 else { return nil }
-            return String(UnicodeScalar(UInt8(value)))
-        }.joined()
+        let machineMirror = Mirror(reflecting: info.machine)
+        let identifier = machineMirror.children.reduce(into: "") { result, element in
+            guard let value = element.value as? Int8, value != 0 else { return }
+            result.append(String(UnicodeScalar(UInt8(value))))
+        }
+
+        return identifier.isEmpty ? "Unknown" : identifier
+    }
+
+    private static func sysctlString(for name: String) -> String? {
+        var size: size_t = 0
+        if sysctlbyname(name, nil, &size, nil, 0) != 0 || size == 0 {
+            return nil
+        }
+
+        var buffer = [CChar](repeating: 0, count: Int(size))
+        let result = buffer.withUnsafeMutableBufferPointer { ptr -> Int32 in
+            sysctlbyname(name, ptr.baseAddress, &size, nil, 0)
+        }
+        if result != 0 {
+            return nil
+        }
+
+        return String(cString: buffer)
     }
 }
