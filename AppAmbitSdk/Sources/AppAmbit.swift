@@ -347,6 +347,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
     }
+    // Internal SDK method – not part of the public API.
+    // Used only for hybrid platform integrations.
+    @objc(addBreadcrumb:)
+    public static func addBreadcrumb(name: String) {
+        BreadcrumbManager.addAsync(name: name)
+    }
 }
 
 @MainActor
