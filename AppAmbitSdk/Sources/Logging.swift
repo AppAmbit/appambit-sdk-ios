@@ -2,6 +2,16 @@ import Foundation
 
 final class Logging: @unchecked Sendable {
     private static let queue = Queues.netDecode
+    private var apiService: ApiService?
+    private var storageService: StorageService?
+
+    private init() {}
+    static let shared = Logging()
+
+    static func initialize(apiService: ApiService, storageService: StorageService) {
+        shared.apiService = apiService
+        shared.storageService = storageService
+    }
 
     static func logEvent(
         message: String?,
@@ -91,8 +101,7 @@ final class Logging: @unchecked Sendable {
     private static func sendOrSaveLogEvent(_ logEntity: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
         let localLogEntity = logEntity
         queue.async {
-            let apiService = ServiceContainer.shared.apiService
-
+            let apiService = shared.apiService ?? ServiceContainer.shared.apiService
             let endpointLog = LogEntity()
             endpointLog.sessionId = localLogEntity.sessionId
             endpointLog.appVersion = localLogEntity.appVersion
@@ -139,7 +148,7 @@ final class Logging: @unchecked Sendable {
     private static func storeLogInDb(_ log: LogEntity, completion: (@Sendable (Error?) -> Void)? = nil) {
         queue.async {
             do {
-                let storable: StorageService = ServiceContainer.shared.storageService
+                let storable = shared.storageService ?? ServiceContainer.shared.storageService
                 try storable.putLogEvent(log)
                 DispatchQueue.main.async { completion?(nil) }
             } catch {

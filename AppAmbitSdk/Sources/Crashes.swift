@@ -94,6 +94,11 @@ public final class Crashes: NSObject, @unchecked Sendable {
         super.init()
     }
 
+    static func initialize(apiService: ApiService, storageService: StorageService) {
+        shared.apiService = apiService
+        shared.storageService = storageService
+    }
+
     public static func didCrashInLastSession(completion: @escaping @Sendable (Bool) -> Void) {
         CrashHandler.shared.didAppCrashFileExist { result in
             let isCrash: Bool
