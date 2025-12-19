@@ -13,50 +13,32 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = AppAmbitSdk; sourceTree = "<group>"; };
-		79260B8C2E139E23008BF6CB /* AppAmbitTestingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbitTestingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		79712D1C2E7CD50D00B99DB6 /* AppAmbitTestAppObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbitTestAppObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		79B97B322EF5CCEB00DE37D5 /* AppAmbitTestingAppDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppAmbitTestingAppDebug.entitlements; sourceTree = "<group>"; };
+		791D978D2EEA0506002FC398 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppAmbitSdk; sourceTree = "<group>"; };
+		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79E047D42EF5060C007952FD /* AppAmbit.App.Swift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppAmbit.App.Swift.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		79712D342E7CD50F00B99DB6 /* Exceptions for "AppAmbitTestAppObjC" folder in "AppAmbitTestAppObjC" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		79260B8E2E139E23008BF6CB /* AppAmbitTestApp */ = {
+		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AppAmbitTestApp;
+			path = Samples;
 			sourceTree = "<group>";
-		};
-		79712D1D2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				79712D342E7CD50F00B99DB6 /* Exceptions for "AppAmbitTestAppObjC" folder in "AppAmbitTestAppObjC" target */,
-			);
-			path = AppAmbitTestAppObjC;
-			sourceTree = "<group>";
-		};
 		79E047D12EF504B9007952FD /* Push */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Push;
 			sourceTree = "<group>";
 		};
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
-/* Begin PBXFrameworksBuildPhase section */
+/* 	79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
+			Begin PBXFrameworksBuildPhase section */
 		79260B892E139E23008BF6CB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */,
-				79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,27 +57,26 @@
 			isa = PBXGroup;
 			children = (
 			);
-			name = Frameworks;
+			namE047D42EF5060C007952FD /* AppAmbit.App.Swift.entitlements */,
+				79E047D12EF504B9007952FD /* Push */,
+				79e = Frameworks;
 			sourceTree = "<group>";
 		};
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
-				79B97B322EF5CCEB00DE37D5 /* AppAmbitTestingAppDebug.entitlements */,
-				7916DAB12E17197A00CFEFA2 /* AppAmbitSdk */,
-				79E047D12EF504B9007952FD /* Push */,
-				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
-				79712D1D2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */,
+				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
+				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
 			);
 			sourceTree = "<group>";
 		};
 		79260B8D2E139E23008BF6CB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				79260B8C2E139E23008BF6CB /* AppAmbitTestingApp.app */,
-				79712D1C2E7CD50D00B99DB6 /* AppAmbitTestAppObjC.app */,
+				79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */,
+				79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -103,33 +84,30 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		79260B8B2E139E23008BF6CB /* AppAmbitTestingApp */ = {
+		79260B8B2E139E23008BF6CB /* AppAmbit.App.Swift */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbitTestingApp" */;
+			buildConfigurationList = 79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbit.App.Swift" */;
 			buildPhases = (
 				79260B882E139E23008BF6CB /* Sources */,
 				79260B892E139E23008BF6CB /* Frameworks */,
 				79260B8A2E139E23008BF6CB /* Resources */,
+				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				79260B8E2E139E23008BF6CB /* AppAmbitTestApp */,
-			);
-			name = AppAmbitTestingApp;
+			name = AppAmbit.App.Swift;
 			packageProductDependencies = (
 				7916DAD22E171C9B00CFEFA2 /* AppAmbit */,
-				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
 			);
 			productName = "AppAmbit Testing App";
-			productReference = 79260B8C2E139E23008BF6CB /* AppAmbitTestingApp.app */;
+			productReference = 79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */;
 			productType = "com.apple.product-type.application";
 		};
-		79712D1B2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */ = {
+		79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 79712D352E7CD50F00B99DB6 /* Build configuration list for PBXNativeTarget "AppAmbitTestAppObjC" */;
+			buildConfigurationList = 79712D352E7CD50F00B99DB6 /* Build configuration list for PBXNativeTarget "AppAmbit.App.ObjC" */;
 			buildPhases = (
 				79712D182E7CD50D00B99DB6 /* Sources */,
 				79712D192E7CD50D00B99DB6 /* Frameworks */,
@@ -140,14 +118,14 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				79712D1D2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */,
+				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 			);
-			name = AppAmbitTestAppObjC;
+			name = AppAmbit.App.ObjC;
 			packageProductDependencies = (
 				79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */,
 			);
-			productName = AppAmbitTestAppObjC;
-			productReference = 79712D1C2E7CD50D00B99DB6 /* AppAmbitTestAppObjC.app */;
+			productName = AppAmbit.App.ObjC;
+			productReference = 79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -168,25 +146,26 @@
 					};
 				};
 			};
-			buildConfigurationList = 79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbitTestingApp" */;
+			buildConfigurationList = 79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbit" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
+				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */,
 			mainGroup = 79260B832E139E23008BF6CB;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */,
+				79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 79260B8D2E139E23008BF6CB /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				79260B8B2E139E23008BF6CB /* AppAmbitTestingApp */,
-				79712D1B2E7CD50D00B99DB6 /* AppAmbitTestAppObjC */,
+				79260B8B2E139E23008BF6CB /* AppAmbit.App.Swift */,
+				79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */,
 			);
 		};
 /* End PBXProject section */
@@ -350,15 +329,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = AppAmbitTestingAppDebug.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"AppAmbitTestApp/Preview Content\"";
-				DEVELOPMENT_TEAM = U7UX6J27XV;
+				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AppAmbit-Testing-App-Info.plist";
+				INFOPLIST_FILE = AppAmbit.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit Swift";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -370,9 +350,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppSwift;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AppAmbit TestApp - AdHoc";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -391,12 +372,13 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"AppAmbitTestApp/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AppAmbit-Testing-App-Info.plist";
+				INFOPLIST_FILE = AppAmbit.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit Swift";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -433,7 +415,8 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AppAmbitTestAppObjC/Info.plist;
+				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -469,7 +452,8 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AppAmbitTestAppObjC/Info.plist;
+				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -497,7 +481,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbitTestingApp" */ = {
+		79260B872E139E23008BF6CB /* Build configuration list for PBXProject "AppAmbit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				79260B982E139E26008BF6CB /* Debug */,
@@ -506,7 +490,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbitTestingApp" */ = {
+		79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbit.App.Swift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				79260B9B2E139E26008BF6CB /* Debug */,
@@ -515,37 +499,46 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		79712D352E7CD50F00B99DB6 /* Build configuration list for PBXNativeTarget "AppAmbitTestAppObjC" */ = {
+		79712D352E7CD50F00B99DB6 /* Build configuration list for PBXNativeTarget "AppAmbit.App.ObjC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				79712D322E7CD50F00B99DB6 /* Debug */,
 				79712D332E7CD50F00B99DB6 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-/* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
+			defaultCLocalSwiftPackageReference section */
 		79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Push/AppAmbitPushNotifications;
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCSwiftPackageProductDependency section */
-		7916DAD22E171C9B00CFEFA2 /* AppAmbit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AppAmbit;
+/* Begin XConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
-		79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AppAmbit;
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = AppAmbitSdk;
 		};
+/* End XCRemoteSwiftPackageReference section */
+
 		79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */;
 			productName = AppAmbitPushNotifications;
+		};
+/* Begin XCSwiftPackageProductDependency section */
+		7916DAD22E171C9B00CFEFA2 /* AppAmbit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */;
+			productName = AppAmbit;
+		};
+		79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */;
+			productName = AppAmbit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
