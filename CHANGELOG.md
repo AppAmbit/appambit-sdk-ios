@@ -1,3 +1,9 @@
+## Version 0.1.1
+
+### AppAmbit
+
+* **[Internal]** Ambit Trail integration for hybrid platforms (no user-facing changes)
+
 ## Version 0.1.0
 
 ### AppAmbit

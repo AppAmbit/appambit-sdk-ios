@@ -299,13 +299,17 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         Crashes.shared.loadCrashFileIfExists { error in
             guard error == nil else { return }
-            Queues.crashFiles.async {
-                BreadcrumbManager.loadBreadcrumbsFromFile { [weak self] _ in
-                    guard let self = self else { return }
-                    if shouldSendResume {
-                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                Queues.crashFiles.async {                                       
+                    SessionManager.sendEndSessionFromDatabase { _ in
+                        SessionManager.sendStartSessionIfExist { [weak self] _ in
+                            guard let self = self else { return }
+                            if shouldSendResume {
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                            }
+                            self.sendAllPendingData()
+                        }
                     }
-                    self.sendAllPendingData()
                 }
             }
         }
@@ -342,6 +346,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private func tokenIsValid() -> Bool {
         guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
+    }
+    // Internal SDK method – not part of the public API.
+    // Used only for hybrid platform integrations.
+    @objc(addBreadcrumb:)
+    public static func addBreadcrumb(name: String) {
+        BreadcrumbManager.addAsync(name: name)
     }
 }
 
