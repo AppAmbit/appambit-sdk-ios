@@ -61,7 +61,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 0.1.0'
+pod 'AppAmbitSdk', '~> 0.1.1'
 ```
 
 Then run:
@@ -211,7 +211,6 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
 * **Dashboard**: [appambit.com](https://appambit.com)
 * **Discord**: [discord.gg](https://discord.gg/nJyetYue2s)
-* **Examples**: Sample swift test app AppAmbitTestApp included in repo. Objective-C test app coming soon. 
+* **Examples**: Sample Swift test app `AppAmbit.App.Swift` and Objective-C test app `AppAmbit.App.ObjC` are included in this repo. 
 
 ---
-

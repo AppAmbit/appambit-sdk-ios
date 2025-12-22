@@ -16,29 +16,72 @@
 		791D978D2EEA0506002FC398 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppAmbitSdk; sourceTree = "<group>"; };
 		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		79E047D42EF5060C007952FD /* AppAmbit.App.Swift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppAmbit.App.Swift.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppAmbit.App.Swift/AnalyticsView.swift,
+				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
+				AppAmbit.App.Swift/Assets.xcassets,
+				AppAmbit.App.Swift/ContentView.swift,
+				AppAmbit.App.Swift/CrashesView.swift,
+				AppAmbit.App.Swift/LoadView.swift,
+				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
+				AppAmbit.App.Swift/SecondView.swift,
+				AppAmbit.App.Swift/Utils/ConcurrencyApp.swift,
+				AppAmbit.App.Swift/Utils/CrashStore.swift,
+				AppAmbit.App.Swift/Utils/ExceptionModel.swift,
+				AppAmbit.App.Swift/Utils/NetworkMonitor.swift,
+			);
+			target = 79260B8B2E139E23008BF6CB /* AppAmbit.App.Swift */;
+		};
+		79BB902D2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.ObjC" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppAmbit.App.ObjC/Info.plist,
+				AppAmbit.App.Swift/AnalyticsView.swift,
+				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
+				AppAmbit.App.Swift/Assets.xcassets,
+				AppAmbit.App.Swift/ContentView.swift,
+				AppAmbit.App.Swift/CrashesView.swift,
+				AppAmbit.App.Swift/LoadView.swift,
+				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
+				AppAmbit.App.Swift/SecondView.swift,
+				AppAmbit.App.Swift/Utils/ConcurrencyApp.swift,
+				AppAmbit.App.Swift/Utils/CrashStore.swift,
+				AppAmbit.App.Swift/Utils/ExceptionModel.swift,
+				AppAmbit.App.Swift/Utils/NetworkMonitor.swift,
+			);
+			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */,
+				79BB902D2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.ObjC" target */,
+			);
 			path = Samples;
 			sourceTree = "<group>";
+		};
 		79E047D12EF504B9007952FD /* Push */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Push;
 			sourceTree = "<group>";
 		};
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
-/* 	79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
-			Begin PBXFrameworksBuildPhase section */
+/* Begin PBXFrameworksBuildPhase section */
 		79260B892E139E23008BF6CB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */,
+				79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -57,15 +100,14 @@
 			isa = PBXGroup;
 			children = (
 			);
-			namE047D42EF5060C007952FD /* AppAmbit.App.Swift.entitlements */,
-				79E047D12EF504B9007952FD /* Push */,
-				79e = Frameworks;
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		79260B832E139E23008BF6CB = {
 			isa = PBXGroup;
 			children = (
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
+				79E047D12EF504B9007952FD /* Push */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
@@ -91,7 +133,6 @@
 				79260B882E139E23008BF6CB /* Sources */,
 				79260B892E139E23008BF6CB /* Frameworks */,
 				79260B8A2E139E23008BF6CB /* Resources */,
-				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
 			);
 			buildRules = (
 			);
@@ -100,6 +141,7 @@
 			name = AppAmbit.App.Swift;
 			packageProductDependencies = (
 				7916DAD22E171C9B00CFEFA2 /* AppAmbit */,
+				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
 			);
 			productName = "AppAmbit Testing App";
 			productReference = 79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */;
@@ -153,11 +195,11 @@
 				en,
 				Base,
 			);
-				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */,
 			mainGroup = 79260B832E139E23008BF6CB;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */,
+				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 79260B8D2E139E23008BF6CB /* Products */;
@@ -329,15 +371,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = AppAmbitTestingAppDebug.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AppAmbit.plist;
+			INFOPLIST_FILE = AppAmbit.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit Swift";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -350,10 +393,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppSwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AppAmbit TestApp - AdHoc";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -377,7 +419,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AppAmbit.plist;
+			INFOPLIST_FILE = AppAmbit.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit Swift";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -505,14 +547,7 @@
 				79712D322E7CD50F00B99DB6 /* Debug */,
 				79712D332E7CD50F00B99DB6 /* Release */,
 			);
-			defaultCLocalSwiftPackageReference section */
-		79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Push/AppAmbitPushNotifications;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XConfigurationIsVisible = 0;
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
@@ -521,14 +556,19 @@
 		79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = AppAmbitSdk;
+			requirement = {
+				kind = localPackage;
+			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-		79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */;
-			productName = AppAmbitPushNotifications;
+/* Begin XCLocalSwiftPackageReference section */
+		79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Push/AppAmbitPushNotifications;
 		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		7916DAD22E171C9B00CFEFA2 /* AppAmbit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -539,6 +579,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */;
 			productName = AppAmbit;
+		};
+		79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */;
+			productName = AppAmbitPushNotifications;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
