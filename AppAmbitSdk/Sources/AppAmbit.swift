@@ -451,6 +451,13 @@ fileprivate extension UIViewController {
     @MainActor @objc dynamic func swizzled_viewDidAppear(_ animated: Bool) {
         self.swizzled_viewDidAppear(animated)
         guard shouldTrackAppear else { return }
+        
+        if self is UIAlertController { return }
+        if NSStringFromClass(type(of: self)).contains("UIInputWindowController") { return }
+        if NSStringFromClass(type(of: self)).contains("UISystemKeyboard") { return }
+        if NSStringFromClass(type(of: self)).contains("UICompatibility") { return }
+        if NSStringFromClass(type(of: self)).hasPrefix("_UI") { return }
+        
         DispatchQueue.main.async {
             let name = self.ambit_resolveName()
             self.didTrackAppear = true
