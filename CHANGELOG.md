@@ -1,3 +1,9 @@
+## Version 0.1.2
+
+## AppAmbit
+
+* **[Fix]** - Fixed incorrect Ambit Trails tracking when the app is opened from Notification Center and when presenting `UIAlertController` on iOS
+
 ## Version 0.1.1
 
 ### AppAmbit
