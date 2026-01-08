@@ -21,6 +21,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     private let appKey: String
     private var isCreatingConsumer = false
     private var hasSlept = false
+    private var didEnterBackground = false
     private var consumerCreationCallbacks: [(@Sendable (Bool) -> Void)] = []
     private var reachability: ReachabilityService?
 
@@ -98,15 +99,31 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     }
 
     @objc private func appDidBecomeActive() {
-        Self.instanceQueue.async { [weak self] in self?.onResume() }
+        Self.instanceQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            if self.didEnterBackground {
+                self.onResume()
+                self.didEnterBackground = false
+            } else {
+                self.hasSlept = false
+                AppAmbitLogger.log(message: "Ignored onResume: Return from interruption (Notification Center/Alert)")
+            }
+        }
     }
 
     @objc private func appWillResignActive() {
-        Self.instanceQueue.async { [weak self] in self?.onSleep() }
+        Self.instanceQueue.async { [weak self] in
+            self?.onSleep(recordBreadcrumb: false)
+        }
     }
 
     @objc private func appDidEnterBackground() {
-        Self.instanceQueue.async { [weak self] in self?.onSleep() }
+        Self.instanceQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.didEnterBackground = true
+            self.onSleep(recordBreadcrumb: true)
+        }
     }
 
     @objc private func appWillEnterForeground() {
@@ -146,6 +163,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
         BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
+        Crashes.initialize(apiService: apiService, storageService: storageService)
+        Logging.initialize(apiService: apiService, storageService: storageService)
 
         self.reachability = reachabilityService
 
@@ -327,12 +346,19 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         }
     }
 
-    private func onSleep() {
-        if hasSlept { return }
+    private func onSleep(recordBreadcrumb: Bool = true) {
+        if hasSlept {
+            if recordBreadcrumb && !Analytics.isManualSessionEnabled {
+                BreadcrumbManager.saveFile(name: BreadcrumbsConstants.onPause)
+            }
+            return
+        }
         hasSlept = true
         if !Analytics.isManualSessionEnabled {
             SessionManager.saveEndSession()
-            BreadcrumbManager.saveFile(name: BreadcrumbsConstants.onPause)
+            if recordBreadcrumb {
+                BreadcrumbManager.saveFile(name: BreadcrumbsConstants.onPause)
+            }
         }
     }
 
@@ -381,7 +407,7 @@ fileprivate extension UIViewController {
     }
 
     @MainActor private var shouldTrackAppear: Bool {
-        if self is UINavigationController || self is UITabBarController { return false }
+        if self is UINavigationController || self is UITabBarController || self is UIAlertController { return false }
         if isWindowRoot { return false }
         if isTabRootHost { return false }
         if isPushedInsideNavNow { return true }
@@ -425,6 +451,13 @@ fileprivate extension UIViewController {
     @MainActor @objc dynamic func swizzled_viewDidAppear(_ animated: Bool) {
         self.swizzled_viewDidAppear(animated)
         guard shouldTrackAppear else { return }
+        
+        if self is UIAlertController { return }
+        if NSStringFromClass(type(of: self)).contains("UIInputWindowController") { return }
+        if NSStringFromClass(type(of: self)).contains("UISystemKeyboard") { return }
+        if NSStringFromClass(type(of: self)).contains("UICompatibility") { return }
+        if NSStringFromClass(type(of: self)).hasPrefix("_UI") { return }
+        
         DispatchQueue.main.async {
             let name = self.ambit_resolveName()
             self.didTrackAppear = true

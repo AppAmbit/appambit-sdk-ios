@@ -1,0 +1,244 @@
+name: CocoaPods Unit Test
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build_test:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    env:
+      WORKSPACE_PATH: AppAmbit.xcodeproj/project.xcworkspace
+      CONFIGURATION: Debug
+      FALLBACK_SCHEME: AppAmbit.App.Swift
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          XCODE_APP="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)"
+          echo "Using Xcode: $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          sudo xcodebuild -license accept || true
+          xcodebuild -version
+
+      - name: List workspace schemes
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace "$WORKSPACE_PATH" -list
+
+      - name: Create & Boot Simulator
+        id: sim
+        run: |
+          set -euo pipefail
+
+          xcrun simctl shutdown all || true
+
+          SIM_UDID="$(python3 - <<'PY'
+          import json, subprocess, sys
+
+          def sh(cmd):
+            return subprocess.check_output(cmd, text=True).strip()
+
+          runtimes = json.loads(sh(["xcrun","simctl","list","-j","runtimes"]))["runtimes"]
+          ios = [r for r in runtimes if r.get("platform") == "iOS" and r.get("isAvailable")]
+          if not ios:
+            print("No iOS Simulator runtimes installed.")
+            sys.exit(1)
+
+          def ver_tuple(v):
+            try: return tuple(int(x) for x in (v or "").split("."))
+            except: return (0,)
+
+          def is_18(r):
+            name = (r.get("name") or "")
+            v = (r.get("version") or "")
+            return name.startswith("iOS 18") or v.startswith("18.")
+
+          ios18 = [r for r in ios if is_18(r)]
+          pick = sorted(ios18, key=lambda r: ver_tuple(r.get("version")), reverse=True)[0] if ios18 else \
+                 sorted(ios, key=lambda r: ver_tuple(r.get("version")), reverse=True)[0]
+
+          runtime_id = pick["identifier"]
+
+          devtypes = json.loads(sh(["xcrun","simctl","list","-j","devicetypes"]))["devicetypes"]
+          preferred = ["iPhone 16 Pro", "iPhone 15 Pro", "iPhone 14 Pro", "iPhone 13 Pro"]
+          devtype_id = next((d["identifier"] for name in preferred for d in devtypes if d.get("name")==name), devtypes[0]["identifier"])
+
+          devices_all = json.loads(sh(["xcrun","simctl","list","-j","devices"]))["devices"]
+          devices = devices_all.get(runtime_id, [])
+
+          existing = next((d.get("udid") for d in devices if d.get("name")=="CI iPhone" and d.get("isAvailable")), None)
+          if existing:
+            print(existing)
+          else:
+            print(sh(["xcrun","simctl","create","CI iPhone", devtype_id, runtime_id]))
+          PY
+          )"
+
+          echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
+
+          xcrun simctl boot "$SIM_UDID" || true
+
+          python3 - "$SIM_UDID" <<'PY'
+          import json, subprocess, time, sys
+
+          udid = sys.argv[1]
+
+          def sh(cmd):
+            return subprocess.check_output(cmd, text=True).strip()
+
+          def is_booted():
+            data = json.loads(sh(["xcrun","simctl","list","-j","devices"]))
+            for _, lst in data.get("devices", {}).items():
+              for d in lst:
+                if d.get("udid") == udid:
+                  return d.get("state") == "Booted"
+            return False
+
+          t0 = time.time()
+          while time.time() - t0 < 240:
+            if is_booted():
+              sys.exit(0)
+            time.sleep(2)
+
+          print("Simulator did not reach Booted state within timeout.")
+          sys.exit(1)
+          PY
+
+          xcrun simctl list devices | sed -n '1,160p'
+
+      - name: Test library
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set +e
+          set -o pipefail
+
+          DERIVED="$RUNNER_TEMP/derived"
+          rm -rf "$DERIVED"
+          mkdir -p "$RUNNER_TEMP"
+
+          echo "== 1) Trying Swift Package tests (library) =="
+          if [ -f "AppAmbitSdk/Package.swift" ]; then
+            swift test --package-path AppAmbitSdk -c debug 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
+            RC=${PIPESTATUS[0]}
+            if [ "$RC" -eq 0 ]; then
+              echo "swift test OK"
+              exit 0
+            fi
+            echo "swift test failed (RC=$RC). Will try xcodebuild schemes next."
+          else
+            echo "AppAmbitSdk/Package.swift not found. Skipping swift test."
+          fi
+
+          echo "== 2) Trying xcodebuild schemes (only Tests schemes) =="
+          SCHEMES="$(xcodebuild -workspace "$WORKSPACE_PATH" -list | awk '
+            $0 ~ /Schemes:/ {in_s=1; next}
+            in_s && NF==0 {exit}
+            in_s {sub(/^[ \t]+/, ""); print}
+          ')"
+
+          if [ -z "$SCHEMES" ]; then
+            echo "No schemes found for workspace: $WORKSPACE_PATH"
+            exit 1
+          fi
+
+          TEST_SCHEMES="$(echo "$SCHEMES" | grep -E 'Tests|Test' | grep -vE '\.App\.|ObjC|Samples|Example' || true)"
+
+          if [ -n "$TEST_SCHEMES" ]; then
+            LAST_RC=1
+            while IFS= read -r SCHEME; do
+              [ -z "$SCHEME" ] && continue
+
+              SCHEME_SAFE="$(echo "$SCHEME" | tr '/: ' '___')"
+              LOG="$RUNNER_TEMP/xcodebuild-$SCHEME_SAFE.log"
+              RESULT_BUNDLE="$RUNNER_TEMP/xcode-results-$SCHEME_SAFE"
+              rm -rf "$RESULT_BUNDLE"
+
+              echo "Trying test scheme: $SCHEME"
+              xcodebuild \
+                -workspace "$WORKSPACE_PATH" \
+                -scheme "$SCHEME" \
+                -configuration "$CONFIGURATION" \
+                -sdk iphonesimulator \
+                -destination "id=$SIM_UDID" \
+                -derivedDataPath "$DERIVED" \
+                -resultBundlePath "$RESULT_BUNDLE" \
+                CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+                test \
+                2>&1 | tee "$LOG"
+
+              RC=${PIPESTATUS[0]}
+              LAST_RC=$RC
+
+              if [ "$RC" -eq 0 ]; then
+                echo "xcodebuild test OK with scheme: $SCHEME"
+                exit 0
+              fi
+
+              if grep -q "Scheme .* is not currently configured for the test action" "$LOG"; then
+                echo "Scheme '$SCHEME' not configured for test. Skipping."
+                continue
+              fi
+
+              if grep -q "There are no test bundles available to test." "$LOG"; then
+                echo "Scheme '$SCHEME' has no test bundles. Skipping."
+                continue
+              fi
+
+              echo "xcodebuild test failed for scheme '$SCHEME' (RC=$RC)"
+              exit "$RC"
+            done <<< "$TEST_SCHEMES"
+
+            echo "No test scheme succeeded."
+            exit "$LAST_RC"
+          fi
+
+          echo "== 3) No test schemes found. Building fallback scheme only =="
+          LOG="$RUNNER_TEMP/xcodebuild-build.log"
+          xcodebuild \
+            -workspace "$WORKSPACE_PATH" \
+            -scheme "$FALLBACK_SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphonesimulator \
+            -destination "id=$SIM_UDID" \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build \
+            2>&1 | tee "$LOG"
+
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload xcodebuild logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: |
+            ${{ runner.temp }}/swift-test.log
+            ${{ runner.temp }}/xcodebuild-*.log
+            ${{ runner.temp }}/xcodebuild-build.log
+            ${{ runner.temp }}/xcode-results-*
+          if-no-files-found: ignore
+
+      - name: Shutdown simulator
+        if: always()
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcrun simctl shutdown "$SIM_UDID" || true

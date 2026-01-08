@@ -1,0 +1,15 @@
+{
+  "Simulator Target Bundle": "com.AppAmbit.TestAppSwift",
+  "aps": {
+    "alert": {
+      "title": "Hello, I am a local test",
+      "body": "Hello, I am a local notification. I am testing the SDK configuration locally without using the Firebase console"
+    },
+    "badge": 1,
+    "sound": "default"
+  },
+  "customData": {
+    "key": "value",
+    "test": true
+  }
+}
