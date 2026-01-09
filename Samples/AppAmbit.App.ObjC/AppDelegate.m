@@ -1,6 +1,7 @@
 
 #import "AppDelegate.h"
 @import AppAmbit;
+@import AppAmbitPushNotifications;
 
 @interface AppDelegate ()
 
@@ -13,7 +14,8 @@
     // Uncomment the line for manual session management
     //[Analytics enableManualSession];
 
-    [AppAmbit start:@"<YOUR-APPKEY>"];
+    [AppAmbit start:@"ac9cfcf3-2684-4aa3-97dd-222bc70809fc"];
+    [PushNotifications start];
 
     return YES;
 }

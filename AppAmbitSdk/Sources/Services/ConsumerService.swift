@@ -1,7 +1,7 @@
 import Foundation
 
-final class ConsumerService: @unchecked Sendable {
-    static let shared = ConsumerService(
+public final class ConsumerService: @unchecked Sendable {
+    public static let shared = ConsumerService(
         appInfoService: ServiceContainer.shared.appInfoService,
         storageService: ServiceContainer.shared.storageService
     )
@@ -99,6 +99,74 @@ final class ConsumerService: @unchecked Sendable {
             try storageService.putAppId(newKey)
         } catch {
             debugPrint("updateAppKeyIfNeeded error: \(error)")
+        }
+    }
+    
+    public func updateConsumer(deviceToken: String?, pushEnabled: Bool?) {
+        updateConsumer(deviceToken: deviceToken, pushEnabled: pushEnabled, completion: nil)
+    }
+    
+    public func updateConsumer(
+        deviceToken: String?,
+        pushEnabled: Bool?,
+        completion: (@Sendable (Bool) -> Void)?
+    ) {
+        do {
+            if let enabled = pushEnabled {
+                try storageService.putPushEnabled(enabled)
+                if !enabled {
+                    try storageService.putDeviceToken("")
+                }
+            }
+            if let token = deviceToken, pushEnabled != false {
+                try storageService.putDeviceToken(token)
+            }
+        } catch {
+            debugPrint("Error saving push data to storage: \(error)")
+            DispatchQueue.main.async { completion?(false) }
+            return
+        }
+        
+        guard let consumerId = try? storageService.getConsumerId(),
+              !consumerId.isEmpty else {
+            debugPrint("Cannot update consumer, consumerId is missing.")
+            DispatchQueue.main.async { completion?(false) }
+            return
+        }
+        
+        let storedToken = (try? storageService.getDeviceToken()) ?? ""
+        let storedPushEnabled = (try? storageService.getPushEnabled()) ?? true
+        let hasToken = !storedToken.isEmpty
+        let hasExplicitPushEnabled = (pushEnabled != nil)
+        
+        if !hasToken && !hasExplicitPushEnabled {
+            debugPrint("No push-related data to sync. Skipping consumer update.")
+            DispatchQueue.main.async { completion?(false) }
+            return
+        }
+        
+        let request = UpdateConsumer(
+            deviceToken: hasToken ? storedToken : nil,
+            pushEnabled: storedPushEnabled
+        )
+        let endpoint = UpdateConsumerEndpoint(consumerId: consumerId, request: request)
+        
+        Queues.state.async { [weak self] in
+            guard let self = self else { return }
+            ServiceContainer.shared.apiService.executeRequest(
+                endpoint,
+                responseType: VoidResponse.self
+            ) { result in
+                let success = (result.errorType == .none)
+                if success {
+                    debugPrint("Consumer update request sent successfully.")
+                } else {
+                    debugPrint("Failed to send consumer update request: \(result.errorType)")
+                }
+                DispatchQueue.main.async {
+                    completion?(success)
+                }
+            }
         }
     }
 }

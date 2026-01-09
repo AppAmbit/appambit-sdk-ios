@@ -16,6 +16,12 @@ protocol StorageService {
     
     func putConsumerId(_ consumerId: String) throws
     func getConsumerId() throws -> String?
+    
+    func putDeviceToken(_ deviceToken: String) throws
+    func getDeviceToken() throws -> String?
+    
+    func putPushEnabled(_ pushEnabled: Bool) throws
+    func getPushEnabled() throws -> Bool
 
     func putLogEvent(_ log: LogEntity) throws
     func putLogAnalyticsEvent(_ event: EventEntity) throws

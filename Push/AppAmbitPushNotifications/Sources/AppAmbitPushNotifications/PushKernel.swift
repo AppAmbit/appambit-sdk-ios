@@ -3,75 +3,113 @@ import UserNotifications
 import UIKit
 
 /// PushKernel - Decoupled core for APNs handling
-/// No tiene dependencias del Core SDK de AppAmbit
-/// Puede ser usado directamente por bridges (.NET/MAUI)
-public class PushKernel {
-    private static let tag = "AppAmbitPushSDK"
+/// No dependencies on AppAmbit Core SDK
+/// Can be used directly by bridges (.NET/MAUI)
+final class PushKernel {
+    private static let tag = "AppAmbitPushKernel"
+    private static let prefsName = "com.appambit.sdk.push.prefs"
+    private static let notificationsEnabledKey = "notifications_enabled"
     private nonisolated(unsafe) static var currentToken: String?
-    private nonisolated(unsafe) static var isEnabled: Bool = false
     private nonisolated(unsafe) static var tokenListener: TokenListener?
-    private nonisolated(unsafe) static var notificationCustomizer: NotificationCustomizer?
+    private nonisolated(unsafe) static var isStarted = false
+    private nonisolated(unsafe) static var notificationCustomizer: PushNotifications.NotificationCustomizer?
     
     // MARK: - Protocols
     
-    public protocol TokenListener: AnyObject {
+    protocol TokenListener: AnyObject {
         func onNewToken(_ token: String)
     }
     
-    public protocol PermissionListener {
+    protocol PermissionListener: Sendable {
         func onPermissionResult(_ granted: Bool)
     }
     
-    public protocol NotificationCustomizer: AnyObject {
-        func customizeNotification(_ notification: UNMutableNotificationContent, data: [String: Any])
-    }
+    // MARK: - Internal Methods (Called by PushNotifications facade)
     
-    // MARK: - Public Methods
-    
-    public static func start() {
-        print("[\(tag)] Initializing Push Kernel...")
+    static func start() {
+        if isStarted {
+            debugPrint("[\(tag)] PushKernel already started.")
+            return
+        }
+        
+        debugPrint("[\(tag)] PushKernel started successfully.")
+        isStarted = true
+        
+        // Setup automatic APNs token interception
+        APNsTokenInterceptor.setup()
         
         // Configure UNUserNotificationCenter delegate
         UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
         
-        print("[\(tag)] Push Kernel initialized successfully.")
-    }
-    
-    public static func setNotificationsEnabled(_ enabled: Bool) {
-        isEnabled = enabled
-        print("[\(tag)] Notifications enabled: \(enabled)")
-        
-        if !enabled {
-            currentToken = nil
-            print("[\(tag)] Token cleared due to notifications being disabled.")
+        // If notifications are enabled, register for remote notifications
+        if isNotificationsEnabled() {
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+            
+            // Send current token to listener if available
+            if let token = currentToken, !token.isEmpty {
+                debugPrint("[\(tag)] Current APNs Token: \(token)")
+                debugPrint("[\(tag)] Notifying listener of existing token on start.")
+                tokenListener?.onNewToken(token)
+            } else {
+                debugPrint("[\(tag)] No token available yet.")
+            }
+        } else {
+            debugPrint("[\(tag)] Notifications are disabled by user. Skipping token fetch.")
         }
     }
     
-    public static func isNotificationsEnabled() -> Bool {
-        return isEnabled
+    static func setNotificationsEnabled(_ enabled: Bool) {
+        debugPrint("[\(tag)] Setting notifications enabled status to: \(enabled)")
+        getPrefs().set(enabled, forKey: notificationsEnabledKey)
+        getPrefs().synchronize()
+        
+        if enabled {
+            DispatchQueue.main.async {
+                debugPrint("[\(tag)] Registering for remote notifications.")
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        } else {
+            currentToken = nil
+            DispatchQueue.main.async {
+                UIApplication.shared.unregisterForRemoteNotifications()
+            }
+        }
     }
     
-    public static func getCurrentToken() -> String? {
+    static func isNotificationsEnabled() -> Bool {
+        // Default to true if not explicitly set by the user
+        if getPrefs().object(forKey: notificationsEnabledKey) == nil {
+            return true
+        }
+        return getPrefs().bool(forKey: notificationsEnabledKey)
+    }
+    
+    static func getCurrentToken() -> String? {
         return currentToken
     }
     
-    public static func setTokenListener(_ listener: TokenListener?) {
+    static func setTokenListener(_ listener: TokenListener?) {
         tokenListener = listener
     }
     
-    public static func setNotificationCustomizer(_ customizer: NotificationCustomizer?) {
+    static func setNotificationCustomizer(_ customizer: PushNotifications.NotificationCustomizer?) {
         notificationCustomizer = customizer
     }
     
-    public static func requestNotificationPermission(listener: PermissionListener?) {
+    static func requestNotificationPermission(listener: PermissionListener?) {
+        APNsTokenInterceptor.setup()
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                print("[\(tag)] Error requesting notification permission: \(error.localizedDescription)")
+                debugPrint("[\(tag)] Error requesting notification permission: \(error.localizedDescription)")
             }
             
-            print("[\(tag)] Notification permission granted: \(granted)")
-            listener?.onPermissionResult(granted)
+            debugPrint("[\(tag)] Notification permission granted: \(granted)")
+            DispatchQueue.main.async {
+                listener?.onPermissionResult(granted)
+            }
             
             if granted {
                 setNotificationsEnabled(true)
@@ -82,29 +120,122 @@ public class PushKernel {
         }
     }
     
-    public static func handleNewToken(_ token: String) {
-        guard token != currentToken else {
-            print("[\(tag)] Token unchanged, skipping update.")
-            return
-        }
-        
+    static func handleNewToken(_ token: String) {
+        let isSame = (token == currentToken)
         currentToken = token
-        print("[\(tag)] New APNs Token received: \(token)")
-        print("[\(tag)] Token length: \(token.count) characters")
-        
+        if isSame {
+            debugPrint("[\(tag)] APNs token unchanged; notifying listener anyway.")
+        } else {
+            debugPrint("[\(tag)] New APNs Token received: \(token)")
+            debugPrint("[\(tag)] Token length: \(token.count) characters")
+        }
         tokenListener?.onNewToken(token)
+    }
+    
+    // MARK: - Private Helpers
+    
+    private static func debugPrintPayload(_ userInfo: [AnyHashable: Any], context: String) {
+        #if DEBUG
+        let json = jsonString(from: userInfo)
+        print("[\(tag)] Push payload (\(context)): \(json)")
+        #endif
+    }
+
+    private static func applyNotificationFields(_ notification: AppAmbitNotification,
+                                                to content: UNMutableNotificationContent) {
+        if let title = notification.title, !title.isEmpty {
+            content.title = title
+        }
+        if let body = notification.body, !body.isEmpty {
+            content.body = body
+        }
+        if let badge = notification.badge, content.badge == nil {
+            content.badge = NSNumber(value: badge)
+        }
+        if let category = notification.category, content.categoryIdentifier.isEmpty {
+            content.categoryIdentifier = category
+        }
+        if let threadId = notification.threadId, content.threadIdentifier.isEmpty {
+            content.threadIdentifier = threadId
+        }
+        if let soundName = notification.sound, content.sound == nil {
+            if soundName.lowercased() == "default" {
+                content.sound = .default
+            } else {
+                content.sound = .init(named: UNNotificationSoundName(rawValue: soundName))
+            }
+        }
+        if #available(iOS 15.0, *),
+           let level = notification.interruptionLevel,
+           let mapped = mapInterruptionLevel(level) {
+            content.interruptionLevel = mapped
+        }
+    }
+
+    @available(iOS 15.0, *)
+    private static func mapInterruptionLevel(_ value: String) -> UNNotificationInterruptionLevel? {
+        switch value.lowercased() {
+        case "passive":
+            return .passive
+        case "active":
+            return .active
+        case "time-sensitive", "time_sensitive", "timesensitive":
+            return .timeSensitive
+        case "critical":
+            return .critical
+        default:
+            return nil
+        }
+    }
+
+    private static func jsonString(from userInfo: [AnyHashable: Any]) -> String {
+        var sanitized: [String: Any] = [:]
+        for (key, value) in userInfo {
+            if let keyString = key as? String {
+                sanitized[keyString] = value
+            } else {
+                sanitized[String(describing: key)] = value
+            }
+        }
+
+        if JSONSerialization.isValidJSONObject(sanitized),
+           let data = try? JSONSerialization.data(withJSONObject: sanitized, options: [.prettyPrinted, .sortedKeys]),
+           let json = String(data: data, encoding: .utf8) {
+            return json
+        }
+
+        return String(describing: userInfo)
+    }
+
+    private static func getPrefs() -> UserDefaults {
+        return UserDefaults.standard
     }
     
     // MARK: - Internal Delegate
     
     private class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
-        nonisolated(unsafe) static let shared = NotificationCenterDelegate()
+        static let shared = NotificationCenterDelegate()
         
         func userNotificationCenter(_ center: UNUserNotificationCenter,
                                    willPresent notification: UNNotification,
                                    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-            print("[\(tag)] Notification received in foreground")
+            debugPrint("[\(tag)] Notification received in foreground")
             
+            let userInfo = notification.request.content.userInfo
+            PushKernel.debugPrintPayload(userInfo, context: "foreground")
+            let appAmbitNotification = AppAmbitNotification.from(userInfo: userInfo)
+            
+            // Create mutable content for customization
+            let content = notification.request.content.mutableCopy() as! UNMutableNotificationContent
+            PushKernel.applyNotificationFields(appAmbitNotification, to: content)
+            
+            // Invoke customizer if set (before showing the notification)
+            if let customizer = PushKernel.notificationCustomizer {
+                debugPrint("[\(tag)] Invoking notification customizer")
+                customizer(content, appAmbitNotification)
+            }
+
+            // Show the notification with (possibly) customized content
             if #available(iOS 14.0, *) {
                 completionHandler([.banner, .sound, .badge])
             } else {
@@ -115,7 +246,9 @@ public class PushKernel {
         func userNotificationCenter(_ center: UNUserNotificationCenter,
                                    didReceive response: UNNotificationResponse,
                                    withCompletionHandler completionHandler: @escaping () -> Void) {
-            print("[\(tag)] Notification tapped by user")
+            debugPrint("[\(tag)] Notification tapped by user")
+            let userInfo = response.notification.request.content.userInfo
+            PushKernel.debugPrintPayload(userInfo, context: "tap")
             completionHandler()
         }
     }

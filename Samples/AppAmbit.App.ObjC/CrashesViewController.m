@@ -2,11 +2,16 @@
 #import "NetworkMonitor.h"
 #import "ExceptionModel.h"
 
+#import <UserNotifications/UserNotifications.h>
+
 @import AppAmbit;
+@import AppAmbitPushNotifications;
 
 @interface CrashesViewController () <UITextFieldDelegate>
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UIStackView  *stack;
+
+@property (nonatomic, strong) UIButton *notificationButton;
 
 @property (nonatomic, strong) UITextField *userIdField;
 @property (nonatomic, strong) UITextField *emailField;
@@ -22,6 +27,7 @@
     self.title = @"Crashes";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
+    [self updateNotificationButtonState];
 }
 
 - (void)buildUI {
@@ -48,6 +54,9 @@
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-20],
         [self.stack.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor constant:-32],
     ]];
+
+    self.notificationButton = [self makeButton:@"Enable Notifications" action:@selector(onNotificationButton)];
+    [self.stack addArrangedSubview:self.notificationButton];
 
     [self.stack addArrangedSubview:[self makeButton:@"Did the app crash during your last session?" action:@selector(onDidCrashInLastSession)]];
 
@@ -133,6 +142,57 @@
     }];
 }
 
+- (void)onNotificationButton {
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+        UNAuthorizationStatus status = settings.authorizationStatus;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            switch (status) {
+                case UNAuthorizationStatusNotDetermined: {
+                    [PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (granted) {
+                                [self updateNotificationButtonTitle:@"Disable Notifications"];
+                                [self enableNotifications];
+                            } else {
+                                [self presentAlertWithTitle:@"Info"
+                                                    message:@"Permission denied. Notifications cannot be enabled."];
+                            }
+                            [self updateNotificationButtonState];
+                        });
+                    }];
+                    break;
+                }
+                case UNAuthorizationStatusAuthorized:
+                case UNAuthorizationStatusProvisional:
+                case UNAuthorizationStatusEphemeral: {
+                    BOOL newState = ![PushNotifications isNotificationsEnabled];
+                    [PushNotifications setNotificationsEnabled:newState completion:^(BOOL success) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            NSString *message = success
+                                ? [NSString stringWithFormat:@"Notifications have been %@.",
+                                   newState ? @"enabled" : @"disabled"]
+                                : @"Permission granted, but sync is pending or failed.";
+                            [self presentAlertWithTitle:(success ? @"Notification Status" : @"Info")
+                                                message:message];
+                            [self updateNotificationButtonState];
+                        });
+                    }];
+                    break;
+                }
+                case UNAuthorizationStatusDenied:
+                    [self presentAlertWithTitle:@"Info"
+                                        message:@"Notifications are disabled in Settings. Please enable them manually."];
+                    [self updateNotificationButtonState];
+                    break;
+                default:
+                    [self presentAlertWithTitle:@"Info" message:@"Unknown permission status."];
+                    [self updateNotificationButtonState];
+                    break;
+            }
+        });
+    }];
+}
+
 - (void)onChangeUserId {
     NSString *userId = self.userIdField.text ?: @"";
     [Analytics setUserId:userId completion:^(NSError * _Nullable error) {
@@ -206,8 +266,56 @@
     [Crashes generateTestCrash];
 }
 
+- (void)updateNotificationButtonState {
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+        UNAuthorizationStatus status = settings.authorizationStatus;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            switch (status) {
+                case UNAuthorizationStatusNotDetermined:
+                    [self updateNotificationButtonTitle:@"Request Notification Permission"];
+                    break;
+                case UNAuthorizationStatusAuthorized:
+                case UNAuthorizationStatusProvisional:
+                case UNAuthorizationStatusEphemeral: {
+                    BOOL isEnabled = [PushNotifications isNotificationsEnabled];
+                    [self updateNotificationButtonTitle:(isEnabled
+                        ? @"Disable Notifications"
+                        : @"Enable Notifications")];
+                    break;
+                }
+                case UNAuthorizationStatusDenied:
+                    [self updateNotificationButtonTitle:@"Open Settings (Permission Denied)"];
+                    break;
+                default:
+                    [self updateNotificationButtonTitle:@"Enable Notifications"];
+                    break;
+            }
+        });
+    }];
+}
+
+- (void)enableNotifications {
+    [PushNotifications setNotificationsEnabled:YES completion:^(BOOL success) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *message = success
+                ? @"Notifications have been enabled."
+                : @"Permission granted, but sync is pending or failed.";
+            [self presentAlertWithTitle:(success ? @"Notification Status" : @"Info") message:message];
+            [self updateNotificationButtonState];
+        });
+    }];
+}
+
+- (void)updateNotificationButtonTitle:(NSString *)title {
+    [self.notificationButton setTitle:title forState:UIControlStateNormal];
+}
+
 - (void)presentInfo {
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Info" message:self.alertMessage ?: @"" preferredStyle:UIAlertControllerStyleAlert];
+    [self presentAlertWithTitle:@"Info" message:self.alertMessage ?: @""];
+}
+
+- (void)presentAlertWithTitle:(NSString *)title message:(NSString *)message {
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:title message:message ?: @"" preferredStyle:UIAlertControllerStyleAlert];
     [ac addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:ac animated:YES completion:nil];
 }
