@@ -11,17 +11,40 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 - ✅ **Thread-safe**: Compatible with Swift 6 Concurrency
 - ✅ **Persistent state**: User preferences stored in UserDefaults
 
-## Quick Installation
+## Requirements
+
+* iOS 12.0 or newer
+* Xcode 15 or newer
+* Swift 5.7 or newer
+
+## Install
 
 ### Swift Package Manager
 
-Add the package to your project:
+* Add the repository URL in Xcode under **File → Add Packages…**
+* Select the latest version and attach it to your app target
 
-```swift
-dependencies: [
-    .package(path: "../Push/AppAmbitPushNotifications")
-]
+### CocoaPods
+
+Add this to your Podfile:
+
+```ruby
+pod 'AppAmbitPushNotifications'
+# or specify version
+pod 'AppAmbitPushNotifications', '~> 0.2.0'
 ```
+
+Then run:
+
+```bash
+pod install
+```
+
+Open the generated `.xcworkspace` project.
+
+*(If you get an error like “Unable to find a specification for `AppAmbitPushNotifications`”: run `pod repo update`, then `pod install`.)*
+
+---
 
 ## Basic Usage
 
@@ -313,7 +336,7 @@ import AppAmbitPushNotifications
 struct MyApp: App {
     init() {
         // 1. Start AppAmbit Core
-        AppAmbit.start(appKey: "your-key") {
+        AppAmbit.start(appKey: "<YOUR-APPKEY>") {
             // 2. Start Push SDK
             PushNotifications.start()
             
