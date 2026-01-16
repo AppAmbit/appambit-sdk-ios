@@ -7,6 +7,7 @@ import ObjectiveC.runtime
 public final class AppAmbit: NSObject, @unchecked Sendable {
     private nonisolated(unsafe) static var _instance: AppAmbit?
     private static let instanceQueue = Queues.state
+    private nonisolated(unsafe) static var _isInitialized = false
 
     let monitor = NWPathMonitor()
     private var lastPathStatus: NWPath.Status?
@@ -16,6 +17,10 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     private static var shared: AppAmbit? {
         instanceQueue.sync { _instance }
+    }
+    
+    public static func isInitialized() -> Bool {
+        return _isInitialized
     }
 
     private let appKey: String
@@ -52,6 +57,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             let instance = AppAmbit(appKey: appKey)
             _instance = instance
+            _isInitialized = true
             instance.objcCompletion = completion
 
             instance.onStart {
@@ -114,7 +120,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     @objc private func appWillResignActive() {
         Self.instanceQueue.async { [weak self] in
-            self?.onSleep(recordBreadcrumb: false)
+            AppAmbitLogger.log(message: "Ignored onSleep: appWillResignActive (interruption)")
         }
     }
 
@@ -219,6 +225,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         initializeServices()
 
         initializeConsumer {
+            // Sync any persisted push data to backend
+            ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
 
@@ -270,6 +278,9 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
+                // Update consumer before getting new token (like Android)
+                ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
+                
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
                    !consumerId.isEmpty {
                     ServiceContainer.shared.apiService.getNewToken { errorType in
@@ -289,6 +300,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     private func handleTokenResult(errorType: ApiErrorType) {
         let success = (errorType == .none)
+        
         Self.instanceQueue.async {
             self.isCreatingConsumer = false
             let callbacks = self.consumerCreationCallbacks

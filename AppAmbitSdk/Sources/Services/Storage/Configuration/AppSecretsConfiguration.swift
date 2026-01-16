@@ -12,6 +12,8 @@ struct AppSecretsConfiguration {
         case sessionId
         case userId
         case userEmail
+        case deviceToken
+        case pushEnabled
         
         var name: String { rawValue }
     }
@@ -26,7 +28,9 @@ struct AppSecretsConfiguration {
             \(Column.token.name) TEXT,
             \(Column.sessionId.name) TEXT,
             \(Column.userId.name) TEXT,
-            \(Column.userEmail.name) TEXT
+            \(Column.userEmail.name) TEXT,
+            \(Column.deviceToken.name) TEXT,
+            \(Column.pushEnabled.name) INTEGER DEFAULT 1
         );
         """
     }

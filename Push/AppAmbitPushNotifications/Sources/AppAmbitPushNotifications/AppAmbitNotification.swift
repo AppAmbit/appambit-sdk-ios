@@ -1,32 +1,49 @@
 import Foundation
 
 /// Notification model that encapsulates APNs push notification data
+/// Aligned with the Android SDK model
 public struct AppAmbitNotification {
     public let title: String?
     public let body: String?
-    public let badge: Int?
     public let sound: String?
-    public let data: [String: Any]
+    public let badge: Int?
+    public let category: String?
+    public let threadId: String?
+    public let interruptionLevel: String?
+    public let imageUrl: String?
+    public let data: [AnyHashable: Any]
     
     public init(title: String? = nil,
                 body: String? = nil,
-                badge: Int? = nil,
                 sound: String? = nil,
-                data: [String: Any] = [:]) {
+                badge: Int? = nil,
+                category: String? = nil,
+                threadId: String? = nil,
+                interruptionLevel: String? = nil,
+                imageUrl: String? = nil,
+                data: [AnyHashable: Any] = [:]) {
         self.title = title
         self.body = body
-        self.badge = badge
         self.sound = sound
+        self.badge = badge
+        self.category = category
+        self.threadId = threadId
+        self.interruptionLevel = interruptionLevel
+        self.imageUrl = imageUrl
         self.data = data
     }
     
-    /// Crea un AppAmbitNotification desde el userInfo de APNs
+    /// Creates an AppAmbitNotification from APNs userInfo dictionary
     public static func from(userInfo: [AnyHashable: Any]) -> AppAmbitNotification {
         var title: String?
         var body: String?
-        var badge: Int?
         var sound: String?
-        var customData: [String: Any] = [:]
+        var badge: Int?
+        var category: String?
+        var threadId: String?
+        var interruptionLevel: String?
+        var imageUrl: String?
+        var customData: [AnyHashable: Any] = [:]
         
         // Parse aps dictionary
         if let aps = userInfo["aps"] as? [String: Any] {
@@ -37,23 +54,72 @@ public struct AppAmbitNotification {
                 body = alertString
             }
             
-            badge = aps["badge"] as? Int
-            sound = aps["sound"] as? String
+            sound = parseSound(from: aps["sound"])
+            badge = parseInt(from: aps["badge"])
+            category = aps["category"] as? String
+            threadId = aps["thread-id"] as? String
+            interruptionLevel = parseString(from: aps["interruption-level"])
+            imageUrl = parseString(from: aps["image"])
+                ?? parseString(from: aps["image_url"])
+                ?? parseString(from: aps["imageUrl"])
         }
         
         // Parse custom data (everything outside aps)
         for (key, value) in userInfo {
             if let keyString = key as? String, keyString != "aps" {
-                customData[keyString] = value
+                customData[key] = value
             }
+        }
+        
+        if imageUrl == nil {
+            imageUrl = parseString(from: customData["image_url"])
+                ?? parseString(from: customData["imageUrl"])
+                ?? parseString(from: customData["image"])
         }
         
         return AppAmbitNotification(
             title: title,
             body: body,
-            badge: badge,
             sound: sound,
+            badge: badge,
+            category: category,
+            threadId: threadId,
+            interruptionLevel: interruptionLevel,
+            imageUrl: imageUrl,
             data: customData
         )
+    }
+    
+    private static func parseSound(from value: Any?) -> String? {
+        if let soundName = value as? String {
+            return soundName
+        }
+        if let soundDict = value as? [String: Any] {
+            return soundDict["name"] as? String
+        }
+        return nil
+    }
+    
+    private static func parseInt(from value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        }
+        if let stringValue = value as? String, let intValue = Int(stringValue) {
+            return intValue
+        }
+        return nil
+    }
+    
+    private static func parseString(from value: Any?) -> String? {
+        if let stringValue = value as? String {
+            return stringValue
+        }
+        if let numberValue = value as? NSNumber {
+            return numberValue.stringValue
+        }
+        return nil
     }
 }

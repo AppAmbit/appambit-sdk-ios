@@ -1,15 +1,16 @@
 {
   "Simulator Target Bundle": "com.AppAmbit.TestAppSwift",
+  "apns-push-type": "alert",
+  "apns-priority": 10,
   "aps": {
-    "alert": {
-      "title": "Hello, I am a local test",
-      "body": "Hello, I am a local notification. I am testing the SDK configuration locally without using the Firebase console"
-    },
+    "alert": { "title": "Test for title", "body": "test for body" },
     "badge": 1,
-    "sound": "default"
-  },
-  "customData": {
-    "key": "value",
-    "test": true
-  }
+    "mutable-content": 1,
+    "category": "MESS_CAT",
+    "interruption-level": "active",
+    "sound": "sound_test",
+    "thread-id": "conversation_test"
+  },  
+  "image": "https://assets.appambit.com/og-image.png",
+  "property1": "Value 1"
 }
