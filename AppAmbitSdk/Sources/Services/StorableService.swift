@@ -82,6 +82,19 @@ final class StorableService: StorageService {
 
     func putConsumerId(_ consumerId: String) throws { try putSecretField(AppSecretsConfiguration.Column.consumerId.name, consumerId) }
     func getConsumerId() throws -> String? { try getSecretField(AppSecretsConfiguration.Column.consumerId.name) }
+    
+    func putDeviceToken(_ deviceToken: String) throws { try putSecretField(AppSecretsConfiguration.Column.deviceToken.name, deviceToken) }
+    func getDeviceToken() throws -> String? { try getSecretField(AppSecretsConfiguration.Column.deviceToken.name) }
+    
+    func putPushEnabled(_ pushEnabled: Bool) throws { 
+        try putSecretField(AppSecretsConfiguration.Column.pushEnabled.name, pushEnabled ? "1" : "0") 
+    }
+    func getPushEnabled() throws -> Bool { 
+        guard let value = try getSecretField(AppSecretsConfiguration.Column.pushEnabled.name) else { 
+            return true // Default to true if not set
+        }
+        return value == "1"
+    }
 
     // MARK: - Logs
 
@@ -738,7 +751,9 @@ final class StorableService: StorageService {
             AppSecretsConfiguration.Column.userId.name,
             AppSecretsConfiguration.Column.userEmail.name,
             AppSecretsConfiguration.Column.sessionId.name,
-            AppSecretsConfiguration.Column.consumerId.name
+            AppSecretsConfiguration.Column.consumerId.name,
+            AppSecretsConfiguration.Column.deviceToken.name,
+            AppSecretsConfiguration.Column.pushEnabled.name
         ]
 
         let columnNames = columns.joined(separator: ", ")
