@@ -165,7 +165,7 @@ struct CrashesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255))
                 .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
@@ -176,7 +176,7 @@ struct CrashesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255))
                 .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)

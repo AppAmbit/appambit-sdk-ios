@@ -101,7 +101,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
     deinit {
         NotificationCenter.default.removeObserver(self)
         monitor.cancel()
-        AppAmbitLogger.log(message: "Deinit llamado - Observadores eliminados")
+        AppAmbitLogger.log(message: "Deinit called - Observers removed")
     }
 
     @objc private func appDidBecomeActive() {
@@ -113,14 +113,14 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 self.didEnterBackground = false
             } else {
                 self.hasSlept = false
-                AppAmbitLogger.log(message: "Ignorado onResume: Regreso tras interrupción (Centro de Notificaciones/Alerta)")
+                AppAmbitLogger.log(message: "Ignored onResume: Return from interruption (Notification Center/Alert)")
             }
         }
     }
 
     @objc private func appWillResignActive() {
         Self.instanceQueue.async { [weak self] in
-            AppAmbitLogger.log(message: "Ignorado onSleep: appWillResignActive (interrupción)")
+            AppAmbitLogger.log(message: "Ignored onSleep: appWillResignActive (interruption)")
         }
     }
 
@@ -210,12 +210,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 }
             } else {
                 guard SessionManager.isSessionActive else {
-                    AppAmbitLogger.log(message: "Omitiendo breadcrumb Offline: no hay sesión activa.")
+                    AppAmbitLogger.log(message: "Skipping Offline breadcrumb: no active session.")
                     return
                 }
 
                 BreadcrumbManager.saveFile(name: BreadcrumbsConstants.offline)
-                AppAmbitLogger.log(message: "La conexión a Internet no está disponible.")
+                AppAmbitLogger.log(message: "Internet connection is not available.")
             }
         }
         monitor.start(queue: Self.instanceQueue)
@@ -225,7 +225,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         initializeServices()
 
         initializeConsumer {
-            // Sincronizamos cualquier dato de push persistido con el backend
+            // Sync any persisted push data with the backend
             ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
@@ -278,7 +278,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                // Actualizamos el consumer antes de pedir un nuevo token (como en Android)
+                // Update consumer before requesting a new token (similar to Android logic)
                 ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
@@ -292,7 +292,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                     }
                 }
             } catch {
-                AppAmbitLogger.log(message: "Error al leer el ID del consumidor: \(error)")
+                AppAmbitLogger.log(message: "Error reading consumer Id: \(error)")
                 self.handleTokenResult(errorType: .unknown)
             }
         }

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Servicio encargado de gestionar el registro y la actualización del consumidor (usuario/dispositivo) en el backend.
-/// Maneja la generación de IDs locales y la sincronización con los endpoints de registro.
+/// Service responsible for managing consumer (user/device) registration and updates on the backend.
+/// Handles local ID generation and synchronization with registration endpoints.
 public final class ConsumerService: @unchecked Sendable {
     public static let shared = ConsumerService(
         appInfoService: ServiceContainer.shared.appInfoService,
@@ -43,7 +43,7 @@ public final class ConsumerService: @unchecked Sendable {
                 userId = new
             }
         } catch {
-            debugPrint("Error en ConsumerService buildRegisterEndpoint: \(error)")
+            debugPrint("ConsumerService buildRegisterEndpoint error: \(error)")
         }
 
         return RegisterEndpoint(consumer: Consumer(
@@ -104,12 +104,12 @@ public final class ConsumerService: @unchecked Sendable {
         }
     }
     
-    /// Actualiza el estado del consumidor en el backend (token de push y estado de habilitación).
+    /// Updates the consumer state on the backend (push token and enablement status).
     public func updateConsumer(deviceToken: String?, pushEnabled: Bool?) {
         updateConsumer(deviceToken: deviceToken, pushEnabled: pushEnabled, completion: nil)
     }
     
-    /// Actualiza el estado del consumidor en el backend con un callback opcional para el resultado.
+    /// Updates the consumer state on the backend with an optional completion callback.
     public func updateConsumer(
         deviceToken: String?,
         pushEnabled: Bool?,
@@ -133,7 +133,7 @@ public final class ConsumerService: @unchecked Sendable {
         
         guard let consumerId = try? storageService.getConsumerId(),
               !consumerId.isEmpty else {
-            debugPrint("No se puede actualizar el consumidor, falta el consumerId.")
+            debugPrint("Cannot update consumer, consumerId is missing.")
             DispatchQueue.main.async { completion?(false) }
             return
         }
@@ -144,7 +144,7 @@ public final class ConsumerService: @unchecked Sendable {
         let hasExplicitPushEnabled = (pushEnabled != nil)
         
         if !hasToken && !hasExplicitPushEnabled {
-            debugPrint("No hay datos de push para sincronizar. Omitiendo actualización.")
+            debugPrint("No push-related data to sync. Skipping consumer update.")
             DispatchQueue.main.async { completion?(false) }
             return
         }
@@ -163,9 +163,9 @@ public final class ConsumerService: @unchecked Sendable {
             ) { result in
                 let success = (result.errorType == .none)
                 if success {
-                    debugPrint("Actualización del consumidor enviada con éxito.")
+                    debugPrint("Consumer update request sent successfully.")
                 } else {
-                    debugPrint("Error al enviar la actualización del consumidor: \(result.errorType)")
+                    debugPrint("Failed to send consumer update request: \(result.errorType)")
                 }
                 DispatchQueue.main.async {
                     completion?(success)
