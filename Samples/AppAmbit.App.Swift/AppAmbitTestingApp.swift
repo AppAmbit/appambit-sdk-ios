@@ -4,12 +4,11 @@ import AppAmbitPushNotifications
 
 @main
 struct AppAmbitTestingApp: App {
+    
     init() {
-        //Uncomment the line for manual session management
-        //Analytics.enableManualSession()
         AppAmbit.start(appKey: "<YOUR-APPKEY>") {
-            PushNotifications.start()
-        }
+             PushNotifications.start()
+         }
     }
     var body: some Scene {
         WindowGroup {
