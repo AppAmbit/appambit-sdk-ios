@@ -9,10 +9,10 @@ open class AppAmbitNotificationService: UNNotificationServiceExtension {
     open override func didReceive(_ request: UNNotificationRequest,
                                    withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         self.contentHandler = contentHandler
-        debugPrint("[AppAmbitPushSDK] Notification Service Extension triggered.")
+        PushLogger.log("Notification Service Extension triggered.")
         
         guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            debugPrint("[AppAmbitPushSDK] Failed to create mutable copy of notification content.")
+            PushLogger.error("Failed to create mutable copy of notification content.")
             contentHandler(request.content)
             return
         }
@@ -21,7 +21,7 @@ open class AppAmbitNotificationService: UNNotificationServiceExtension {
         let notification = AppAmbitNotification.from(userInfo: content.userInfo)
         
         if let imageUrl = notification.imageUrl {
-            debugPrint("[AppAmbitPushSDK] Notification image URL found: \(imageUrl)")
+            PushLogger.log("Notification image URL found: \(imageUrl)")
         }
         
         handlePayload(notification, userInfo: content.userInfo)

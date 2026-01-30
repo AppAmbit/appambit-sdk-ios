@@ -6,10 +6,26 @@ import UIKit
 /// Decoupled from the main SDK for easy bridging to other platforms (e.g., .NET/MAUI).
 @objc(PushKernel)
 public class PushKernel: NSObject {
-    private static let tag = "AppAmbitPushSDK"
+    
+    // Internal State
     private nonisolated(unsafe) static var currentToken: String?
     private nonisolated(unsafe) static var isEnabled: Bool = false
-    private nonisolated(unsafe) static var tokenListener: TokenListener?
+    /// The current Token Listener instance.
+    private static var tokenListener: TokenListener?
+    
+    /// Activates the automated swizzling and registration logic.
+    /// This is used by external platforms (like MAUI/Xamarin) that want to use PushKernel directly
+    /// but still benefit from the Zero-Config swizzling.
+    @objc public static func setupSwizzling() {
+        AppAmbitPushRegistration.setup()
+    }
+
+    /// Configures the debug mode for the SDK logging.
+    @objc public static func setDebugMode(_ enabled: Bool) {
+        PushLogger.debugMode = enabled
+    }
+    
+    /// Returns the APN token captured during registration, if any.
     private nonisolated(unsafe) static var notificationCustomizer: NotificationCustomizer?
     
     // MARK: - Protocols
@@ -30,11 +46,11 @@ public class PushKernel: NSObject {
     
     @objc public static func setNotificationsEnabled(_ enabled: Bool) {
         isEnabled = enabled
-        debugPrint("[\(tag)] Notifications enabled: \(enabled)")
+        PushLogger.log("Notifications enabled: \(enabled)")
         
         if !enabled {
             currentToken = nil
-            debugPrint("[\(tag)] Token cleared as notifications were disabled.")
+            PushLogger.log("Token cleared as notifications were disabled.")
         }
     }
     
@@ -59,10 +75,10 @@ public class PushKernel: NSObject {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                debugPrint("[\(tag)] Error requesting permissions: \(error.localizedDescription)")
+                PushLogger.error("Error requesting permissions: \(error.localizedDescription)")
             }
             
-            debugPrint("[\(tag)] Permission granted: \(granted)")
+            PushLogger.log("Permission granted: \(granted)")
             listener?.onPermissionResult(granted)
             
             if granted {
@@ -81,7 +97,7 @@ public class PushKernel: NSObject {
         }
         
         currentToken = token
-        debugPrint("[\(tag)] New APNs Token: \(token)")
+        PushLogger.log("New APNs Token (Kernel): \(token)")
         
         tokenListener?.onNewToken(token)
     }

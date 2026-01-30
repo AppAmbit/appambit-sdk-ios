@@ -6,7 +6,6 @@ import AppAmbit
 /// This is the primary entry point for developers.
 @objc(PushNotifications)
 public class PushNotifications: NSObject {
-    private static let tag = "AppAmbitPushSDK"
     
     // MARK: - Type Aliases
     
@@ -19,7 +18,9 @@ public class PushNotifications: NSObject {
     ///   - debugMode: If true, enables detailed console logging.
     ///   - autoRequestPermissions: If true, automatically requests system permissions on startup.
     public static func start(debugMode: Bool = false, autoRequestPermissions: Bool = false) {
-        debugPrint("[\(tag)] Starting Push SDK...")
+        // Configure Logger first
+        PushLogger.debugMode = debugMode
+        PushLogger.log("Starting Push SDK...")
         
         // Setup internal token handler
         PushKernel.setTokenListener(TokenListenerImpl())
@@ -41,22 +42,10 @@ public class PushNotifications: NSObject {
     // MARK: - Notification Configuration
     
     /// Globally enables or disables notifications in the internal state.
+    /// Globally enables or disables notifications in the internal state.
     public static func setNotificationsEnabled(_ enabled: Bool) {
-        debugPrint("[\(tag)] Setting notifications enabled to: \(enabled)")
+        PushLogger.log("Setting notifications enabled to: \(enabled)")
         PushKernel.setNotificationsEnabled(enabled)
-    }
-    
-    /// Enables or disables notifications with a completion callback.
-    public static func setNotificationsEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
-        setNotificationsEnabled(enabled)
-        completion(true)
-    }
-
-    /// Objective-C bridge for setNotificationsEnabled.
-    @objc(setNotificationsEnabled:completion:)
-    public static func setNotificationsEnabledObjC(_ enabled: Bool, completion: ((Bool)->Void)?) {
-        setNotificationsEnabled(enabled)
-        completion?(true)
     }
     
     /// Returns whether notifications are currently enabled in the SDK state.
@@ -79,8 +68,7 @@ public class PushNotifications: NSObject {
     /// Allows customization of notification appearance before display.
     @objc(setNotificationCustomizer:)
     public static func setNotificationCustomizer(_ customizer: Any?) {
-        // Implementation pending migration
-        debugPrint("[\(tag)] setNotificationCustomizer called (pending Swift implementation).")
+        PushLogger.log("setNotificationCustomizer called (pending Swift implementation).")
     }
 }
 
@@ -91,16 +79,16 @@ private class TokenListenerImpl: PushKernel.TokenListener {
     func onNewToken(_ token: String) {
         DispatchQueue.main.async {
             if PushKernel.isNotificationsEnabled() {
-                debugPrint("[AppAmbitPushSDK] Syncing token with backend...")
+                PushLogger.log("Syncing token with backend...")
                 ConsumerService.shared.updateConsumer(deviceToken: token, pushEnabled: true) { success in
                     if success {
-                        debugPrint("[AppAmbitPushSDK] Token synced successfully.")
+                        PushLogger.log("Token synced successfully.")
                     } else {
-                        debugPrint("[AppAmbitPushSDK] Failed to sync token.")
+                        PushLogger.error("Failed to sync token.")
                     }
                 }
             } else {
-                debugPrint("[AppAmbitPushSDK] Token received but notifications are disabled.")
+                PushLogger.log("Token received but notifications are disabled.")
             }
         }
     }

@@ -110,48 +110,63 @@ public final class ConsumerService: @unchecked Sendable {
     }
     
     /// Updates the consumer state on the backend with an optional completion callback.
+    /// Updates the consumer state on the backend with an optional completion callback.
+    /// Updates the consumer state on the backend with an optional completion callback.
     public func updateConsumer(
         deviceToken: String?,
         pushEnabled: Bool?,
         completion: (@Sendable (Bool) -> Void)?
     ) {
+        // 1. Get current state from Storage (Database)
+        // Values currently stored on disk (last known state)
+        let storedToken = (try? storageService.getDeviceToken()) ?? ""
+        let storedEnabled = (try? storageService.getPushEnabled()) ?? true
+        
+        // 2. Resolve target state (Effectively what we want to save/send)
+        // If pushEnabled is explicit, use it; otherwise fallback to stored.
+        let targetEnabled = pushEnabled ?? storedEnabled
+        
+        // If deviceToken is explicit, use it; otherwise fallback to stored.
+        // BUT: If notifications are disabled (targetEnabled == false), token must be empty.
+        var targetToken = deviceToken ?? storedToken
+        if !targetEnabled {
+            targetToken = ""
+        } else if let newToken = deviceToken {
+            targetToken = newToken
+        }
+        
+        // 3. Deduplication: Check if State Changed
+        // Compare Target (New) vs Stored (Old)
+        if targetToken == storedToken && targetEnabled == storedEnabled {
+            debugPrint("Consumer state (Token/Enabled) matches DB. Skipping update.")
+            DispatchQueue.main.async { completion?(true) }
+            return
+        }
+        
+        // 4. Update Storage with New State
+        // Only point where we write to DB
         do {
-            if let enabled = pushEnabled {
-                try storageService.putPushEnabled(enabled)
-                if !enabled {
-                    try storageService.putDeviceToken("")
-                }
-            }
-            if let token = deviceToken, pushEnabled != false {
-                try storageService.putDeviceToken(token)
-            }
+            try storageService.putPushEnabled(targetEnabled)
+            try storageService.putDeviceToken(targetToken)
         } catch {
             debugPrint("Error saving push data to storage: \(error)")
             DispatchQueue.main.async { completion?(false) }
             return
         }
         
-        guard let consumerId = try? storageService.getConsumerId(),
-              !consumerId.isEmpty else {
+        // 5. Send Network Request
+        guard let consumerId = try? storageService.getConsumerId(), !consumerId.isEmpty else {
             debugPrint("Cannot update consumer, consumerId is missing.")
             DispatchQueue.main.async { completion?(false) }
             return
         }
         
-        let storedToken = (try? storageService.getDeviceToken()) ?? ""
-        let storedPushEnabled = (try? storageService.getPushEnabled()) ?? true
-        let hasToken = !storedToken.isEmpty
-        let hasExplicitPushEnabled = (pushEnabled != nil)
-        
-        if !hasToken && !hasExplicitPushEnabled {
-            debugPrint("No push-related data to sync. Skipping consumer update.")
-            DispatchQueue.main.async { completion?(false) }
-            return
-        }
+        // Only send token payload if valid
+        let tokenPayload = targetToken.isEmpty ? nil : targetToken
         
         let request = UpdateConsumer(
-            deviceToken: hasToken ? storedToken : nil,
-            pushEnabled: storedPushEnabled
+            deviceToken: tokenPayload,
+            pushEnabled: targetEnabled
         )
         let endpoint = UpdateConsumerEndpoint(consumerId: consumerId, request: request)
         

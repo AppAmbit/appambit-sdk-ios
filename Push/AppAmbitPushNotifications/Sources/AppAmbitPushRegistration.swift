@@ -5,11 +5,10 @@ import UIKit
 /// Internal class responsible for initializing push registration and delegates.
 @objc(AppAmbitPushRegistration)
 internal class AppAmbitPushRegistration: NSObject {
-    private static let tag = "AppAmbitPushSDK"
     
     /// Initializes delegates and triggers swizzling.
     @objc static func setup() {
-        debugPrint("[\(tag)] Initializing Push registration...")
+        PushLogger.log("Initializing Push registration...")
         
         // Setup the shared notification center delegate
         UNUserNotificationCenter.current().delegate = AppAmbitNotificationCenterDelegate.shared
@@ -17,22 +16,24 @@ internal class AppAmbitPushRegistration: NSObject {
         // Activate AppDelegate swizzling for automatic token capture
         AppDelegateSwizzler.swizzleAppDelegateMethods()
         
-        debugPrint("[\(tag)] Push registration setup complete.")
+        PushLogger.log("Push registration setup complete.")
     }
 }
 
 /// Handles notification center events (foreground, background, and taps).
 private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = AppAmbitNotificationCenterDelegate()
-    private let tag = "AppAmbitPushSDK"
     
     /// Triggered when a notification is received while the app is in the foreground.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let userInfo = notification.request.content.userInfo
-        debugPrint("[\(tag)] Notification received in foreground.")
-        debugPrint("[\(tag)] Payload: \(userInfo)")
+        
+        if PushLogger.debugMode {
+            let userInfo = notification.request.content.userInfo
+            PushLogger.log("Notification received in foreground.")
+            PushLogger.raw("Payload: \(userInfo)")
+        }
         
         if #available(iOS 14.0, *) {
             completionHandler([.banner, .list, .sound, .badge])
@@ -45,7 +46,7 @@ private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCe
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                didReceive response: UNNotificationResponse,
                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        debugPrint("[\(tag)] User interacted with notification.")
+        PushLogger.log("User interacted with notification.")
         completionHandler()
     }
 }

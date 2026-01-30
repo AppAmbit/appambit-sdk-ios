@@ -308,16 +308,10 @@ struct CrashesView: View {
                     
                 case .authorized, .provisional:
                     let newState = !PushNotifications.isNotificationsEnabled()
-                    PushNotifications.setNotificationsEnabled(newState) { success in
-                        let message = success
-                        ? "Notifications have been \(newState ? "enabled" : "disabled")."
-                        : "Permission granted, but sync is pending or failed."
-                        self.showAlertWithMessage(
-                            title: success ? "Notification Status" : "Info",
-                            message: message
-                        )
-                        self.updateNotificationButtonState()
-                    }
+                    PushNotifications.setNotificationsEnabled(newState)
+                    let message = "Notifications have been \(newState ? "enabled" : "disabled")."
+                    self.showAlertWithMessage(title: "Notification Status", message: message)
+                    self.updateNotificationButtonState()
                     
                 case .denied:
                     self.showAlertWithMessage(
@@ -357,13 +351,9 @@ struct CrashesView: View {
     }
     
     private func enableNotifications() {
-        PushNotifications.setNotificationsEnabled(true) { success in
-            let message = success
-            ? "Notifications have been enabled."
-            : "Permission granted, but sync is pending or failed."
-            self.showAlertWithMessage(title: success ? "Notification Status" : "Info", message: message)
-            self.updateNotificationButtonState()
-        }
+        PushNotifications.setNotificationsEnabled(true)
+        self.showAlertWithMessage(title: "Notification Status", message: "Notifications have been enabled.")
+        self.updateNotificationButtonState()
     }
     
     private func showAlertWithMessage(title: String, message: String) {

@@ -5,6 +5,8 @@ import ObjectiveC
 /// Uses method swizzling to automatically capture APNs tokens without manual AppDelegate modification.
 @objc class AppDelegateSwizzler: NSObject {
     
+    // Concurrency Safety: explicitly marked unsafe to silence Swift 6 warnings
+    // while maintaining legacy locking behavior.
     private nonisolated(unsafe) static var hasSwizzled = false
     private nonisolated(unsafe) static let lock = NSLock()
     
@@ -16,7 +18,7 @@ import ObjectiveC
         guard !hasSwizzled else { return }
         hasSwizzled = true
         
-        debugPrint("[AppAmbitPushSDK] Activating robust swizzling...")
+        PushLogger.log("Activating robust swizzling...")
         
         // 1. Swizzle UIApplication's delegate setter to detect when an AppDelegate is assigned
         RobustSwizzler.swizzle(
@@ -28,7 +30,7 @@ import ObjectiveC
         
         // 2. If an AppDelegate already exists, swizzle it immediately
         if let appDelegate = UIApplication.shared.delegate {
-            debugPrint("[AppAmbitPushSDK] Existing AppDelegate found: \(type(of: appDelegate))")
+            PushLogger.log("Existing AppDelegate found: \(type(of: appDelegate))")
             swizzleMethods(for: appDelegate)
         }
         
@@ -41,7 +43,7 @@ import ObjectiveC
     /// Intercepts delegation assignment to the UIApplication.
     @objc func swizzled_setDelegate(_ delegate: UIApplicationDelegate?) {
         if let delegate = delegate {
-            debugPrint("[AppAmbitPushSDK] Delegate intercepted: \(type(of: delegate))")
+            PushLogger.log("Delegate intercepted: \(type(of: delegate))")
             AppDelegateSwizzler.swizzleMethods(for: delegate)
         }
         
@@ -76,7 +78,7 @@ import ObjectiveC
     /// Swizzled implementation of didRegisterForRemoteNotifications.
     @objc dynamic func swizzled_didRegisterForRemoteNotifications(_ application: UIApplication, deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-        debugPrint("[AppAmbitPushSDK] Token intercepted by swizzling.")
+        PushLogger.log("APNs Token Captured: \(tokenString)")
         PushKernel.handleNewToken(tokenString)
         
         // Forward to original implementation if it exists
@@ -88,7 +90,7 @@ import ObjectiveC
     
     /// Swizzled implementation of didFailToRegisterForRemoteNotifications.
     @objc dynamic func swizzled_didFailToRegisterForRemoteNotifications(_ application: UIApplication, error: Error) {
-        debugPrint("[AppAmbitPushSDK] Registration error intercepted: \(error.localizedDescription)")
+        PushLogger.error("Registration error intercepted: \(error.localizedDescription)")
         
         // Forward to original implementation if it exists
         let selector = #selector(AppDelegateSwizzler.swizzled_didFailToRegisterForRemoteNotifications(_:error:))
@@ -103,7 +105,7 @@ private class RobustSwizzler {
     static func swizzle(targetClass: AnyClass, originalSelector: Selector, swizzledSelector: Selector, swizzlerClass: AnyClass) {
         
         guard let swizzledMethod = class_getInstanceMethod(swizzlerClass, swizzledSelector) else {
-            debugPrint("[AppAmbitPushSDK] Error: \(swizzledSelector) not found in \(swizzlerClass)")
+            PushLogger.error("Error: \(swizzledSelector) not found in \(swizzlerClass)")
             return
         }
         
@@ -116,12 +118,12 @@ private class RobustSwizzler {
             
             if let newMethod = class_getInstanceMethod(targetClass, swizzledSelector) {
                 method_exchangeImplementations(originalMethod, newMethod)
-                debugPrint("[AppAmbitPushSDK] Successfully swizzled \(originalSelector) in \(targetClass)")
+                PushLogger.log("Successfully swizzled \(originalSelector) in \(targetClass)")
             }
         } else {
             // Original missing, add our implementation as the primary method
             class_addMethod(targetClass, originalSelector, implementation, typeEncoding)
-            debugPrint("[AppAmbitPushSDK] Injected \(originalSelector) into \(targetClass) (original was missing)")
+            PushLogger.log("Injected \(originalSelector) into \(targetClass) (original was missing)")
         }
     }
 }
