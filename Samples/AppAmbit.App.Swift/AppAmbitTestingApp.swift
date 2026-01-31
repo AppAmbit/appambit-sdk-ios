@@ -7,8 +7,8 @@ struct AppAmbitTestingApp: App {
     
     init() {
         AppAmbit.start(appKey: "<YOUR-APPKEY>") {
-             PushNotifications.start()
-         }
+            PushNotifications.start(debugMode: true)
+          }
     }
     var body: some Scene {
         WindowGroup {

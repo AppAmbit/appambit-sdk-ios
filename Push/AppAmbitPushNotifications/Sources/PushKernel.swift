@@ -11,7 +11,7 @@ public class PushKernel: NSObject {
     private nonisolated(unsafe) static var currentToken: String?
     private nonisolated(unsafe) static var isEnabled: Bool = false
     /// The current Token Listener instance.
-    private static var tokenListener: TokenListener?
+    private nonisolated(unsafe) static var tokenListener: TokenListener?
     
     /// Activates the automated swizzling and registration logic.
     /// This is used by external platforms (like MAUI/Xamarin) that want to use PushKernel directly
@@ -69,7 +69,7 @@ public class PushKernel: NSObject {
     @objc public static func setNotificationCustomizer(_ customizer: NotificationCustomizer?) {
         notificationCustomizer = customizer
     }
-    
+
     /// Triggers the system notification permission request.
     @objc public static func requestNotificationPermission(listener: PermissionListener?) {
         let center = UNUserNotificationCenter.current()
@@ -101,4 +101,5 @@ public class PushKernel: NSObject {
         
         tokenListener?.onNewToken(token)
     }
+
 }
