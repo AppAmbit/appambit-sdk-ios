@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'AppAmbitSdk'
-  s.version          = '0.1.2'
+  s.version          = '0.2.0'
   s.summary          = 'Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.'
 
   s.description      = <<-DESC
@@ -13,11 +13,11 @@ AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your
   s.source           = { :git => 'https://github.com/AppAmbit/appambit-sdk-ios.git', :tag => s.version.to_s }
 
   s.ios.deployment_target = '12.0'
-  
   s.swift_version  = '5.7'
 
   s.source_files = [
     'Sources/**/*.swift',
     'AppAmbitSdk/Sources/**/*.swift'
   ]
+  
 end
