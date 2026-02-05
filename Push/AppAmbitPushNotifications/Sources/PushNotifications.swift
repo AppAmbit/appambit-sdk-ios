@@ -42,10 +42,13 @@ public class PushNotifications: NSObject {
     // MARK: - Notification Configuration
     
     /// Globally enables or disables notifications in the internal state.
-    /// Globally enables or disables notifications in the internal state.
     public static func setNotificationsEnabled(_ enabled: Bool) {
         PushLogger.log("Setting notifications enabled to: \(enabled)")
         PushKernel.setNotificationsEnabled(enabled)
+        
+        let token = PushKernel.getCurrentToken()
+        // Sync with backend
+        ConsumerService.shared.updateConsumer(deviceToken: token, pushEnabled: enabled)
     }
     
     /// Returns whether notifications are currently enabled in the SDK state.
@@ -69,6 +72,12 @@ public class PushNotifications: NSObject {
     @objc(setNotificationCustomizer:)
     public static func setNotificationCustomizer(_ customizer: Any?) {
         PushLogger.log("setNotificationCustomizer called (pending Swift implementation).")
+    }
+    
+    /// Returns whether the system has granted notification permissions.
+    @objc
+    public static func hasNotificationPermission() -> Bool {
+        return PushKernel.hasNotificationPermission()
     }
 }
 

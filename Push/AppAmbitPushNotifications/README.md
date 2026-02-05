@@ -7,7 +7,7 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 - ✅ **Simple API**: Matches Android SDK for cross-platform consistency
 - ✅ **Minimal setup**: Just call `PushNotifications.start()` after AppAmbit initialization
 - ✅ **Decoupled architecture**: Internal `PushKernel` handles APNs, public `PushNotifications` facade
-- ✅ **Customizable notifications**: Modify notification content before display
+- ✅ **Notification handling**: Receive and customize notifications with typed data
 - ✅ **Thread-safe**: Compatible with Swift 6 Concurrency
 - ✅ **Persistent state**: User preferences stored in UserDefaults
 
@@ -156,33 +156,69 @@ let isEnabled = PushNotifications.isNotificationsEnabled()
 BOOL isEnabled = [PushNotifications isNotificationsEnabled];
 ```
 
-### 4. Customize Notifications (Optional)
+### 4. Handling Incoming Notifications
+
+Set a handler to receive and optionally customize notifications when they arrive.
 
 #### Swift
 
 ```swift
-// Set a customizer to modify notifications before they're displayed
-PushNotifications.setNotificationCustomizer { content, notification in
-    // Modify the notification content
-    content.title = "Custom: \(notification.title ?? "")"
-    content.body = "Modified: \(notification.body ?? "")"
-    content.badge = 1
-    content.sound = .default
-    
-    // Access custom data
-    if let customValue = notification.data["myKey"] {
-        print("Custom data: \(customValue)")
+// Set a handler to process notifications
+class MyNotificationHandler: PushNotifications.NotificationHandler {
+    func handleNotification(_ appAmbitNotification: AppAmbitNotification, content: UNMutableNotificationContent) {
+        // Access typed data
+        print("Title: \(appAmbitNotification.title ?? "No title")")
+        print("Body: \(appAmbitNotification.body ?? "No body")")
+        print("Image URL: \(appAmbitNotification.imageUrl ?? "No image")")
+        
+        // Process custom data
+        if let customData = appAmbitNotification.data["myCustomKey"] as? String {
+            print("Custom data: \(customData)")
+            // Send to backend, update UI, etc.
+        }
+        
+        // Optionally customize the notification
+        content.title = "Modified: \(content.title ?? "")"
+        content.badge = 1
+    }
+}
+
+PushNotifications.setNotificationHandler(MyNotificationHandler())
+```
+
+For **foreground notifications** (app open), call this in your `UNUserNotificationCenterDelegate`:
+
+```swift
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Let the SDK handle the notification
+        PushNotifications.handleNotificationInForeground(userInfo: notification.request.content.userInfo)
+        completionHandler([.alert, .sound, .badge])
     }
 }
 ```
 
-Customization is currently Swift-only; it is not exposed to Objective-C yet.
+For **background notifications** (app closed), override in your `NotificationService`:
 
-### 5. Notification Service Extension (Images)
+```swift
+class NotificationService: AppAmbitNotificationService {
+    override func customizeContent(_ content: UNMutableNotificationContent, for notification: AppAmbitNotification) {
+        // Process background notification
+        print("Background: \(notification.title ?? "")")
+        content.title = "BG: \(content.title ?? "")"
+    }
+}
+```
 
-To support image attachments, add a **UNNotificationServiceExtension** and
-inherit from `AppAmbitNotificationService`. This handles downloading and attaching
-the image URL from the payload.
+#### Objective-C
+
+```objc
+// Handler is Swift-only for now
+```
+
+### 5. Notification Service Extension (Advanced Processing)
+
+For advanced features like image attachments or processing notifications when your app is not running, add a **UNNotificationServiceExtension** and inherit from `AppAmbitNotificationService`. This allows you to modify or enrich notifications before they are displayed to the user.
 
 #### Xcode Steps
 
@@ -194,20 +230,23 @@ the image URL from the payload.
 import AppAmbitPushNotifications
 
 final class NotificationService: AppAmbitNotificationService {
-    // Override only if you need to inspect custom payload fields.
-    override func handlePayload(_ notification: AppAmbitNotification, userInfo: [AnyHashable: Any]) {
-        // no-op by default
+    // Override to customize or process notifications
+    override func customizeContent(_ content: UNMutableNotificationContent, for notification: AppAmbitNotification) {
+        // Access notification data and modify content if needed
+        content.title = "Processed: \(content.title ?? "")"
     }
 }
 ```
 
 > If your app is Objective-C, you can still add this extension in Swift.
 
-#### Required Payload Fields
+#### When to Use
+- To attach images (requires `mutable-content: 1` in payload).
+- To process or modify notifications before display, even when the app is closed or in the background.
+- For custom logic like analytics or data handling on notification arrival.
 
-Your backend must send:
-- `mutable-content: 1`
-- An image URL key such as `image_url` (also supports `imageUrl` or `image`)
+#### Required Payload Fields
+Your backend must include `mutable-content: 1` for the extension to run. For images, add an image URL key like `image_url`.
 
 ## API Reference
 
@@ -253,23 +292,18 @@ BOOL enabled = [PushNotifications isNotificationsEnabled];
 [PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {}];
 ```
 
-### Customization
+### Handling Notifications
 
 ```swift
-// Set a customizer closure
-typealias NotificationCustomizer = (UNMutableNotificationContent, AppAmbitNotification) -> Void
-PushNotifications.setNotificationCustomizer(_ customizer: NotificationCustomizer?)
+// Set a handler for incoming notifications
+typealias NotificationHandler = (AppAmbitNotification, UNMutableNotificationContent) -> Void
+PushNotifications.setNotificationHandler(_ handler: NotificationHandler?)
+
+// Handle foreground notifications in your delegate
+PushNotifications.handleNotificationInForeground(userInfo: [AnyHashable: Any])
 ```
 
-The customizer is invoked **before** the notification is displayed, allowing you to modify:
-- Title
-- Body
-- Badge
-- Sound
-- User info / custom data
-
-Use `content` to read or override APNs fields like `sound`, `badge`, `categoryIdentifier`,
-`threadIdentifier`, and `interruptionLevel` (iOS 15+). Use `notification.data` for custom payload keys.
+The handler receives typed `AppAmbitNotification` data and a mutable content for customization. Call `handleNotificationInForeground` in your `UNUserNotificationCenterDelegate` to process foreground notifications.
 
 ## Dashboard Form Fields Support (APNs Mapping)
 
@@ -291,10 +325,9 @@ These fields are provided by your backend (dashboard/console). The SDK reads the
 ## Requirements for Advanced Fields
 
 - **Category**: the app must register matching `UNNotificationCategory` identifiers.
-- **Image URL**: the app must add a `UNNotificationServiceExtension` that downloads the image
-  and attaches it to the notification. The backend must include `mutable-content: 1` and
-  an agreed custom key (e.g. `image_url`) in the payload.
+- **Image URL**: the app must add a `UNNotificationServiceExtension` that downloads the image and attaches it to the notification. The backend must include `mutable-content: 1` and an agreed custom key (e.g. `image_url`) in the payload.
 - **Interruption Level**: only applies on iOS 15+.
+- **Background Processing**: For any custom processing when the app is not active, add a `UNNotificationServiceExtension` inheriting from `AppAmbitNotificationService`.
 
 ## Architecture
 
@@ -315,7 +348,7 @@ The kernel is completely invisible to the end user. All interactions go through 
 3. **Backend Sync**: Every time you call `setNotificationsEnabled()`, the SDK updates the backend with the current token and status.
    When enabling, the backend update happens after APNs returns a token to avoid duplicate updates.
 
-4. **Customization**: Before displaying a foreground notification, the SDK checks if a customizer is set and invokes it, allowing you to modify the content.
+4. **Notification Handling**: When a notification arrives, the SDK invokes the set handler (if any), allowing you to process typed data and optionally customize the notification before display. For background processing (when the app is not active), use a Notification Service Extension.
 
 ## Requirements
 
@@ -340,11 +373,14 @@ struct MyApp: App {
             // 2. Start Push SDK
             PushNotifications.start()
             
-            // 3. (Optional) Set up customization
-            PushNotifications.setNotificationCustomizer { content, notification in
-                content.sound = .default
-                content.badge = NSNumber(value: 1)
+            // 3. (Optional) Set up notification handler
+            class MyHandler: PushNotifications.NotificationHandler {
+                func handleNotification(_ notification: AppAmbitNotification, content: UNMutableNotificationContent) {
+                    print("Received: \(notification.title ?? "")")
+                    content.badge = 1
+                }
             }
+            PushNotifications.setNotificationHandler(MyHandler())
             
             // 4. Request permission and enable
             PushNotifications.requestNotificationPermission { granted in
@@ -359,6 +395,14 @@ struct MyApp: App {
         WindowGroup {
             ContentView()
         }
+    }
+}
+
+// In your AppDelegate or SceneDelegate, add the delegate:
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        PushNotifications.handleNotificationInForeground(userInfo: notification.request.content.userInfo)
+        completionHandler([.alert, .sound])
     }
 }
 ```
@@ -389,8 +433,8 @@ While the API is nearly identical, there are platform-specific differences:
 | Token type | FCM Token | APNs Device Token |
 | Permissions | POST_NOTIFICATIONS (Android 13+) | User Notifications authorization |
 | State storage | SharedPreferences | UserDefaults |
-| Customization timing | Before display (MessagingService) | Before display (UNUserNotificationCenterDelegate) |
+| Notification handling | MessagingService (background) | UNUserNotificationCenterDelegate (foreground) + NotificationServiceExtension (background) |
 
 ## Support
 
-For questions or issues, refer to the example application in `Samples/AppAmbit.App.Swift/`.
+For questions or issues, refer to the example application in `Samples/AppAmbit.App.Swift/`. If you need to process notifications when your app is not running (e.g., for images or custom logic), check the Notification Service Extension section.

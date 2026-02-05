@@ -5,6 +5,8 @@ import Network
 import Foundation
 import UserNotifications
 
+// MARK: - Notification Handler
+
 struct CrashesView: View {
     @State private var userId: String = UUID().uuidString
     @State private var email: String = "test@gmail.com"
@@ -13,6 +15,7 @@ struct CrashesView: View {
     @State private var alertMessage = ""
     @State private var alertTitle = "Info"
     @State private var notificationButtonTitle = "Enable Notifications"
+
     
     var body: some View {
         ScrollView {
@@ -289,39 +292,30 @@ struct CrashesView: View {
     /// This demonstrates a minimal integration without SDK UI helpers.
     private func setupNotificationButton() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            let authStatus = settings.authorizationStatus
+            let hasPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            
             DispatchQueue.main.async {
-                switch authStatus {
-                case .notDetermined:
+                if !hasPermission {
+                    // Request permission
                     PushNotifications.requestNotificationPermission { granted in
-                        if granted {
-                            self.notificationButtonTitle = "Disable Notifications"
-                            self.enableNotifications()
-                        } else {
-                            self.showAlertWithMessage(
-                                title: "Info",
-                                message: "Permission denied. Notifications cannot be enabled."
-                            )
+                        DispatchQueue.main.async {
+                            if granted {
+                                // Once permission is granted, we enable notifications
+                                PushNotifications.setNotificationsEnabled(true)
+                                self.showAlertWithMessage(title: "Notification Status", message: "Notifications have been enabled.")
+                            } else {
+                                self.showAlertWithMessage(title: "Permission Denied", message: "Notifications cannot be enabled without permission.")
+                            }
+                            self.updateNotificationButtonState()
                         }
-                        self.updateNotificationButtonState()
                     }
-                    
-                case .authorized, .provisional:
+                } else {
+                    // Toggle notifications enabled state
                     let newState = !PushNotifications.isNotificationsEnabled()
                     PushNotifications.setNotificationsEnabled(newState)
+                    
                     let message = "Notifications have been \(newState ? "enabled" : "disabled")."
                     self.showAlertWithMessage(title: "Notification Status", message: message)
-                    self.updateNotificationButtonState()
-                    
-                case .denied:
-                    self.showAlertWithMessage(
-                        title: "Info",
-                        message: "Notifications are disabled in Settings. Please enable them manually."
-                    )
-                    self.updateNotificationButtonState()
-                    
-                @unknown default:
-                    self.showAlertWithMessage(title: "Info", message: "Unknown permission status.")
                     self.updateNotificationButtonState()
                 }
             }
@@ -330,31 +324,20 @@ struct CrashesView: View {
     
     private func updateNotificationButtonState() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            let authStatus = settings.authorizationStatus
+            let hasPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            let isEnabled = PushNotifications.isNotificationsEnabled()
+            
             DispatchQueue.main.async {
-                switch authStatus {
-                case .notDetermined:
-                    self.notificationButtonTitle = "Request Notification Permission"
-                    
-                case .authorized, .provisional:
-                    let isEnabled = PushNotifications.isNotificationsEnabled()
+                if !hasPermission {
+                    self.notificationButtonTitle = "Allow Notifications"
+                } else {
                     self.notificationButtonTitle = isEnabled ? "Disable Notifications" : "Enable Notifications"
-                    
-                case .denied:
-                    self.notificationButtonTitle = "Open Settings (Permission Denied)"
-                    
-                @unknown default:
-                    self.notificationButtonTitle = "Enable Notifications"
                 }
             }
         }
     }
     
-    private func enableNotifications() {
-        PushNotifications.setNotificationsEnabled(true)
-        self.showAlertWithMessage(title: "Notification Status", message: "Notifications have been enabled.")
-        self.updateNotificationButtonState()
-    }
+
     
     private func showAlertWithMessage(title: String, message: String) {
         alertTitle = title

@@ -13,6 +13,11 @@ public class PushKernel: NSObject {
     /// The current Token Listener instance.
     private nonisolated(unsafe) static var tokenListener: TokenListener?
     
+    /// Cached value for permission status to avoid blocking the caller.
+    private nonisolated(unsafe) static var lastKnownPermission: Bool = false
+
+
+    
     /// Activates the automated swizzling and registration logic.
     /// This is used by external platforms (like MAUI/Xamarin) that want to use PushKernel directly
     /// but still benefit from the Zero-Config swizzling.
@@ -102,4 +107,13 @@ public class PushKernel: NSObject {
         tokenListener?.onNewToken(token)
     }
 
+    @objc public static func hasNotificationPermission() -> Bool {
+        // Trigger an async update for the next call
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            lastKnownPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+        }
+        
+        // Return last known state immediately
+        return lastKnownPermission
+    }
 }
