@@ -42,6 +42,7 @@ public class PushNotifications: NSObject {
     // MARK: - Notification Configuration
     
     /// Globally enables or disables notifications in the internal state.
+    @objc
     public static func setNotificationsEnabled(_ enabled: Bool) {
         PushLogger.log("Setting notifications enabled to: \(enabled)")
         PushKernel.setNotificationsEnabled(enabled)
@@ -68,16 +69,23 @@ public class PushNotifications: NSObject {
         requestNotificationPermission(listener: listener)
     }
 
-    /// Allows customization of notification appearance before display.
-    @objc(setNotificationCustomizer:)
-    public static func setNotificationCustomizer(_ customizer: Any?) {
-        PushLogger.log("setNotificationCustomizer called (pending Swift implementation).")
-    }
-    
     /// Returns whether the system has granted notification permissions.
     @objc
     public static func hasNotificationPermission() -> Bool {
         return PushKernel.hasNotificationPermission()
+    }
+
+    /// Allows listening and customization of notifications before display.
+    /// This is the professional way to intercept both local and remote notifications.
+    public static func setNotificationCustomizer(_ listener: ((UNNotification) -> Void)?) {
+        PushLogger.log("Notification customizer/listener registered.")
+        PushKernel.setNotificationListener(listener)
+    }
+
+    /// Objective-C bridge for setNotificationCustomizer.
+    @objc(setNotificationCustomizer:)
+    public static func setNotificationCustomizerObjC(_ listener: ((UNNotification) -> Void)?) {
+        setNotificationCustomizer(listener)
     }
 }
 

@@ -15,6 +15,9 @@ public class PushKernel: NSObject {
     
     /// Cached value for permission status to avoid blocking the caller.
     private nonisolated(unsafe) static var lastKnownPermission: Bool = false
+    
+    /// Global notification listener for customization and interception.
+    private nonisolated(unsafe) static var notificationListener: ((UNNotification) -> Void)?
 
 
     
@@ -73,6 +76,16 @@ public class PushKernel: NSObject {
     
     @objc public static func setNotificationCustomizer(_ customizer: NotificationCustomizer?) {
         notificationCustomizer = customizer
+    }
+
+    /// Sets a professional closure-based listener for notifications.
+    public static func setNotificationListener(_ listener: ((UNNotification) -> Void)?) {
+        notificationListener = listener
+    }
+    
+    /// Internal method to notify the registered listener about a new notification.
+    internal static func notifyNotificationReceived(_ notification: UNNotification) {
+        notificationListener?(notification)
     }
 
     /// Triggers the system notification permission request.

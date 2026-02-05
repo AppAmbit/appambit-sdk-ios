@@ -26,7 +26,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         self.storageService = storageService
     }
 
-    // MARK: - Token (thread-safe con tu cola)
+    // MARK: - Token (thread-safe using internal queue)
 
     var token: String? {
         Queues.token.sync { _token }
@@ -273,9 +273,9 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             printJSONRequest(request: request, jsonData: jsonData)
         } catch let error as ApiErrorType {
-            completion(.fail(error, message: "Payload no convertible"))
+            completion(.fail(error, message: "Payload not convertible"))
         } catch {
-            completion(.fail(.unknown, message: "Error serializando payload: \(error.localizedDescription)"))
+            completion(.fail(.unknown, message: "Error serializing payload: \(error.localizedDescription)"))
         }
     }
 

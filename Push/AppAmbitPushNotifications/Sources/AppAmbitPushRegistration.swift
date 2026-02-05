@@ -35,6 +35,9 @@ private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCe
             PushLogger.raw("Payload: \(userInfo)")
         }
         
+        // Notify the global listener
+        PushKernel.notifyNotificationReceived(notification)
+        
         if #available(iOS 14.0, *) {
             completionHandler([.banner, .list, .sound, .badge])
         } else {
@@ -47,6 +50,10 @@ private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCe
                                didReceive response: UNNotificationResponse,
                                withCompletionHandler completionHandler: @escaping () -> Void) {
         PushLogger.log("User interacted with notification.")
+        
+        // Notify the global listener
+        PushKernel.notifyNotificationReceived(response.notification)
+        
         completionHandler()
     }
 }
