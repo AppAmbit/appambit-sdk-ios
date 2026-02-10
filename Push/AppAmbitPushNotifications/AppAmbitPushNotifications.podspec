@@ -15,8 +15,8 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = '12.0'
   spec.swift_version  = '5.7'
 
-  spec.source_files = [
-    'Sources/**/*.swift',
-    'AppAmbitSdk/Sources/**/*.swift'
-  ]
+  spec.source_files = 'Sources/**/*.swift'
+  
+  # Dependency on the core AppAmbit SDK
+  spec.dependency 'AppAmbitSdk'
 end

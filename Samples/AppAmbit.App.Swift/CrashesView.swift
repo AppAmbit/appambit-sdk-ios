@@ -33,6 +33,13 @@ struct CrashesView: View {
                     .padding(.horizontal)
                     .onAppear {
                         updateNotificationButtonState()
+                        
+                        // Professional way to listen for notifications
+                        PushNotifications.setNotificationCustomizer { notification in
+                            let title = notification.request.content.title
+                            let body = notification.request.content.body
+                            PushLogger.log("Professional Listener: Received notification -> \(title): \(body)")
+                        }
                     }
                     
                     Button("Did the app crash during your last session?") {

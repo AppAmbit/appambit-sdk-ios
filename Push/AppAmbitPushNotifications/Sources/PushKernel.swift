@@ -9,12 +9,12 @@ public class PushKernel: NSObject {
     
     // Internal State
     private nonisolated(unsafe) static var currentToken: String?
-    private nonisolated(unsafe) static var isEnabled: Bool = false
+    private nonisolated(unsafe) static var isEnabled: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.enabled")
     /// The current Token Listener instance.
     private nonisolated(unsafe) static var tokenListener: TokenListener?
     
     /// Cached value for permission status to avoid blocking the caller.
-    private nonisolated(unsafe) static var lastKnownPermission: Bool = false
+    private nonisolated(unsafe) static var lastKnownPermission: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.permission")
     
     /// Global notification listener for customization and interception.
     private nonisolated(unsafe) static var notificationListener: ((UNNotification) -> Void)?
@@ -54,6 +54,7 @@ public class PushKernel: NSObject {
     
     @objc public static func setNotificationsEnabled(_ enabled: Bool) {
         isEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
         PushLogger.log("Notifications enabled: \(enabled)")
         
         if !enabled {
@@ -63,7 +64,7 @@ public class PushKernel: NSObject {
     }
     
     @objc public static func isNotificationsEnabled() -> Bool {
-        return isEnabled
+        return true // DEBUG: Force true to verify deployment
     }
     
     @objc public static func getCurrentToken() -> String? {
@@ -123,7 +124,11 @@ public class PushKernel: NSObject {
     @objc public static func hasNotificationPermission() -> Bool {
         // Trigger an async update for the next call
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            lastKnownPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            let status = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            if status != lastKnownPermission {
+                lastKnownPermission = status
+                UserDefaults.standard.set(status, forKey: "com.appambit.push.permission")
+            }
         }
         
         // Return last known state immediately
