@@ -64,7 +64,7 @@ public class PushKernel: NSObject {
     }
     
     @objc public static func isNotificationsEnabled() -> Bool {
-        return true // DEBUG: Force true to verify deployment
+        return isEnabled
     }
     
     @objc public static func getCurrentToken() -> String? {
