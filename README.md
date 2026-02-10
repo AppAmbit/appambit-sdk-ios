@@ -31,6 +31,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * Session analytics with automatic lifecycle tracking
 * Ambit Trail records detailed navigation for debugging
 * Event tracking with custom properties
+* Remote Config – dynamic configuration values fetched and applied at runtime
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
@@ -142,6 +143,58 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     UIViewController *vc = [UIViewController new];
     vc.title = @"MyMview";
     [self.navigationController pushViewController:vc animated:YES];
+  ```
+
+* **Remote Config**: fetch and apply remote configuration values asynchronously using type-safe methods (`getString`, `getBoolean`, `getInt`, `getDouble`).
+
+  ### Swift
+
+  ```swift
+  // 1. Set default values (Optional, but recommended to avoid nulls before fetch)
+  RemoteConfig.setDefaults(fromPlist: "default_values")
+  ```
+  ```swift
+  // 2. Fetch and apply
+  RemoteConfig.fetchAndActivate { success in
+      if success {
+          print("Remote Config fetched and activated successfully")
+      } else {
+          print("Failed to fetch Remote Config")
+      }
+  }
+  ```
+  ```swift
+  // 3. Get values (using the correct type method)
+  let messageValue = RemoteConfig.getString("data")
+  let isBannerVisible = RemoteConfig.getBoolean("banner")
+  let discountValue = RemoteConfig.getInt("discount")
+  let maxUploadSize = RemoteConfig.getDouble("max_upload")
+  ```
+
+  ### Objective-C
+
+  ```objective-c
+  // 1. Set default values (Optional, but recommended to avoid nulls before fetch)
+  [RemoteConfig setDefaultsFromPlist:@"default_values"];
+  ```
+
+  ```objective-c
+  // 2. Fetch and apply
+  [RemoteConfig fetchAndActivateWithCompletion:^(BOOL success) {
+      if (success) {
+          NSLog(@"Remote Config fetched and activated successfully");
+      } else {
+          NSLog(@"Failed to fetch Remote Config");
+      }
+  }];
+  ```
+  
+  ```objective-c
+  // 3. Get values (using the correct type method)
+  NSString *messageValue = [RemoteConfig getString:@"data"];
+  BOOL isBannerVisible = [RemoteConfig getBoolean:@"banner"];
+  NSInteger discountValue = [RemoteConfig getInt:@"discount"];
+  double maxUploadSize = [RemoteConfig getDouble:@"max_upload"];
   ```
 
 ---
