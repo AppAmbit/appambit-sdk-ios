@@ -26,6 +26,27 @@ public class PushKernel: NSObject {
     /// but still benefit from the Zero-Config swizzling.
     @objc public static func setupSwizzling() {
         AppAmbitPushRegistration.setup()
+        
+        PushLogger.log("SetupSwizzling called. Initial isEnabled: \(isEnabled)")
+
+        // Auto-sync enabled state with system permission
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = settings.authorizationStatus
+            
+            // Cache the status for synchronous checks
+            let grantStatus = (status == .authorized || status == .provisional)
+            if lastKnownPermission != grantStatus {
+                lastKnownPermission = grantStatus
+                UserDefaults.standard.set(grantStatus, forKey: "com.appambit.push.permission")
+            }
+            
+            if grantStatus {
+                if !isEnabled {
+                     PushLogger.log("System permission detected (Auto-Sync). Enabling SDK state.")
+                     setNotificationsEnabled(true)
+                }
+            }
+        }
     }
 
     /// Configures the debug mode for the SDK logging.
@@ -53,9 +74,11 @@ public class PushKernel: NSObject {
     // MARK: - Public API
     
     @objc public static func setNotificationsEnabled(_ enabled: Bool) {
+        PushLogger.log("Force-setting enabled state to: \(enabled)")
         isEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
-        PushLogger.log("Notifications enabled: \(enabled)")
+        UserDefaults.standard.synchronize() // Force write for immediate persistence
+        PushLogger.log("Notifications enabled: \(enabled) (Saved to UserDefaults)")
         
         if !enabled {
             currentToken = nil
@@ -64,6 +87,7 @@ public class PushKernel: NSObject {
     }
     
     @objc public static func isNotificationsEnabled() -> Bool {
+        PushLogger.log("Checking isNotificationsEnabled... Current value: \(isEnabled)")
         return isEnabled
     }
     
