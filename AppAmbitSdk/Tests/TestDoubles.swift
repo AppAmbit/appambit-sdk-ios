@@ -60,6 +60,9 @@ final class InMemoryStorage: StorageService {
     var sessionData: [SessionData] = []
     var sessionBatches: [SessionBatch] = []
     var breadcrumbs: [BreadcrumbEntity] = []
+    var remoteConfigs: [String: RemoteConfigEntity] = [:]
+    var deviceToken: String?
+    var pushEnabled: Bool = false
 
     func putDeviceId(_ deviceId: String) throws { queue.sync { self.deviceId = deviceId } }
     func getDeviceId() throws -> String? { queue.sync { deviceId } }
@@ -78,6 +81,12 @@ final class InMemoryStorage: StorageService {
 
     func putConsumerId(_ consumerId: String) throws { queue.sync { self.consumerId = consumerId } }
     func getConsumerId() throws -> String? { queue.sync { consumerId } }
+
+    func putDeviceToken(_ deviceToken: String) throws { queue.sync { self.deviceToken = deviceToken } }
+    func getDeviceToken() throws -> String? { queue.sync { deviceToken } }
+
+    func putPushEnabled(_ pushEnabled: Bool) throws { queue.sync { self.pushEnabled = pushEnabled } }
+    func getPushEnabled() throws -> Bool { queue.sync { pushEnabled } }
 
     func putLogEvent(_ log: LogEntity) throws {
         queue.sync {
@@ -233,6 +242,18 @@ final class InMemoryStorage: StorageService {
             let ids = Set(breadcrumbs.map { $0.id })
             self.breadcrumbs.removeAll { ids.contains($0.id) }
         }
+    }
+
+    func putConfigs(_ configs: [RemoteConfigEntity]) throws {
+        queue.sync {
+            for config in configs {
+                remoteConfigs[config.key] = config
+            }
+        }
+    }
+
+    func getConfig(key: String) throws -> RemoteConfigEntity? {
+        queue.sync { remoteConfigs[key] }
     }
 }
 
