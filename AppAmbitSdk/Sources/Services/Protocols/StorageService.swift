@@ -44,4 +44,7 @@ protocol StorageService {
     func putBreadcrumb(_ breadcrumb: BreadcrumbEntity) throws -> Void
     func getOldest100Breadcrumbs() throws -> [BreadcrumbEntity]
     func deleteBreadcrumbList(_ breadcrumbs: [BreadcrumbEntity]) throws
+    
+    func putConfigs(_ configs: [RemoteConfigEntity]) throws
+    func getConfig(key: String) throws -> RemoteConfigEntity?
 }

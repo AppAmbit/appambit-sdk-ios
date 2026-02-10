@@ -1,6 +1,7 @@
 #import "MainTabBarController.h"
 #import "CrashesViewController.h"
 #import "AnalyticsViewController.h"
+#import "RemoteConfigViewController.h"
 
 @implementation MainTabBarController
 
@@ -22,7 +23,14 @@
                                                             tag:1];
     UINavigationController *navAnalytics = [[UINavigationController alloc] initWithRootViewController:analytics];
 
-    self.viewControllers = @[navCrashes, navAnalytics];
+    RemoteConfigViewController *remoteConfig = [RemoteConfigViewController new];
+    remoteConfig.title = @"Remote Config";
+    remoteConfig.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"RemoteConfig"
+                                                            image:[UIImage systemImageNamed:@"arrow.2.circlepath.circle"]
+                                                              tag:2];
+    UINavigationController *navRemoteConfig = [[UINavigationController alloc] initWithRootViewController:remoteConfig];
+
+    self.viewControllers = @[navCrashes, navAnalytics, navRemoteConfig];
 }
 
 @end

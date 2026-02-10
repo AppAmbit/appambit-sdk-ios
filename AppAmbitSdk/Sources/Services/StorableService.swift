@@ -896,4 +896,142 @@ final class StorableService: StorageService {
         }
     }
     
+    // MARK: - Remote Config
+
+    func putConfigs(_ configs: [RemoteConfigEntity]) throws {
+        guard !configs.isEmpty else { return }
+        
+        try syncOnQueue {
+            guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION", nil, nil, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            var mustRollback = true
+            defer {
+                if mustRollback {
+                    _ = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
+                }
+            }
+
+            // Prepare statements once
+            let selectSQL = """
+            SELECT \(RemoteConfigEntityConfiguration.Column.value.name)
+            FROM \(RemoteConfigEntityConfiguration.tableName)
+            WHERE \(RemoteConfigEntityConfiguration.Column.key.name) = ?
+            LIMIT 1;
+            """
+            
+            let updateSQL = """
+            UPDATE \(RemoteConfigEntityConfiguration.tableName)
+            SET \(RemoteConfigEntityConfiguration.Column.value.name) = ?
+            WHERE \(RemoteConfigEntityConfiguration.Column.key.name) = ?;
+            """
+            
+            let insertSQL = """
+            INSERT INTO \(RemoteConfigEntityConfiguration.tableName)
+            (\(RemoteConfigEntityConfiguration.Column.id.name),
+             \(RemoteConfigEntityConfiguration.Column.key.name),
+             \(RemoteConfigEntityConfiguration.Column.value.name))
+            VALUES (?, ?, ?);
+            """
+
+            var selectStmt: OpaquePointer?
+            var updateStmt: OpaquePointer?
+            var insertStmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, selectSQL, -1, &selectStmt, nil) == SQLITE_OK,
+                  sqlite3_prepare_v2(db, updateSQL, -1, &updateStmt, nil) == SQLITE_OK,
+                  sqlite3_prepare_v2(db, insertSQL, -1, &insertStmt, nil) == SQLITE_OK else {
+                sqlite3_finalize(selectStmt)
+                sqlite3_finalize(updateStmt)
+                sqlite3_finalize(insertStmt)
+                throw sqliteError
+            }
+            
+            defer {
+                sqlite3_finalize(selectStmt)
+                sqlite3_finalize(updateStmt)
+                sqlite3_finalize(insertStmt)
+            }
+            
+            for config in configs {
+                // 1. Check if exists and get current value
+                bindText(selectStmt, index: 1, value: config.key)
+                
+                var existingValue: String? = nil
+                if sqlite3_step(selectStmt) == SQLITE_ROW {
+                    if let cStr = sqlite3_column_text(selectStmt, 0) {
+                        existingValue = String(cString: cStr)
+                    }
+                }
+                
+                sqlite3_reset(selectStmt)
+                sqlite3_clear_bindings(selectStmt)
+                
+                if let currentVal = existingValue {
+                    // Exists: Check if value changed
+                    if currentVal != config.value {
+                        // Value changed -> Update
+                        bindText(updateStmt, index: 1, value: config.value)
+                        bindText(updateStmt, index: 2, value: config.key)
+                        
+                        if sqlite3_step(updateStmt) != SQLITE_DONE {
+                             debugPrint("sqlite3_step UPDATE failed for key: \(config.key)")
+                             throw sqliteError
+                        }
+                        
+                        sqlite3_reset(updateStmt)
+                        sqlite3_clear_bindings(updateStmt)
+                    }
+                    // Else: Value is same -> Skip
+                } else {
+                    // Not exists -> Insert
+                    bindText(insertStmt, index: 1, value: config.id)
+                    bindText(insertStmt, index: 2, value: config.key)
+                    bindText(insertStmt, index: 3, value: config.value)
+                    
+                    if sqlite3_step(insertStmt) != SQLITE_DONE {
+                        debugPrint("sqlite3_step INSERT failed for key: \(config.key)")
+                        throw sqliteError
+                    }
+                    
+                    sqlite3_reset(insertStmt)
+                    sqlite3_clear_bindings(insertStmt)
+                }
+            }
+            
+            guard sqlite3_exec(db, "COMMIT", nil, nil, nil) == SQLITE_OK else {
+                throw sqliteError
+            }
+            mustRollback = false
+        }
+    }
+
+    func getConfig(key: String) throws -> RemoteConfigEntity? {
+        try syncOnQueue {
+            let sql = """
+            SELECT
+                \(RemoteConfigEntityConfiguration.Column.id.name),
+                \(RemoteConfigEntityConfiguration.Column.key.name),
+                \(RemoteConfigEntityConfiguration.Column.value.name)
+            FROM \(RemoteConfigEntityConfiguration.tableName)
+            WHERE \(RemoteConfigEntityConfiguration.Column.key.name) = ?
+            LIMIT 1;
+            """
+            
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+            
+            bindText(stmt, index: 1, value: key)
+            
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            
+            let id = String(cString: sqlite3_column_text(stmt, 0))
+            let keyVal = String(cString: sqlite3_column_text(stmt, 1))
+            let value = String(cString: sqlite3_column_text(stmt, 2))
+            
+            return RemoteConfigEntity(id: id, key: keyVal, value: value)
+        }
+    }
+    
 }

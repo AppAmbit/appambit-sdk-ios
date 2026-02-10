@@ -20,6 +20,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("Load", systemImage: "bolt.horizontal.circle")
                 }
+            
+            RemoteConfigView()
+                .tabItem {
+                    Label("RemoteConfig", systemImage: "arrow.2.circlepath.circle")
+                }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
