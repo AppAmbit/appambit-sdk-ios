@@ -14,6 +14,7 @@ AppAmbit SDK lets you capture sessions, logs, crashes, and custom events in your
 
   s.ios.deployment_target = '12.0'
   s.swift_version  = '5.7'
+  s.module_name    = 'AppAmbit'
 
   s.source_files = [
     'Sources/**/*.swift',

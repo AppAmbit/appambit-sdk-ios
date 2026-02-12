@@ -13,6 +13,7 @@
 		79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
 		79E047E12EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
 		79F0B1C22F200000007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
+		A071A11539190A7BFEB4C38E /* Pods_AppAmbit_App_Swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C9CA3E726281EA88CC35A1D /* Pods_AppAmbit_App_Swift.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,10 +41,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		37082E1A776F2A8F8A8795E3 /* Pods-AppAmbit.App.Swift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AppAmbit.App.Swift.release.xcconfig"; path = "Target Support Files/Pods-AppAmbit.App.Swift/Pods-AppAmbit.App.Swift.release.xcconfig"; sourceTree = "<group>"; };
+		63E3D812FB779E3AC911BF4D /* Pods-AppAmbit.App.Swift.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AppAmbit.App.Swift.debug.xcconfig"; path = "Target Support Files/Pods-AppAmbit.App.Swift/Pods-AppAmbit.App.Swift.debug.xcconfig"; sourceTree = "<group>"; };
 		791D978D2EEA0506002FC398 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppAmbitSdk; sourceTree = "<group>"; };
 		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AppAmbitNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C9CA3E726281EA88CC35A1D /* Pods_AppAmbit_App_Swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_AppAmbit_App_Swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -113,6 +117,8 @@
 		};
 		79E047D12EF504B9007952FD /* Push */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Push;
 			sourceTree = "<group>";
 		};
@@ -125,6 +131,7 @@
 			files = (
 				7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */,
 				79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
+				A071A11539190A7BFEB4C38E /* Pods_AppAmbit_App_Swift.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,9 +155,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3248002692115D36FB96766F /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				63E3D812FB779E3AC911BF4D /* Pods-AppAmbit.App.Swift.debug.xcconfig */,
+				37082E1A776F2A8F8A8795E3 /* Pods-AppAmbit.App.Swift.release.xcconfig */,
+			);
+			name = Pods;
+			path = "../appambit-sdk-dotnet/push/AppAmbit.PushNotifications/Platforms/iOS_Build/Pods";
+			sourceTree = "<group>";
+		};
 		7916DAB22E1719AF00CFEFA2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				9C9CA3E726281EA88CC35A1D /* Pods_AppAmbit_App_Swift.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -164,6 +182,7 @@
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
+				3248002692115D36FB96766F /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -184,10 +203,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 79260B9A2E139E26008BF6CB /* Build configuration list for PBXNativeTarget "AppAmbit.App.Swift" */;
 			buildPhases = (
+				565128A043A5EA8C8316C29E /* [CP] Check Pods Manifest.lock */,
 				79260B882E139E23008BF6CB /* Sources */,
 				79260B892E139E23008BF6CB /* Frameworks */,
 				79260B8A2E139E23008BF6CB /* Resources */,
 				797B71712F1050260032E3ED /* Embed Foundation Extensions */,
+				D64A51B9EEF0812F6A5144C6 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -282,7 +303,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				79E0C0A12F10AAAA00AAA111 /* XCRemoteSwiftPackageReference "AppAmbitSdk" */,
-				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */,
+				79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "AppAmbitPushNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 79260B8D2E139E23008BF6CB /* Products */;
@@ -319,6 +340,48 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		565128A043A5EA8C8316C29E /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-AppAmbit.App.Swift-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D64A51B9EEF0812F6A5144C6 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-AppAmbit.App.Swift/Pods-AppAmbit.App.Swift-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-AppAmbit.App.Swift/Pods-AppAmbit.App.Swift-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-AppAmbit.App.Swift/Pods-AppAmbit.App.Swift-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		79260B882E139E23008BF6CB /* Sources */ = {
@@ -474,6 +537,7 @@
 		};
 		79260B9B2E139E26008BF6CB /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 63E3D812FB779E3AC911BF4D /* Pods-AppAmbit.App.Swift.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -513,6 +577,7 @@
 		};
 		79260B9C2E139E26008BF6CB /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 37082E1A776F2A8F8A8795E3 /* Pods-AppAmbit.App.Swift.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -728,7 +793,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */ = {
+		79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "AppAmbitPushNotifications" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Push/AppAmbitPushNotifications;
 		};
@@ -754,7 +819,7 @@
 		};
 		79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */;
+			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "AppAmbitPushNotifications" */;
 			productName = AppAmbitPushNotifications;
 		};
 /* End XCSwiftPackageProductDependency section */
