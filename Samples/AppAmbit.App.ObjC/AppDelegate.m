@@ -14,16 +14,9 @@
     // Uncomment the line for manual session management
     //[Analytics enableManualSession];
 
+    [RemoteConfig setEnable];
     [AppAmbit start:@"<YOUR-APPKEY>"];
     [PushNotifications start];
-    [RemoteConfig setDefaultsFromPlist:@"default_values"];
-    [RemoteConfig fetchAndActivateWithCompletion:^(BOOL success) {
-        if (success) {
-            NSLog(@"Fetched data successfully");
-        } else {
-            NSLog(@"Failed to fetch data");
-        }
-    }];
 
     return YES;
 }

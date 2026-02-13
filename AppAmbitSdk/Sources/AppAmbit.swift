@@ -186,6 +186,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 let afterTokenReady: @Sendable () -> Void = {
                     guard SessionManager.isSessionActive else { return }
 
+                    RemoteConfig.fetchAndStoreConfig()
                     SessionManager.sendEndSessionFromDatabase { _ in
                         SessionManager.sendStartSessionIfExist { _ in
                             Crashes.shared.loadCrashFileIfExists { error in
@@ -224,6 +225,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     private func onStart(completion: @escaping @Sendable () -> Void) {
         initializeServices()
+        RemoteConfig.fetchAndStoreConfig()
 
         initializeConsumer {
             // Sync any persisted push data to backend

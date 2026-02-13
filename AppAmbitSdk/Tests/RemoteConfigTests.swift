@@ -10,71 +10,85 @@ final class RemoteConfigTests: XCTestCase {
         super.setUp()
         apiService = StubApiService()
         storageService = InMemoryStorage()
+        RemoteConfig.resetForTesting()
         RemoteConfig.initialize(apiService: apiService, storageService: storageService)
     }
     
     override func tearDown() {
+        RemoteConfig.resetForTesting()
         apiService = nil
         storageService = nil
         super.tearDown()
     }
     
-    func testFetchSuccessShouldStoreConfigsInMemoryAndReturnTrue() {
+    func testFetchAndStoreConfigShouldStoreConfigsWhenEnabled() {
         // Given
         let expectedConfigs: [String: RemoteConfigValue] = ["welcome_msg": .string("Hello")]
         let mockResponse = RemoteConfigResponse(configs: expectedConfigs)
         apiService.stub(RemoteConfigEndpoint.self, result: ApiResult(data: mockResponse, errorType: .none))
         
+        RemoteConfig.setEnable()
+        
         // When
-        waitAsync { fulfill in
-            RemoteConfig.fetch { success in
-                XCTAssertTrue(success)
-                fulfill()
-            }
+        RemoteConfig.fetchAndStoreConfig()
+        
+        // Allow async API call to complete
+        let expectation = XCTestExpectation(description: "wait for fetch")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
         }
+        wait(for: [expectation], timeout: 2)
         
         // Then
         XCTAssertEqual(apiService.callCount(for: RemoteConfigEndpoint.self), 1)
+        let storedValue = try? storageService.getConfig(key: "welcome_msg")
+        XCTAssertNotNil(storedValue)
+        XCTAssertEqual(storedValue?.value, "Hello")
     }
     
-    func testFetchFailureShouldReturnFalse() {
+    func testFetchFailureShouldNotStoreConfigs() {
         // Given
         apiService.stub(RemoteConfigEndpoint.self, result: ApiResult<RemoteConfigResponse>(data: nil, errorType: .networkUnavailable))
         
+        RemoteConfig.setEnable()
+        
         // When
-        waitAsync { fulfill in
-            RemoteConfig.fetch { success in
-                XCTAssertFalse(success)
-                fulfill()
-            }
+        RemoteConfig.fetchAndStoreConfig()
+        
+        // Allow async API call to complete
+        let expectation = XCTestExpectation(description: "wait for fetch")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
         }
+        wait(for: [expectation], timeout: 2)
         
         // Then
         XCTAssertEqual(apiService.callCount(for: RemoteConfigEndpoint.self), 1)
+        XCTAssertTrue(storageService.remoteConfigs.isEmpty)
     }
     
-    func testActivateShouldPersistFetchedConfigsToStorage() {
+    func testFetchShouldNotCallApiWhenNotEnabled() {
         // Given
-        let expectedConfigs: [String: RemoteConfigValue] = ["feature_enabled": .bool(true)]
-        let mockResponse = RemoteConfigResponse(configs: expectedConfigs)
+        let mockResponse = RemoteConfigResponse(configs: ["key": .string("value")])
         apiService.stub(RemoteConfigEndpoint.self, result: ApiResult(data: mockResponse, errorType: .none))
         
-        waitAsync { fulfill in
-            RemoteConfig.fetch { _ in fulfill() }
+        // When - do NOT call setEnable()
+        RemoteConfig.fetchAndStoreConfig()
+        
+        // Allow time for potential async call
+        let expectation = XCTestExpectation(description: "wait")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
         }
+        wait(for: [expectation], timeout: 2)
         
-        // When
-        let activated = RemoteConfig.activate()
-        
-        // Then
-        XCTAssertTrue(activated)
-        let storedValue = try? storageService.getConfig(key: "feature_enabled")
-        XCTAssertNotNil(storedValue)
-        XCTAssertEqual(storedValue?.value, "true")
+        // Then - API should never be called
+        XCTAssertEqual(apiService.callCount(for: RemoteConfigEndpoint.self), 0)
     }
     
     func testGetStringShouldReturnValueFromStorage() {
         // Given
+        RemoteConfig.setEnable()
         let entity = RemoteConfigEntity(id: "1", key: "banner_text", value: "Welcome User")
         try? storageService.putConfigs([entity])
         
@@ -85,10 +99,9 @@ final class RemoteConfigTests: XCTestCase {
         XCTAssertEqual(value, "Welcome User")
     }
     
-    func testGetStringShouldFallbackToDefaultsIfStorageReturnsNull() {
-        // Given - No storage value
-        // We can't easily mock setDefaults(fromPlist:) without a real plist, 
-        // let's use internal access to inject defaults or just assume it's empty and test fallback to ""
+    func testGetStringShouldReturnEmptyStringForMissingKey() {
+        // Given
+        RemoteConfig.setEnable()
         
         // When
         let value = RemoteConfig.getString("non_existent_key")
@@ -99,6 +112,7 @@ final class RemoteConfigTests: XCTestCase {
     
     func testGetIntShouldReturnParsedIntegerFromStorage() {
         // Given
+        RemoteConfig.setEnable()
         let entity = RemoteConfigEntity(id: "1", key: "max_items", value: "10")
         try? storageService.putConfigs([entity])
         
@@ -111,6 +125,7 @@ final class RemoteConfigTests: XCTestCase {
     
     func testGetDoubleShouldReturnParsedDoubleFromStorage() {
         // Given
+        RemoteConfig.setEnable()
         let entity = RemoteConfigEntity(id: "1", key: "discount_rate", value: "0.5")
         try? storageService.putConfigs([entity])
         
@@ -123,6 +138,7 @@ final class RemoteConfigTests: XCTestCase {
     
     func testGetBooleanShouldReturnParsedBooleanFromStorage() {
         // Given
+        RemoteConfig.setEnable()
         let entity = RemoteConfigEntity(id: "1", key: "is_new_ui", value: "true")
         try? storageService.putConfigs([entity])
         

@@ -150,51 +150,31 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   ### Swift
 
   ```swift
-  // 1. Set default values (Optional, but recommended to avoid nulls before fetch)
-  RemoteConfig.setDefaults(fromPlist: "default_values")
+  // Enable remote config
+  RemoteConfig.setEnable()
   ```
+
   ```swift
-  // 2. Fetch and apply
-  RemoteConfig.fetchAndActivate { success in
-      if success {
-          print("Remote Config fetched and activated successfully")
-      } else {
-          print("Failed to fetch Remote Config")
-      }
-  }
-  ```
-  ```swift
-  // 3. Get values (using the correct type method)
-  let messageValue = RemoteConfig.getString("data")
-  let isBannerVisible = RemoteConfig.getBoolean("banner")
-  let discountValue = RemoteConfig.getInt("discount")
-  let maxUploadSize = RemoteConfig.getDouble("max_upload")
+  // Get remote config values with type-safe methods
+  let message = RemoteConfig.getString("data")
+  let isFeatureEnabled = RemoteConfig.getBoolean("banner")
+  let discount = RemoteConfig.getInt("discount")
+  let maxUpload = RemoteConfig.getDouble("max_upload")
   ```
 
   ### Objective-C
 
   ```objective-c
-  // 1. Set default values (Optional, but recommended to avoid nulls before fetch)
-  [RemoteConfig setDefaultsFromPlist:@"default_values"];
+  // Enable remote config
+  [RemoteConfig setEnable];
   ```
 
   ```objective-c
-  // 2. Fetch and apply
-  [RemoteConfig fetchAndActivateWithCompletion:^(BOOL success) {
-      if (success) {
-          NSLog(@"Remote Config fetched and activated successfully");
-      } else {
-          NSLog(@"Failed to fetch Remote Config");
-      }
-  }];
-  ```
-  
-  ```objective-c
-  // 3. Get values (using the correct type method)
-  NSString *messageValue = [RemoteConfig getString:@"data"];
-  BOOL isBannerVisible = [RemoteConfig getBoolean:@"banner"];
-  NSInteger discountValue = [RemoteConfig getInt:@"discount"];
-  double maxUploadSize = [RemoteConfig getDouble:@"max_upload"];
+  // Get remote config values with type-safe methods
+  NSString *message = [RemoteConfig getString:@"data"];
+  BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
+  NSInteger discount = [RemoteConfig getInt:@"discount"];
+  double maxUpload = [RemoteConfig getDouble:@"max_upload"];
   ```
 
 ---
