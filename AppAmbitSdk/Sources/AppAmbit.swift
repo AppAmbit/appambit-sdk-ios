@@ -225,7 +225,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         initializeServices()
 
         initializeConsumer {
-            // Sync any persisted push data to backend
+            // Sync any persisted push data with the backend
             ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
@@ -278,7 +278,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                // Update consumer before getting new token (like Android)
+                // Update consumer before requesting a new token (similar to Android logic)
                 ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),

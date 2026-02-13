@@ -1,3 +1,9 @@
+## Version 0.2.0
+
+## AppAmbit Push Notifications
+
+* **[Feature]** - Added support for push notification messaging via AppAmbit dashboard
+
 ## Version 0.1.2
 
 ## AppAmbit
