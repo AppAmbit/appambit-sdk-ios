@@ -1,10 +1,7 @@
 name: CocoaPods Library Build & Release
 
 on:
-  workflow_run:
-    workflows: ["CocoaPods Unit Test"]
-    types: [completed]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,12 +10,10 @@ permissions:
 jobs:
   cut_release:
     name: Release
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-latest
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
       PODSPEC_PUSH: Push/AppAmbitPushNotifications/AppAmbitPushNotifications.podspec
-      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - name: Checkout
@@ -26,7 +21,6 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Install CocoaPods
         run: |
@@ -99,7 +93,7 @@ jobs:
         if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
-          git tag "${{ steps.ver.outputs.full }}" "$TARGET_SHA"
+          git tag "${{ steps.ver.outputs.full }}"
           git push origin "${{ steps.ver.outputs.full }}"
 
       - name: Build SDK zip (only AppAmbitSdk/)
@@ -144,7 +138,7 @@ jobs:
             AppAmbitPushNotifications-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
-        if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main' || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main'))
+        if: steps.check_tag.outputs.skip == 'false'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
