@@ -129,7 +129,7 @@ jobs:
       - name: pod lib lint Push (build the push pod)
         run: |
           set -e
-          pod lib lint ${{ env.PODSPEC_PUSH }} --platforms=ios --fail-fast --verbose --allow-warnings
+          pod lib lint ${{ env.PODSPEC_PUSH }} --platforms=ios --fail-fast --verbose --allow-warnings --include-podspecs='${{ env.PODSPEC }}'
 
       - name: Create GitHub Release (CHANGELOG notes)
         if: steps.check_tag.outputs.skip == 'false'
