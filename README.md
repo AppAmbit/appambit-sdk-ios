@@ -151,7 +151,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 
   ```swift
   // Enable remote config
-  RemoteConfig.setEnable()
+  RemoteConfig.enable()
   ```
 
   ```swift
@@ -166,7 +166,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 
   ```objective-c
   // Enable remote config
-  [RemoteConfig setEnable];
+  [RemoteConfig enable];
   ```
 
   ```objective-c
