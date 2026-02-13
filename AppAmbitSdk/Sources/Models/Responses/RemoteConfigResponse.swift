@@ -9,23 +9,33 @@ public enum RemoteConfigValue: Decodable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
 
-        if let boolValue = try? container.decode(Bool.self) {
-            self = .bool(boolValue)
-        } else if let intValue = try? container.decode(Int.self) {
-            self = .int(intValue)
-        } else if let doubleValue = try? container.decode(Double.self) {
-            self = .double(doubleValue)
-        } else if let stringValue = try? container.decode(String.self) {
-            self = .string(stringValue)
-        } else {
-            throw DecodingError.typeMismatch(
-                RemoteConfigValue.self,
-                DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Value is not a valid RemoteConfigValue type (Bool, Int, Double, String)"
-                )
-            )
+        if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+            return
         }
+
+        if let value = try? container.decode(Int.self) {
+            self = .int(value)
+            return
+        }
+
+        if let value = try? container.decode(Double.self) {
+            self = .double(value)
+            return
+        }
+
+        if let value = try? container.decode(String.self) {
+            self = .string(value)
+            return
+        }
+
+        throw DecodingError.typeMismatch(
+            RemoteConfigValue.self,
+            .init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Unsupported RemoteConfigValue type"
+            )
+        )
     }
 
     /// Helper to bridge back to `Any` if needed for dictionary usage

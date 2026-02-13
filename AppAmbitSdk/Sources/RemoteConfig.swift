@@ -23,7 +23,7 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     }
     
     static func fetchAndStoreConfig() {
-        if !isEnable || RemoteConfig.isFetchCompleted {
+        if !isEnable || isFetchCompleted {
             return
         }
         
