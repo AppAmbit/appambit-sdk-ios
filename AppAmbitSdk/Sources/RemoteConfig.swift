@@ -18,7 +18,7 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     private nonisolated(unsafe) static var isFetchCompleted = false
     
     @objc
-    public static func setEnable() {
+    public static func enable() {
         isEnable = true
     }
     
