@@ -28,6 +28,13 @@
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
     [self updateNotificationButtonState];
+    
+    // Professional way to listen for notifications in Objective-C
+    [PushNotifications setNotificationCustomizer:^(UNNotification * _Nonnull notification) {
+        NSString *title = notification.request.content.title;
+        NSString *body = notification.request.content.body;
+        NSLog(@"[Professional Listener ObjC]: Received notification -> %@: %@", title, body);
+    }];
 }
 
 - (void)buildUI {
@@ -166,17 +173,12 @@
                 case UNAuthorizationStatusProvisional:
                 case UNAuthorizationStatusEphemeral: {
                     BOOL newState = ![PushNotifications isNotificationsEnabled];
-                    [PushNotifications setNotificationsEnabled:newState completion:^(BOOL success) {
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            NSString *message = success
-                                ? [NSString stringWithFormat:@"Notifications have been %@.",
-                                   newState ? @"enabled" : @"disabled"]
-                                : @"Permission granted, but sync is pending or failed.";
-                            [self presentAlertWithTitle:(success ? @"Notification Status" : @"Info")
-                                                message:message];
-                            [self updateNotificationButtonState];
-                        });
-                    }];
+                    [PushNotifications setNotificationsEnabled:newState];
+                    
+                    NSString *message = [NSString stringWithFormat:@"Notifications have been %@.",
+                                       newState ? @"enabled" : @"disabled"];
+                    [self presentAlertWithTitle:@"Notification Status" message:message];
+                    [self updateNotificationButtonState];
                     break;
                 }
                 case UNAuthorizationStatusDenied:
@@ -295,15 +297,9 @@
 }
 
 - (void)enableNotifications {
-    [PushNotifications setNotificationsEnabled:YES completion:^(BOOL success) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            NSString *message = success
-                ? @"Notifications have been enabled."
-                : @"Permission granted, but sync is pending or failed.";
-            [self presentAlertWithTitle:(success ? @"Notification Status" : @"Info") message:message];
-            [self updateNotificationButtonState];
-        });
-    }];
+    [PushNotifications setNotificationsEnabled:YES];
+    [self presentAlertWithTitle:@"Notification Status" message:@"Notifications have been enabled."];
+    [self updateNotificationButtonState];
 }
 
 - (void)updateNotificationButtonTitle:(NSString *)title {
