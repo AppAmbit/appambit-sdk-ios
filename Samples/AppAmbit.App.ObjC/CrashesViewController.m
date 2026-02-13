@@ -2,11 +2,16 @@
 #import "NetworkMonitor.h"
 #import "ExceptionModel.h"
 
+#import <UserNotifications/UserNotifications.h>
+
 @import AppAmbit;
+@import AppAmbitPushNotifications;
 
 @interface CrashesViewController () <UITextFieldDelegate>
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UIStackView  *stack;
+
+@property (nonatomic, strong) UIButton *notificationButton;
 
 @property (nonatomic, strong) UITextField *userIdField;
 @property (nonatomic, strong) UITextField *emailField;
@@ -22,6 +27,14 @@
     self.title = @"Crashes";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
+    [self updateNotificationButtonState];
+    
+    // Professional way to listen for notifications in Objective-C
+    [PushNotifications setNotificationCustomizer:^(UNNotification * _Nonnull notification) {
+        NSString *title = notification.request.content.title;
+        NSString *body = notification.request.content.body;
+        NSLog(@"[Professional Listener ObjC]: Received notification -> %@: %@", title, body);
+    }];
 }
 
 - (void)buildUI {
@@ -48,6 +61,9 @@
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-20],
         [self.stack.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor constant:-32],
     ]];
+
+    self.notificationButton = [self makeButton:@"Enable Notifications" action:@selector(onNotificationButton)];
+    [self.stack addArrangedSubview:self.notificationButton];
 
     [self.stack addArrangedSubview:[self makeButton:@"Did the app crash during your last session?" action:@selector(onDidCrashInLastSession)]];
 
@@ -133,6 +149,52 @@
     }];
 }
 
+- (void)onNotificationButton {
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+        UNAuthorizationStatus status = settings.authorizationStatus;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            switch (status) {
+                case UNAuthorizationStatusNotDetermined: {
+                    [PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (granted) {
+                                [self updateNotificationButtonTitle:@"Disable Notifications"];
+                                [self enableNotifications];
+                            } else {
+                                [self presentAlertWithTitle:@"Info"
+                                                    message:@"Permission denied. Notifications cannot be enabled."];
+                            }
+                            [self updateNotificationButtonState];
+                        });
+                    }];
+                    break;
+                }
+                case UNAuthorizationStatusAuthorized:
+                case UNAuthorizationStatusProvisional:
+                case UNAuthorizationStatusEphemeral: {
+                    BOOL newState = ![PushNotifications isNotificationsEnabled];
+                    [PushNotifications setNotificationsEnabled:newState];
+                    
+                    NSString *message = [NSString stringWithFormat:@"Notifications have been %@.",
+                                       newState ? @"enabled" : @"disabled"];
+                    [self presentAlertWithTitle:@"Notification Status" message:message];
+                    [self updateNotificationButtonState];
+                    break;
+                }
+                case UNAuthorizationStatusDenied:
+                    [self presentAlertWithTitle:@"Info"
+                                        message:@"Notifications are disabled in Settings. Please enable them manually."];
+                    [self updateNotificationButtonState];
+                    break;
+                default:
+                    [self presentAlertWithTitle:@"Info" message:@"Unknown permission status."];
+                    [self updateNotificationButtonState];
+                    break;
+            }
+        });
+    }];
+}
+
 - (void)onChangeUserId {
     NSString *userId = self.userIdField.text ?: @"";
     [Analytics setUserId:userId completion:^(NSError * _Nullable error) {
@@ -206,8 +268,50 @@
     [Crashes generateTestCrash];
 }
 
+- (void)updateNotificationButtonState {
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+        UNAuthorizationStatus status = settings.authorizationStatus;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            switch (status) {
+                case UNAuthorizationStatusNotDetermined:
+                    [self updateNotificationButtonTitle:@"Request Notification Permission"];
+                    break;
+                case UNAuthorizationStatusAuthorized:
+                case UNAuthorizationStatusProvisional:
+                case UNAuthorizationStatusEphemeral: {
+                    BOOL isEnabled = [PushNotifications isNotificationsEnabled];
+                    [self updateNotificationButtonTitle:(isEnabled
+                        ? @"Disable Notifications"
+                        : @"Enable Notifications")];
+                    break;
+                }
+                case UNAuthorizationStatusDenied:
+                    [self updateNotificationButtonTitle:@"Open Settings (Permission Denied)"];
+                    break;
+                default:
+                    [self updateNotificationButtonTitle:@"Enable Notifications"];
+                    break;
+            }
+        });
+    }];
+}
+
+- (void)enableNotifications {
+    [PushNotifications setNotificationsEnabled:YES];
+    [self presentAlertWithTitle:@"Notification Status" message:@"Notifications have been enabled."];
+    [self updateNotificationButtonState];
+}
+
+- (void)updateNotificationButtonTitle:(NSString *)title {
+    [self.notificationButton setTitle:title forState:UIControlStateNormal];
+}
+
 - (void)presentInfo {
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Info" message:self.alertMessage ?: @"" preferredStyle:UIAlertControllerStyleAlert];
+    [self presentAlertWithTitle:@"Info" message:self.alertMessage ?: @""];
+}
+
+- (void)presentAlertWithTitle:(NSString *)title message:(NSString *)message {
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:title message:message ?: @"" preferredStyle:UIAlertControllerStyleAlert];
     [ac addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:ac animated:YES completion:nil];
 }

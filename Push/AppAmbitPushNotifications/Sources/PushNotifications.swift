@@ -1,10 +1,11 @@
 import Foundation
 import UserNotifications
+import AppAmbit
 
-/// PushNotifications - Public API for push notifications
-/// Esta es la fachada que expone funcionalidad de push notifications
-public class PushNotifications {
-    private static let tag = "AppAmbitPushSDK"
+/// Public facade for managing AppAmbit Push Notifications.
+/// This is the primary entry point for developers.
+@objc(PushNotifications)
+public class PushNotifications: NSObject {
     
     // MARK: - Type Aliases
     
@@ -12,95 +13,105 @@ public class PushNotifications {
     
     // MARK: - Initialization
     
-    /// Starts the Push Notifications SDK
+    /// Starts the Push Notification SDK.
     /// - Parameters:
-    ///   - debugMode: Enables detailed logging
-    ///   - autoRequestPermissions: Automatically requests permissions on start
+    ///   - debugMode: If true, enables detailed console logging.
+    ///   - autoRequestPermissions: If true, automatically requests system permissions on startup.
     public static func start(debugMode: Bool = false, autoRequestPermissions: Bool = false) {
-        print("[\(tag)] Starting Push SDK.")
+        // Configure Logger first
+        PushLogger.debugMode = debugMode
+        PushLogger.log("Starting Push SDK...")
         
-        // Set up token listener
+        // Setup internal token handler
         PushKernel.setTokenListener(TokenListenerImpl())
         
-        // Start the kernel
-        PushKernel.start()
+        // Setup registration and swizzling
+        AppAmbitPushRegistration.setup()
         
         if autoRequestPermissions {
             requestNotificationPermission(listener: nil)
         }
     }
     
-    // MARK: - Notification Settings
-    
-    /// Enables or disables push notifications
-    public static func setNotificationsEnabled(_ enabled: Bool) {
-        print("[\(tag)] Setting notifications enabled state to: \(enabled)")
-        PushKernel.setNotificationsEnabled(enabled)
+    /// Convenience initializer for Objective-C callers.
+    @objc(start)
+    public static func startObjC() {
+        start()
     }
     
-    /// Checks if notifications are enabled
+    // MARK: - Notification Configuration
+    
+    /// Globally enables or disables notifications in the internal state.
+    @objc
+    public static func setNotificationsEnabled(_ enabled: Bool) {
+        PushLogger.log("Setting notifications enabled to: \(enabled)")
+        PushKernel.setNotificationsEnabled(enabled)
+        
+        let token = PushKernel.getCurrentToken()
+        // Sync with backend
+        ConsumerService.shared.updateConsumer(deviceToken: token, pushEnabled: enabled)
+    }
+    
+    /// Returns whether notifications are currently enabled in the SDK state.
+    @objc
     public static func isNotificationsEnabled() -> Bool {
         return PushKernel.isNotificationsEnabled()
     }
     
-    /// Requests notification permissions from the user
+    /// Requests system notification permissions from the user.
     public static func requestNotificationPermission(listener: PermissionListener?) {
         PushKernel.requestNotificationPermission(listener: listener != nil ? PermissionListenerWrapper(listener: listener!) : nil)
     }
-    
-    // MARK: - Testing (DEBUG Only)
-    
-    #if DEBUG
-    /// Simulates a push notification for testing in simulator
-    /// Only available in DEBUG builds
-    /// - Parameters:
-    ///   - title: Notification title
-    ///   - body: Message body
-    ///   - data: Custom data dictionary (optional)
-    public static func simulateNotification(title: String, body: String, data: [String: Any]? = nil) {
-        print("[\(tag)] Simulating notification for testing...")
-        
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        
-        if let data = data {
-            content.userInfo = data
-        }
-        
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
-        )
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("[\(tag)] Error simulating notification: \(error)")
-            } else {
-                print("[\(tag)] Notification simulated successfully")
-            }
-        }
+
+    /// Objective-C bridge for requestNotificationPermission.
+    @objc(requestNotificationPermissionWithListener:)
+    public static func requestNotificationPermissionObjC(listener: ((Bool)->Void)?) {
+        requestNotificationPermission(listener: listener)
     }
-    #endif
+
+    /// Returns whether the system has granted notification permissions.
+    @objc
+    public static func hasNotificationPermission() -> Bool {
+        return PushKernel.hasNotificationPermission()
+    }
+
+    /// Allows listening and customization of notifications before display.
+    /// This is the professional way to intercept both local and remote notifications.
+    public static func setNotificationCustomizer(_ listener: ((UNNotification) -> Void)?) {
+        PushLogger.log("Notification customizer/listener registered.")
+        PushKernel.setNotificationListener(listener)
+    }
+
+    /// Objective-C bridge for setNotificationCustomizer.
+    @objc(setNotificationCustomizer:)
+    public static func setNotificationCustomizerObjC(_ listener: ((UNNotification) -> Void)?) {
+        setNotificationCustomizer(listener)
+    }
 }
 
-// MARK: - Internal Listener Implementations
+// MARK: - Internal Support
 
+/// Listener responsible for syncing the APNs token with the AppAmbit backend.
 private class TokenListenerImpl: PushKernel.TokenListener {
     func onNewToken(_ token: String) {
         DispatchQueue.main.async {
             if PushKernel.isNotificationsEnabled() {
-                print("[AppAmbitPushSDK] APNs token received and notifications are enabled.")
-                // TODO: Sync with backend when ConsumerService is available
+                PushLogger.log("Syncing token with backend...")
+                ConsumerService.shared.updateConsumer(deviceToken: token, pushEnabled: true) { success in
+                    if success {
+                        PushLogger.log("Token synced successfully.")
+                    } else {
+                        PushLogger.error("Failed to sync token.")
+                    }
+                }
             } else {
-                print("[AppAmbitPushSDK] APNs token received, but notifications are disabled by the user.")
+                PushLogger.log("Token received but notifications are disabled.")
             }
         }
     }
 }
 
+/// Wrapper to bridge public API closures with kernel protocols.
 private class PermissionListenerWrapper: PushKernel.PermissionListener {
     private let listener: PushNotifications.PermissionListener
     

@@ -8,17 +8,52 @@
 
 /* Begin PBXBuildFile section */
 		7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 7916DAD22E171C9B00CFEFA2 /* AppAmbit */; };
+		797B71702F1050260032E3ED /* AppAmbitNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		79C6A7CB2E7D34AE001EDDD2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */; };
 		79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
+		79E047E12EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
+		79F0B1C22F200000007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		797B716E2F1050260032E3ED /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 79260B842E139E23008BF6CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 797B71682F1050260032E3ED;
+			remoteInfo = AppAmbitNotificationService;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		797B71712F1050260032E3ED /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				797B71702F1050260032E3ED /* AppAmbitNotificationService.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		791D978D2EEA0506002FC398 /* AppAmbitSdk */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppAmbitSdk; sourceTree = "<group>"; };
 		79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.Swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AppAmbitNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		797B71752F1050260032E3ED /* Exceptions for "AppAmbitNotificationService" folder in "AppAmbitNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 797B71682F1050260032E3ED /* AppAmbitNotificationService */;
+		};
 		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -59,6 +94,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		797B716A2F1050260032E3ED /* AppAmbitNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				797B71752F1050260032E3ED /* Exceptions for "AppAmbitNotificationService" folder in "AppAmbitNotificationService" target */,
+			);
+			path = AppAmbitNotificationService;
+			sourceTree = "<group>";
+		};
 		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -90,6 +133,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				79C6A7CB2E7D34AE001EDDD2 /* AppAmbit in Frameworks */,
+				79E047E12EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		797B71662F1050260032E3ED /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79F0B1C22F200000007952FD /* AppAmbitPushNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -108,6 +160,7 @@
 			children = (
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				79E047D12EF504B9007952FD /* Push */,
+				797B716A2F1050260032E3ED /* AppAmbitNotificationService */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
@@ -119,6 +172,7 @@
 			children = (
 				79260B8C2E139E23008BF6CB /* AppAmbit.App.Swift.app */,
 				79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */,
+				797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -133,10 +187,12 @@
 				79260B882E139E23008BF6CB /* Sources */,
 				79260B892E139E23008BF6CB /* Frameworks */,
 				79260B8A2E139E23008BF6CB /* Resources */,
+				797B71712F1050260032E3ED /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				797B716F2F1050260032E3ED /* PBXTargetDependency */,
 			);
 			name = AppAmbit.App.Swift;
 			packageProductDependencies = (
@@ -165,10 +221,34 @@
 			name = AppAmbit.App.ObjC;
 			packageProductDependencies = (
 				79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */,
+				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
 			);
 			productName = AppAmbit.App.ObjC;
 			productReference = 79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */;
 			productType = "com.apple.product-type.application";
+		};
+		797B71682F1050260032E3ED /* AppAmbitNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 797B71742F1050260032E3ED /* Build configuration list for PBXNativeTarget "AppAmbitNotificationService" */;
+			buildPhases = (
+				797B71652F1050260032E3ED /* Sources */,
+				797B71662F1050260032E3ED /* Frameworks */,
+				797B71672F1050260032E3ED /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				797B716A2F1050260032E3ED /* AppAmbitNotificationService */,
+			);
+			name = AppAmbitNotificationService;
+			packageProductDependencies = (
+				79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */,
+			);
+			productName = AppAmbitNotificationService;
+			productReference = 797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -177,7 +257,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					79260B8B2E139E23008BF6CB = {
@@ -185,6 +265,9 @@
 					};
 					79712D1B2E7CD50D00B99DB6 = {
 						CreatedOnToolsVersion = 16.4;
+					};
+					797B71682F1050260032E3ED = {
+						CreatedOnToolsVersion = 26.1;
 					};
 				};
 			};
@@ -208,6 +291,7 @@
 			targets = (
 				79260B8B2E139E23008BF6CB /* AppAmbit.App.Swift */,
 				79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */,
+				797B71682F1050260032E3ED /* AppAmbitNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -221,6 +305,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		79712D1A2E7CD50D00B99DB6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		797B71672F1050260032E3ED /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -244,7 +335,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		797B71652F1050260032E3ED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		797B716F2F1050260032E3ED /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 797B71682F1050260032E3ED /* AppAmbitNotificationService */;
+			targetProxy = 797B716E2F1050260032E3ED /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		79260B982E139E26008BF6CB /* Debug */ = {
@@ -376,8 +482,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Samples/AppAmbit.App.Swift/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
+				DEVELOPMENT_TEAM = U7UX6J27XV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppAmbit.plist;
@@ -432,7 +537,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppSwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AppAmbit TestApp - AdHoc";
@@ -451,12 +556,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AppAmbit.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -470,7 +576,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppObjc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AppAmbit TestApp - AdHoc";
@@ -488,12 +594,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AppAmbit.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = QP28PZ7FFF;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Samples/AppAmbit.App.ObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AppAmbit ObjC";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -507,7 +614,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppObjc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AppAmbit TestApp - AdHoc";
@@ -516,6 +623,65 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		797B71722F1050260032E3ED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U7UX6J27XV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AppAmbitNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AppAmbitNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppSwift.AppAmbitNotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		797B71732F1050260032E3ED /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U7UX6J27XV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AppAmbitNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AppAmbitNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AppAmbit.TestAppSwift.AppAmbitNotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -546,6 +712,15 @@
 			buildConfigurations = (
 				79712D322E7CD50F00B99DB6 /* Debug */,
 				79712D332E7CD50F00B99DB6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		797B71742F1050260032E3ED /* Build configuration list for PBXNativeTarget "AppAmbitNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				797B71722F1050260032E3ED /* Debug */,
+				797B71732F1050260032E3ED /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

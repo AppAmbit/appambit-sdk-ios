@@ -1,59 +1,35 @@
 import Foundation
 
-/// Notification model that encapsulates APNs push notification data
+/// Represents an AppAmbit notification payload.
+/// Parses the raw APNs dictionary into a structured model.
 public struct AppAmbitNotification {
     public let title: String?
+    public let subtitle: String?
     public let body: String?
-    public let badge: Int?
-    public let sound: String?
-    public let data: [String: Any]
+    public let imageUrl: String?
+    public let data: [AnyHashable: Any]
     
-    public init(title: String? = nil,
-                body: String? = nil,
-                badge: Int? = nil,
-                sound: String? = nil,
-                data: [String: Any] = [:]) {
-        self.title = title
-        self.body = body
-        self.badge = badge
-        self.sound = sound
-        self.data = data
-    }
-    
-    /// Crea un AppAmbitNotification desde el userInfo de APNs
+    /// Creates an AppAmbitNotification from an APNs userInfo dictionary.
     public static func from(userInfo: [AnyHashable: Any]) -> AppAmbitNotification {
-        var title: String?
-        var body: String?
-        var badge: Int?
-        var sound: String?
-        var customData: [String: Any] = [:]
+        let aps = userInfo["aps"] as? [String: Any]
+        let alert = aps?["alert"] as? [String: Any]
         
-        // Parse aps dictionary
-        if let aps = userInfo["aps"] as? [String: Any] {
-            if let alert = aps["alert"] as? [String: Any] {
-                title = alert["title"] as? String
-                body = alert["body"] as? String
-            } else if let alertString = aps["alert"] as? String {
-                body = alertString
-            }
-            
-            badge = aps["badge"] as? Int
-            sound = aps["sound"] as? String
-        }
+        let title = alert?["title"] as? String
+        let subtitle = alert?["subtitle"] as? String
+        let body = alert?["body"] as? String
         
-        // Parse custom data (everything outside aps)
-        for (key, value) in userInfo {
-            if let keyString = key as? String, keyString != "aps" {
-                customData[keyString] = value
-            }
-        }
+        // Support multiple common keys for the image URL
+        let imageUrl = userInfo["image"] as? String ?? 
+                     userInfo["image_url"] as? String ?? 
+                     userInfo["imageUrl"] as? String ??
+                     alert?["launch-image"] as? String
         
         return AppAmbitNotification(
             title: title,
+            subtitle: subtitle,
             body: body,
-            badge: badge,
-            sound: sound,
-            data: customData
+            imageUrl: imageUrl,
+            data: userInfo
         )
     }
 }

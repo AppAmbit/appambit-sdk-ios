@@ -12,14 +12,22 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "AppAmbitPushNotifications",
+            type: .dynamic,
             targets: ["AppAmbitPushNotifications"]
         ),
+    ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        .package(name: "AppAmbit", path: "../../AppAmbitSdk")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "AppAmbitPushNotifications"
+            name: "AppAmbitPushNotifications",
+            dependencies: [
+                .product(name: "AppAmbit", package: "AppAmbit")
+            ]
         ),
 
     ]

@@ -5,6 +5,8 @@ import Network
 import Foundation
 import UserNotifications
 
+// MARK: - Notification Handler
+
 struct CrashesView: View {
     @State private var userId: String = UUID().uuidString
     @State private var email: String = "test@gmail.com"
@@ -13,12 +15,13 @@ struct CrashesView: View {
     @State private var alertMessage = ""
     @State private var alertTitle = "Info"
     @State private var notificationButtonTitle = "Enable Notifications"
+
     
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
                 VStack {
-                    // Notification Button - Same as Java
+                    // Notification Button
                     Button(notificationButtonTitle) {
                         setupNotificationButton()
                     }
@@ -30,6 +33,13 @@ struct CrashesView: View {
                     .padding(.horizontal)
                     .onAppear {
                         updateNotificationButtonState()
+                        
+                        // Professional way to listen for notifications
+                        PushNotifications.setNotificationCustomizer { notification in
+                            let title = notification.request.content.title
+                            let body = notification.request.content.body
+                            PushLogger.log("Professional Listener: Received notification -> \(title): \(body)")
+                        }
                     }
                     
                     Button("Did the app crash during your last session?") {
@@ -165,7 +175,7 @@ struct CrashesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255))
                 .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
@@ -176,7 +186,7 @@ struct CrashesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(red: 96/255, green: 120/255, blue: 141/255)) // azul-gris
+                .background(Color(red: 96/255, green: 120/255, blue: 141/255))
                 .foregroundColor(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
@@ -283,50 +293,58 @@ struct CrashesView: View {
         }
     }
     
-    // MARK: - Push Notifications Setup (Same as Java)
+    // MARK: - Push Notifications Setup
+    
+    /// Example: Simple push notifications toggle button
+    /// This demonstrates a minimal integration without SDK UI helpers.
     private func setupNotificationButton() {
-        if hasNotificationPermission() {
-            let newState = !PushNotifications.isNotificationsEnabled()
-            PushNotifications.setNotificationsEnabled(newState)
-            let message = "Notifications have been \(newState ? "enabled" : "disabled")."
-            showAlertWithMessage(title: "Notification Status", message: message)
-            updateNotificationButtonState()
-        } else {
-            PushNotifications.requestNotificationPermission { granted in
-                DispatchQueue.main.async {
-                    if granted {
-                        PushNotifications.setNotificationsEnabled(true)
-                        self.showAlertWithMessage(title: "Notification Status", message: "Notifications have been enabled.")
-                        self.updateNotificationButtonState()
-                    } else {
-                        self.showAlertWithMessage(title: "Permission Denied", message: "Notifications cannot be enabled without permission.")
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let hasPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            
+            DispatchQueue.main.async {
+                if !hasPermission {
+                    // Request permission
+                    PushNotifications.requestNotificationPermission { granted in
+                        DispatchQueue.main.async {
+                            if granted {
+                                // Once permission is granted, we enable notifications
+                                PushNotifications.setNotificationsEnabled(true)
+                                self.showAlertWithMessage(title: "Notification Status", message: "Notifications have been enabled.")
+                            } else {
+                                self.showAlertWithMessage(title: "Permission Denied", message: "Notifications cannot be enabled without permission.")
+                            }
+                            self.updateNotificationButtonState()
+                        }
                     }
+                } else {
+                    // Toggle notifications enabled state
+                    let newState = !PushNotifications.isNotificationsEnabled()
+                    PushNotifications.setNotificationsEnabled(newState)
+                    
+                    let message = "Notifications have been \(newState ? "enabled" : "disabled")."
+                    self.showAlertWithMessage(title: "Notification Status", message: message)
+                    self.updateNotificationButtonState()
                 }
             }
         }
     }
     
-    private func hasNotificationPermission() -> Bool {
-        var hasPermission = false
-        let semaphore = DispatchSemaphore(value: 0)
-        
+    private func updateNotificationButtonState() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            hasPermission = settings.authorizationStatus == .authorized
-            semaphore.signal()
+            let hasPermission = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            let isEnabled = PushNotifications.isNotificationsEnabled()
+            
+            DispatchQueue.main.async {
+                if !hasPermission {
+                    self.notificationButtonTitle = "Allow Notifications"
+                } else {
+                    self.notificationButtonTitle = isEnabled ? "Disable Notifications" : "Enable Notifications"
+                }
+            }
         }
-        
-        semaphore.wait()
-        return hasPermission
     }
     
-    private func updateNotificationButtonState() {
-        if hasNotificationPermission() {
-            let isEnabled = PushNotifications.isNotificationsEnabled()
-            notificationButtonTitle = isEnabled ? "Disable Notifications" : "Enable Notifications"
-        } else {
-            notificationButtonTitle = "Request Notification Permission"
-        }
-    }
+
     
     private func showAlertWithMessage(title: String, message: String) {
         alertTitle = title

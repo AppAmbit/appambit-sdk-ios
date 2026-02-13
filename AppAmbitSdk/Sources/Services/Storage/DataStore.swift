@@ -41,5 +41,42 @@ final class DataStore {
         try exec(LogEntityConfiguration.createTable)
         try exec(EventEntityConfiguration.createTable)
         try exec(BreadcrumbEntityConfiguration.createTable)
+        
+        // Migrate existing secrets table to add push notification columns if they don't exist
+        migrateSecretsTable()
+    }
+    
+    private func migrateSecretsTable() {
+        // Check and add deviceToken column if it doesn't exist
+        if !columnExists(table: "secrets", column: "deviceToken") {
+            try? exec("ALTER TABLE secrets ADD COLUMN deviceToken TEXT")
+        }
+        
+        // Check and add pushEnabled column if it doesn't exist
+        if !columnExists(table: "secrets", column: "pushEnabled") {
+            try? exec("ALTER TABLE secrets ADD COLUMN pushEnabled INTEGER DEFAULT 1")
+        }
+    }
+    
+    private func columnExists(table: String, column: String) -> Bool {
+        let query = "PRAGMA table_info(\(table))"
+        var statement: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            return false
+        }
+        
+        defer { sqlite3_finalize(statement) }
+        
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let columnName = sqlite3_column_text(statement, 1) {
+                let name = String(cString: columnName)
+                if name == column {
+                    return true
+                }
+            }
+        }
+        
+        return false
     }
 }

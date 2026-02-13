@@ -2,75 +2,126 @@ import Foundation
 import UserNotifications
 import UIKit
 
-/// PushKernel - Decoupled core for APNs handling
-/// No tiene dependencias del Core SDK de AppAmbit
-/// Puede ser usado directamente por bridges (.NET/MAUI)
-public class PushKernel {
-    private static let tag = "AppAmbitPushSDK"
+/// Core logic for APNs handling.
+/// Decoupled from the main SDK for easy bridging to other platforms (e.g., .NET/MAUI).
+@objc(PushKernel)
+public class PushKernel: NSObject {
+    
+    // Internal State
     private nonisolated(unsafe) static var currentToken: String?
-    private nonisolated(unsafe) static var isEnabled: Bool = false
+    private nonisolated(unsafe) static var isEnabled: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.enabled")
+    /// The current Token Listener instance.
     private nonisolated(unsafe) static var tokenListener: TokenListener?
+    
+    /// Cached value for permission status to avoid blocking the caller.
+    private nonisolated(unsafe) static var lastKnownPermission: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.permission")
+    
+    /// Global notification listener for customization and interception.
+    private nonisolated(unsafe) static var notificationListener: ((UNNotification) -> Void)?
+
+
+    
+    /// Activates the automated swizzling and registration logic.
+    /// This is used by external platforms (like MAUI/Xamarin) that want to use PushKernel directly
+    /// but still benefit from the Zero-Config swizzling.
+    @objc public static func setupSwizzling() {
+        AppAmbitPushRegistration.setup()
+        
+        PushLogger.log("SetupSwizzling called. Initial isEnabled: \(isEnabled)")
+
+        // Auto-sync enabled state with system permission
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = settings.authorizationStatus
+            
+            // Cache the status for synchronous checks
+            let grantStatus = (status == .authorized || status == .provisional)
+            if lastKnownPermission != grantStatus {
+                lastKnownPermission = grantStatus
+                UserDefaults.standard.set(grantStatus, forKey: "com.appambit.push.permission")
+            }
+            
+            if grantStatus {
+                if !isEnabled {
+                     PushLogger.log("System permission detected (Auto-Sync). Enabling SDK state.")
+                     setNotificationsEnabled(true)
+                }
+            }
+        }
+    }
+
+    /// Configures the debug mode for the SDK logging.
+    @objc public static func setDebugMode(_ enabled: Bool) {
+        PushLogger.debugMode = enabled
+    }
+    
+    /// Returns the APN token captured during registration, if any.
     private nonisolated(unsafe) static var notificationCustomizer: NotificationCustomizer?
     
     // MARK: - Protocols
     
-    public protocol TokenListener: AnyObject {
-        func onNewToken(_ token: String)
+    @objc public protocol TokenListener: AnyObject {
+        @objc func onNewToken(_ token: String)
     }
     
-    public protocol PermissionListener {
-        func onPermissionResult(_ granted: Bool)
+    @objc public protocol PermissionListener: AnyObject {
+        @objc func onPermissionResult(_ granted: Bool)
     }
     
-    public protocol NotificationCustomizer: AnyObject {
-        func customizeNotification(_ notification: UNMutableNotificationContent, data: [String: Any])
+    @objc public protocol NotificationCustomizer: AnyObject {
+        @objc func customizeNotification(_ notification: UNMutableNotificationContent, data: [String: Any])
     }
     
-    // MARK: - Public Methods
+    // MARK: - Public API
     
-    public static func start() {
-        print("[\(tag)] Initializing Push Kernel...")
-        
-        // Configure UNUserNotificationCenter delegate
-        UNUserNotificationCenter.current().delegate = NotificationCenterDelegate.shared
-        
-        print("[\(tag)] Push Kernel initialized successfully.")
-    }
-    
-    public static func setNotificationsEnabled(_ enabled: Bool) {
+    @objc public static func setNotificationsEnabled(_ enabled: Bool) {
+        PushLogger.log("Force-setting enabled state to: \(enabled)")
         isEnabled = enabled
-        print("[\(tag)] Notifications enabled: \(enabled)")
+        UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
+        UserDefaults.standard.synchronize() // Force write for immediate persistence
+        PushLogger.log("Notifications enabled: \(enabled) (Saved to UserDefaults)")
         
         if !enabled {
             currentToken = nil
-            print("[\(tag)] Token cleared due to notifications being disabled.")
+            PushLogger.log("Token cleared as notifications were disabled.")
         }
     }
     
-    public static func isNotificationsEnabled() -> Bool {
+    @objc public static func isNotificationsEnabled() -> Bool {
+        PushLogger.log("Checking isNotificationsEnabled... Current value: \(isEnabled)")
         return isEnabled
     }
     
-    public static func getCurrentToken() -> String? {
+    @objc public static func getCurrentToken() -> String? {
         return currentToken
     }
     
-    public static func setTokenListener(_ listener: TokenListener?) {
+    @objc public static func setTokenListener(_ listener: TokenListener?) {
         tokenListener = listener
     }
     
-    public static func setNotificationCustomizer(_ customizer: NotificationCustomizer?) {
+    @objc public static func setNotificationCustomizer(_ customizer: NotificationCustomizer?) {
         notificationCustomizer = customizer
     }
+
+    /// Sets a professional closure-based listener for notifications.
+    public static func setNotificationListener(_ listener: ((UNNotification) -> Void)?) {
+        notificationListener = listener
+    }
     
-    public static func requestNotificationPermission(listener: PermissionListener?) {
+    /// Internal method to notify the registered listener about a new notification.
+    internal static func notifyNotificationReceived(_ notification: UNNotification) {
+        notificationListener?(notification)
+    }
+
+    /// Triggers the system notification permission request.
+    @objc public static func requestNotificationPermission(listener: PermissionListener?) {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                print("[\(tag)] Error requesting notification permission: \(error.localizedDescription)")
+                PushLogger.error("Error requesting permissions: \(error.localizedDescription)")
             }
             
-            print("[\(tag)] Notification permission granted: \(granted)")
+            PushLogger.log("Permission granted: \(granted)")
             listener?.onPermissionResult(granted)
             
             if granted {
@@ -82,41 +133,29 @@ public class PushKernel {
         }
     }
     
-    public static func handleNewToken(_ token: String) {
+    /// Processes a new APNs token and notifies the listener if it has changed.
+    @objc public static func handleNewToken(_ token: String) {
         guard token != currentToken else {
-            print("[\(tag)] Token unchanged, skipping update.")
             return
         }
         
         currentToken = token
-        print("[\(tag)] New APNs Token received: \(token)")
-        print("[\(tag)] Token length: \(token.count) characters")
+        PushLogger.log("New APNs Token (Kernel): \(token)")
         
         tokenListener?.onNewToken(token)
     }
-    
-    // MARK: - Internal Delegate
-    
-    private class NotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
-        nonisolated(unsafe) static let shared = NotificationCenterDelegate()
-        
-        func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                   willPresent notification: UNNotification,
-                                   withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-            print("[\(tag)] Notification received in foreground")
-            
-            if #available(iOS 14.0, *) {
-                completionHandler([.banner, .sound, .badge])
-            } else {
-                completionHandler([.alert, .sound, .badge])
+
+    @objc public static func hasNotificationPermission() -> Bool {
+        // Trigger an async update for the next call
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            if status != lastKnownPermission {
+                lastKnownPermission = status
+                UserDefaults.standard.set(status, forKey: "com.appambit.push.permission")
             }
         }
         
-        func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                   didReceive response: UNNotificationResponse,
-                                   withCompletionHandler completionHandler: @escaping () -> Void) {
-            print("[\(tag)] Notification tapped by user")
-            completionHandler()
-        }
+        // Return last known state immediately
+        return lastKnownPermission
     }
 }

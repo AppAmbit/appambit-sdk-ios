@@ -75,7 +75,7 @@ public final class Crashes: NSObject, @unchecked Sendable {
     // MARK: - Singleton
     public static let shared = Crashes()
 
-    // MARK: - Servicios
+    // MARK: - Services
     private var apiService: ApiService?
     private var storageService: StorageService?
 

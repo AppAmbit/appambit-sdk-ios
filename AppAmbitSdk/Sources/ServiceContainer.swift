@@ -23,7 +23,7 @@ final class ServiceContainer {
                 )
             }
 
-            reachabilityService = reachability            
+            reachabilityService = reachability
 
         } catch {
             debugPrint("Error initializing ServiceContainer: \(error.localizedDescription)")
