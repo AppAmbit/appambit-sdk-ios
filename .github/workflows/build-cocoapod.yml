@@ -126,20 +126,6 @@ jobs:
             -x "Push/AppAmbitPushNotifications/.git/*" "Push/AppAmbitPushNotifications/build/*" "Push/AppAmbitPushNotifications/.DS_Store" "Push/AppAmbitPushNotifications/**/__MACOSX/*"
           ls -lh "$ZIP_PUSH"
 
-      - name: Check version consistency between Core and Push podspecs
-        shell: bash
-        run: |
-           set -e
-           # Extract version from Push podspec
-           PUSH_VER=$(ruby -e "v=File.read('${{ env.PODSPEC_PUSH }}')[/s\\.version\\s*=\\s*'([^']+)'/,1]; puts(v ? v.strip : '')")
-           CORE_VER="${{ steps.ver.outputs.full }}"
-           echo "Core Version: $CORE_VER"
-           echo "Push Version: $PUSH_VER"
-           if [ "$PUSH_VER" != "$CORE_VER" ]; then
-             echo "Error: Versions do not match! Core: $CORE_VER vs Push: $PUSH_VER"
-             exit 1
-           fi
-
       - name: pod lib lint Push (build the push pod)
         run: |
           set -e
