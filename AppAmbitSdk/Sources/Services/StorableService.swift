@@ -999,6 +999,36 @@ final class StorableService: StorageService {
                 }
             }
             
+            // Delete obsolete keys
+            let incomingKeys = Set(configs.map { $0.key })
+            let selectAllSQL = "SELECT \(RemoteConfigEntityConfiguration.Column.key.name) FROM \(RemoteConfigEntityConfiguration.tableName);"
+            var selectAllStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, selectAllSQL, -1, &selectAllStmt, nil) == SQLITE_OK {
+                var keysToDelete: [String] = []
+                while sqlite3_step(selectAllStmt) == SQLITE_ROW {
+                    if let cStr = sqlite3_column_text(selectAllStmt, 0) {
+                        let key = String(cString: cStr)
+                        if !incomingKeys.contains(key) {
+                            keysToDelete.append(key)
+                        }
+                    }
+                }
+                sqlite3_finalize(selectAllStmt)
+                
+                if !keysToDelete.isEmpty {
+                    let deleteSQL = "DELETE FROM \(RemoteConfigEntityConfiguration.tableName) WHERE \(RemoteConfigEntityConfiguration.Column.key.name) = ?;"
+                    var deleteStmt: OpaquePointer?
+                    if sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStmt, nil) == SQLITE_OK {
+                        for key in keysToDelete {
+                            bindText(deleteStmt, index: 1, value: key)
+                            sqlite3_step(deleteStmt)
+                            sqlite3_reset(deleteStmt)
+                        }
+                        sqlite3_finalize(deleteStmt)
+                    }
+                }
+            }
+            
             guard sqlite3_exec(db, "COMMIT", nil, nil, nil) == SQLITE_OK else {
                 throw sqliteError
             }

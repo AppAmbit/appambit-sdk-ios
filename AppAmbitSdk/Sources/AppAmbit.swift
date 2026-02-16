@@ -225,10 +225,10 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
     private func onStart(completion: @escaping @Sendable () -> Void) {
         initializeServices()
-        RemoteConfig.fetchAndStoreConfig()
 
         initializeConsumer {
             // Sync any persisted push data with the backend
+            RemoteConfig.fetchAndStoreConfig()
             ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
@@ -330,7 +330,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-
+        RemoteConfig.fetchAndStoreConfig()
         Crashes.shared.loadCrashFileIfExists { error in
             guard error == nil else { return }
             BreadcrumbManager.loadBreadcrumbsFromFile { _ in
