@@ -80,8 +80,13 @@ jobs:
       - name: Tag & Push (tag current commit)
         run: |
           set -e
-          git tag "${{ steps.ver.outputs.full }}"
-          git push origin "${{ steps.ver.outputs.full }}"
+          TAG="${{ steps.ver.outputs.full }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists. Skipping."
+          else
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
 
       - name: Build SDK zip (only AppAmbitSdk/)
         shell: bash
