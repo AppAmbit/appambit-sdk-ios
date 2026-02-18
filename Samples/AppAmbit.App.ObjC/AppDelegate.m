@@ -14,6 +14,7 @@
     // Uncomment the line for manual session management
     //[Analytics enableManualSession];
 
+    [RemoteConfig enable];
     [AppAmbit start:@"<YOUR-APPKEY>"];
     [PushNotifications start];
 
