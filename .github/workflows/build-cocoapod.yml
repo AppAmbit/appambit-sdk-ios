@@ -72,12 +72,20 @@ jobs:
           [ "$PS" = "$CL" ] || { echo "s.version ($PS) != version in CHANGELOG ($CL)."; exit 1; }
           echo "OK: s.version matches CHANGELOG."
 
-      - name: pod lib lint (build the pod)
+      - name: Skip if tag already exists
+        id: check_tag
         run: |
           set -e
-          pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
+          TAG="${{ steps.ver.outputs.full }}"
+          if git ls-remote --tags origin | grep -q -E "refs/tags/${TAG}(\^\{\})?$"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG exists. Skipping."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Tag & Push (tag current commit)
+        if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
           TAG="${{ steps.ver.outputs.full }}"
@@ -89,6 +97,7 @@ jobs:
           fi
 
       - name: Build SDK zip (only AppAmbitSdk/)
+        if: steps.check_tag.outputs.skip == 'false'
         shell: bash
         run: |
           set -e
@@ -100,6 +109,7 @@ jobs:
           ls -lh "$ZIP"
 
       - name: Build Push Notifications zip
+        if: steps.check_tag.outputs.skip == 'false'
         shell: bash
         run: |
           set -e
@@ -110,12 +120,20 @@ jobs:
             -x "Push/AppAmbitPushNotifications/.git/*" "Push/AppAmbitPushNotifications/build/*" "Push/AppAmbitPushNotifications/.DS_Store" "Push/AppAmbitPushNotifications/**/__MACOSX/*"
           ls -lh "$ZIP_PUSH"
 
+      - name: pod lib lint (build the pod)
+        if: steps.check_tag.outputs.skip == 'false'
+        run: |
+          set -e
+          pod lib lint ${{ env.PODSPEC }} --platforms=ios --fail-fast --verbose --allow-warnings
+      
       - name: pod lib lint Push (build the push pod)
+        if: steps.check_tag.outputs.skip == 'false'
         run: |
           set -e
           pod lib lint ${{ env.PODSPEC_PUSH }} --platforms=ios --fail-fast --verbose --allow-warnings --include-podspecs='${{ env.PODSPEC }}'
 
       - name: Create GitHub Release (CHANGELOG notes)
+        if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name:  ${{ steps.ver.outputs.full }}
@@ -127,10 +145,12 @@ jobs:
             AppAmbitPushNotifications-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
+        if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main')
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
           set -e
           [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
           pod trunk me || true
+          pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
           pod trunk push ${{ env.PODSPEC_PUSH }} --allow-warnings --verbose
