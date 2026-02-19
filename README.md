@@ -31,6 +31,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * Session analytics with automatic lifecycle tracking
 * Ambit Trail records detailed navigation for debugging
 * Event tracking with custom properties
+* Remote Config – dynamic configuration values fetched and applied at runtime
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
@@ -61,7 +62,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 0.2.0'
+pod 'AppAmbitSdk', '~> 0.3.0'
 ```
 
 Then run:
@@ -142,6 +143,38 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     UIViewController *vc = [UIViewController new];
     vc.title = @"MyMview";
     [self.navigationController pushViewController:vc animated:YES];
+  ```
+
+* **Remote Config**: fetch and apply remote configuration values asynchronously using type-safe methods (`getString`, `getBoolean`, `getInt`, `getDouble`).
+
+  ### Swift
+
+  ```swift
+  // Enable remote config
+  RemoteConfig.enable()
+  ```
+
+  ```swift
+  // Get remote config values with type-safe methods
+  let message = RemoteConfig.getString("data")
+  let isFeatureEnabled = RemoteConfig.getBoolean("banner")
+  let discount = RemoteConfig.getInt("discount")
+  let maxUpload = RemoteConfig.getDouble("max_upload")
+  ```
+
+  ### Objective-C
+
+  ```objective-c
+  // Enable remote config
+  [RemoteConfig enable];
+  ```
+
+  ```objective-c
+  // Get remote config values with type-safe methods
+  NSString *message = [RemoteConfig getString:@"data"];
+  BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
+  NSInteger discount = [RemoteConfig getInt:@"discount"];
+  double maxUpload = [RemoteConfig getDouble:@"max_upload"];
   ```
 
 ---

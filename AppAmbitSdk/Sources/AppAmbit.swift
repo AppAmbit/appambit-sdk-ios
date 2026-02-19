@@ -168,6 +168,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         Analytics.initialize(apiService: apiService, storageService: storageService)
         SessionManager.initialize(apiService: apiService, storageService: storageService)
+        RemoteConfig.initialize(apiService: apiService, storageService: storageService)
         BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
         Crashes.initialize(apiService: apiService, storageService: storageService)
         Logging.initialize(apiService: apiService, storageService: storageService)
@@ -185,6 +186,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 let afterTokenReady: @Sendable () -> Void = {
                     guard SessionManager.isSessionActive else { return }
 
+                    RemoteConfig.fetchAndStoreConfig()
                     SessionManager.sendEndSessionFromDatabase { _ in
                         SessionManager.sendStartSessionIfExist { _ in
                             Crashes.shared.loadCrashFileIfExists { error in
@@ -226,6 +228,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
         initializeConsumer {
             // Sync any persisted push data with the backend
+            RemoteConfig.fetchAndStoreConfig()
             ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
             self.didSendOnStart = true
@@ -327,7 +330,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-
+        RemoteConfig.fetchAndStoreConfig()
         Crashes.shared.loadCrashFileIfExists { error in
             guard error == nil else { return }
             BreadcrumbManager.loadBreadcrumbsFromFile { _ in
