@@ -1,6 +1,12 @@
+## Version 0.3.0
+
+### AppAmbit
+
+* **[Feature]** - Added Remote Config support to AppAmbit, allowing dynamic configuration of app behavior without requiring app updates.
+
 ## Version 0.2.0
 
-## AppAmbit Push Notifications
+### AppAmbit Push Notifications
 
 * **[Feature]** - Added support for push notification messaging via AppAmbit dashboard
 

@@ -62,7 +62,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 0.2.0'
+pod 'AppAmbitSdk', '~> 0.3.0'
 ```
 
 Then run:

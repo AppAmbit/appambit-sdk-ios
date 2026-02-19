@@ -31,7 +31,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitPushNotifications'
 # or specify version
-pod 'AppAmbitPushNotifications', '~> 0.2.0'
+pod 'AppAmbitPushNotifications', '~> 0.3.0'
 ```
 
 Then run:
