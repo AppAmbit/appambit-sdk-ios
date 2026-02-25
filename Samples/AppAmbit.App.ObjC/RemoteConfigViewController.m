@@ -228,7 +228,7 @@
 - (void)updateValues {
     self.bannerVisible = [RemoteConfig getBoolean:@"banner"];
     self.message = [RemoteConfig getString:@"data"];
-    self.discount = [RemoteConfig getInt:@"discount"];
+    self.discount = [RemoteConfig getLong:@"discount"];
     self.maxUpload = [RemoteConfig getDouble:@"max_upload"];
     
     dispatch_async(dispatch_get_main_queue(), ^{

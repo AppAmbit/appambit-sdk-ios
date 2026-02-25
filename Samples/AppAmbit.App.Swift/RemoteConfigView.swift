@@ -5,7 +5,7 @@ struct RemoteConfigView: View {
     
     @State private var bannerVisible: Bool = false
     @State private var message: String = ""
-    @State private var discount: Int = 0
+    @State private var discount: Int64 = 0
     @State private var maxUpload: Double = 0.0
 
     var body: some View {
@@ -89,7 +89,7 @@ struct RemoteConfigView: View {
     private func updateValues() {
         bannerVisible = RemoteConfig.getBoolean("banner")
         message = RemoteConfig.getString("data")
-        discount = RemoteConfig.getInt("discount")
+        discount = RemoteConfig.getLong("discount")
         maxUpload = RemoteConfig.getDouble("max_upload")
     }
 }
