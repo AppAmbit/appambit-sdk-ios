@@ -8,6 +8,7 @@ struct AppAmbitTestingApp: App {
     init() {
         //Uncomment the line for manual session management
         //Analytics.enableManualSession()
+        //Analytics.enableAlwaysSendBreadcrumbs()
         RemoteConfig.enable()
         AppAmbit.start(appKey: "<YOUR-APPKEY>") {
             PushNotifications.start(debugMode: true)

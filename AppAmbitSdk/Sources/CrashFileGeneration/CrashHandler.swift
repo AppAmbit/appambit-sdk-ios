@@ -224,7 +224,7 @@ class CrashHandler: @unchecked Sendable {
         }
     }
     
-    private static func existCrashFlag() -> Bool {
+    static func existCrashFlag() -> Bool {
         guard let flagFileUrl = getCrashFlagFileUrl() else { return false }
         let crashed = FileManager.default.fileExists(atPath: flagFileUrl.path)
         debugPrint("[Crashes] didCrashInLastSession: \(crashed ? "YES" : "NO")")

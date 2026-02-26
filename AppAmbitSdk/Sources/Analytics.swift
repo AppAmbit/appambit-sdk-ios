@@ -57,6 +57,16 @@ public final class Analytics: NSObject, @unchecked Sendable {
         Queues.state.async { isManualSessionEnabled = true }
     }
 
+    @nonobjc
+    public static func enableAlwaysSendBreadcrumbs() {
+        BreadcrumbManager.isCrashOnlyMode = false
+    }
+
+    @objc(enableAlwaysSendBreadcrumbs)
+    public static func enableAlwaysSendBreadcrumbsObjC() {
+        enableAlwaysSendBreadcrumbs()
+    }
+
     public static func clearToken() {
         Queues.state.async { ServiceContainer.shared.apiService.setToken("") }
     }

@@ -19,6 +19,8 @@ final class BreadcrumbManager: @unchecked Sendable {
     static let shared = BreadcrumbManager()
     private init() {}
 
+    nonisolated(unsafe) static var isCrashOnlyMode: Bool = true
+
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.api = apiService
         shared.storage = storageService
@@ -31,7 +33,13 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
         if !shouldProceed { return }
         let entity = createBreadcrumb(name: name)
-        sendBreadcumbs(entity: entity)
+        if isCrashOnlyMode {
+            let data = entity.toData(sessionId: SessionManager.sessionId)
+            let saved = FileUtils.getSaveJsonArray(BreadcrumbsConstants.fileName, entry: data)
+            AppAmbitLogger.log(message: "[Breadcrumb] Saved to disk (crash-only): '\(name)' — total on disk: \(saved.count)")
+        } else {
+            sendBreadcumbs(entity: entity)
+        }
     }
 
     static func saveFile(name: String) {
@@ -63,6 +71,7 @@ final class BreadcrumbManager: @unchecked Sendable {
             let count = files.count
 
             guard count > 0 else {
+                AppAmbitLogger.log(message: "[Breadcrumb] No breadcrumbs found on disk to load")
                 completion?(nil)
                 release()
                 return
@@ -98,6 +107,24 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
     }
 
+
+    static func clearAllCachedBreadcrumbs(completion: (@Sendable () -> Void)? = nil) {
+        FileUtils.updateJsonArray(BreadcrumbsConstants.fileName, updatedList: [BreadcrumbData]())
+        AppAmbitLogger.log(message: "Breadcrumbs disk cache cleared (no crash detected)")
+
+        Queues.diskRoot.async {
+            do {
+                let stored = try shared.storage?.getOldest100Breadcrumbs() ?? []
+                if !stored.isEmpty {
+                    try shared.storage?.deleteBreadcrumbList(stored)
+                    AppAmbitLogger.log(message: "Cleared \(stored.count) breadcrumb(s) from database")
+                }
+            } catch {
+                AppAmbitLogger.log(message: "Failed to clear breadcrumbs from database: \(error.localizedDescription)")
+            }
+            completion?()
+        }
+    }
 
     static func sendBatchBreadcrumbs(completion: (@Sendable (Error?) -> Void)? = nil) {
         batchLock.lock()
