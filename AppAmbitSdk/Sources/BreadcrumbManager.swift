@@ -111,19 +111,7 @@ final class BreadcrumbManager: @unchecked Sendable {
     static func clearAllCachedBreadcrumbs(completion: (@Sendable () -> Void)? = nil) {
         FileUtils.updateJsonArray(BreadcrumbsConstants.fileName, updatedList: [BreadcrumbData]())
         AppAmbitLogger.log(message: "Breadcrumbs disk cache cleared (no crash detected)")
-
-        Queues.diskRoot.async {
-            do {
-                let stored = try shared.storage?.getOldest100Breadcrumbs() ?? []
-                if !stored.isEmpty {
-                    try shared.storage?.deleteBreadcrumbList(stored)
-                    AppAmbitLogger.log(message: "Cleared \(stored.count) breadcrumb(s) from database")
-                }
-            } catch {
-                AppAmbitLogger.log(message: "Failed to clear breadcrumbs from database: \(error.localizedDescription)")
-            }
-            completion?()
-        }
+        completion?()
     }
 
     static func sendBatchBreadcrumbs(completion: (@Sendable (Error?) -> Void)? = nil) {
