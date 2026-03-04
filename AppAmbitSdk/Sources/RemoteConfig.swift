@@ -79,17 +79,25 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     }
     
     @objc
-    public static func getInt(_ key: String) -> Int {
+    public static func getLong(_ key: String) -> Int64 {
         let value = getValue(key)
-        if let intValue = value as? Int {
+        
+        if let intValue = value as? Int64 {
             return intValue
         }
+        
+        if let intValue = value as? Int {
+            return Int64(intValue)
+        }
+        
         if let stringValue = value as? String {
-            return Int(stringValue) ?? 0
+            return Int64(stringValue) ?? 0
         }
+        
         if let numberValue = value as? NSNumber {
-            return numberValue.intValue
+            return numberValue.int64Value
         }
+        
         return 0
     }
     

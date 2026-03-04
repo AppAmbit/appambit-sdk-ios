@@ -105,14 +105,14 @@ final class RemoteConfigTests: XCTestCase {
         XCTAssertEqual(value, "")
     }
     
-    func testGetIntShouldReturnParsedIntegerFromStorage() {
+    func testGetLongShouldReturnParsedLongFromStorage() {
         // Given
         RemoteConfig.enable()
         let entity = RemoteConfigEntity(id: "1", key: "max_items", value: "10")
         try? storageService.putConfigs([entity])
         
         // When
-        let value = RemoteConfig.getInt("max_items")
+        let value = RemoteConfig.getLong("max_items")
         
         // Then
         XCTAssertEqual(value, 10)
