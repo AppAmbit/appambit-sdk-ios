@@ -13,15 +13,14 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
         shared.apiService = apiService
         shared.storageService = storageService
         isFetchCompleted = false
-        isEnable = true
     }
     
-    private nonisolated(unsafe) static var isEnable = true
+    private nonisolated(unsafe) static var isEnable = false
     private nonisolated(unsafe) static var isFetchCompleted = false
 
     @objc
-    public static func disable() {
-        isEnable = false
+    public static func enable() {
+        isEnable = true
     }
     
     static func fetchAndStoreConfig(completion: @escaping @Sendable (Bool) -> Void) {

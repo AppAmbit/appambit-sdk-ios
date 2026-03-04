@@ -19,7 +19,7 @@ final class BreadcrumbManager: @unchecked Sendable {
     static let shared = BreadcrumbManager()
     private init() {}
 
-    nonisolated(unsafe) static var isCrashOnlyMode: Bool = true
+    nonisolated(unsafe) static var isCrashOnlyMode: Bool = false
 
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.api = apiService
