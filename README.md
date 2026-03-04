@@ -145,7 +145,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
     [self.navigationController pushViewController:vc animated:YES];
   ```
 
-* **Remote Config**: fetch and apply remote configuration values asynchronously using type-safe methods (`getString`, `getBoolean`, `getInt`, `getDouble`).
+* **Remote Config**: fetch and apply remote configuration values asynchronously using type-safe methods (`getString`, `getBoolean`, `getLong`, `getDouble`).
 
   ### Swift
 
@@ -158,7 +158,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   // Get remote config values with type-safe methods
   let message = RemoteConfig.getString("data")
   let isFeatureEnabled = RemoteConfig.getBoolean("banner")
-  let discount = RemoteConfig.getInt("discount")
+  let discount = RemoteConfig.getLong("discount")
   let maxUpload = RemoteConfig.getDouble("max_upload")
   ```
 
@@ -173,7 +173,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   // Get remote config values with type-safe methods
   NSString *message = [RemoteConfig getString:@"data"];
   BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
-  NSInteger discount = [RemoteConfig getInt:@"discount"];
+  NSInteger discount = [RemoteConfig getLong:@"discount"];
   double maxUpload = [RemoteConfig getDouble:@"max_upload"];
   ```
 
