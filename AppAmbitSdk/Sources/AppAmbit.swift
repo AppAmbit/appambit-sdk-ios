@@ -177,6 +177,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.initialize(apiService: apiService, storageService: storageService)
         Logging.initialize(apiService: apiService, storageService: storageService)
 
+
         self.reachability = reachabilityService
 
         monitor.pathUpdateHandler = { [weak self] path in
@@ -190,19 +191,20 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 let afterTokenReady: @Sendable () -> Void = {
                     guard SessionManager.isSessionActive else { return }
 
-                    RemoteConfig.fetchAndStoreConfig()
-                    SessionManager.sendEndSessionFromDatabase { _ in
-                        SessionManager.sendStartSessionIfExist { _ in
-                            Crashes.shared.loadCrashFileIfExists { error in
-                                guard error == nil else { return }
-                                Queues.crashFiles.async {
-                                    if BreadcrumbManager.isCrashOnlyMode {
-                                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
-                                        self.sendAllPendingData()
-                                    } else {
-                                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                    RemoteConfig.fetchAndStoreConfig { _ in
+                        SessionManager.sendEndSessionFromDatabase { _ in
+                            SessionManager.sendStartSessionIfExist { _ in
+                                Crashes.shared.loadCrashFileIfExists { error in
+                                    guard error == nil else { return }
+                                    Queues.crashFiles.async {
+                                        if BreadcrumbManager.isCrashOnlyMode {
                                             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
                                             self.sendAllPendingData()
+                                        } else {
+                                            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
+                                                self.sendAllPendingData()
+                                            }
                                         }
                                     }
                                 }
@@ -236,33 +238,34 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         initializeServices()
 
         initializeConsumer {
-            RemoteConfig.fetchAndStoreConfig()
-            ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
-            self.didSendOnStart = true
+            RemoteConfig.fetchAndStoreConfig { _ in
+                ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
+                self.didSendOnStart = true
 
-            Crashes.shared.loadCrashFileIfExists { error in
-                if error != nil {
-                    BreadcrumbManager.clearAllCachedBreadcrumbs {
-                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
-                        completion()
-                    }
-                    return
-                }
-
-                let hadCrash = CrashHandler.existCrashFlag()
-
-                Queues.crashFiles.async {
-                    if hadCrash {
-                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                            self.sendAllPendingData()
+                Crashes.shared.loadCrashFileIfExists { error in
+                    if error != nil {
+                        BreadcrumbManager.clearAllCachedBreadcrumbs {
                             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
                             completion()
                         }
-                    } else {
-                        BreadcrumbManager.clearAllCachedBreadcrumbs {
-                            self.sendAllPendingData()
-                            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
-                            completion()
+                        return
+                    }
+
+                    let hadCrash = CrashHandler.existCrashFlag()
+
+                    Queues.crashFiles.async {
+                        if hadCrash {
+                            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                self.sendAllPendingData()
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+                                completion()
+                            }
+                        } else {
+                            BreadcrumbManager.clearAllCachedBreadcrumbs {
+                                self.sendAllPendingData()
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+                                completion()
+                            }
                         }
                     }
                 }
@@ -351,25 +354,26 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-        RemoteConfig.fetchAndStoreConfig()
-        Crashes.shared.loadCrashFileIfExists { error in
-            guard error == nil else { return }
-            let proceed: @Sendable (@escaping @Sendable () -> Void) -> Void = { done in
-                if BreadcrumbManager.isCrashOnlyMode {
-                    done()
-                } else {
-                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in done() }
+        RemoteConfig.fetchAndStoreConfig { _ in
+            Crashes.shared.loadCrashFileIfExists { error in
+                guard error == nil else { return }
+                let proceed: @Sendable (@escaping @Sendable () -> Void) -> Void = { done in
+                    if BreadcrumbManager.isCrashOnlyMode {
+                        done()
+                    } else {
+                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in done() }
+                    }
                 }
-            }
-            proceed {
-                Queues.crashFiles.async {
-                    SessionManager.sendEndSessionFromDatabase { _ in
-                        SessionManager.sendStartSessionIfExist { [weak self] _ in
-                            guard let self = self else { return }
-                            if shouldSendResume {
-                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                proceed {
+                    Queues.crashFiles.async {
+                        SessionManager.sendEndSessionFromDatabase { _ in
+                            SessionManager.sendStartSessionIfExist { [weak self] _ in
+                                guard let self = self else { return }
+                                if shouldSendResume {
+                                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                                }
+                                self.sendAllPendingData()
                             }
-                            self.sendAllPendingData()
                         }
                     }
                 }

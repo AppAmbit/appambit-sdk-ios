@@ -12,41 +12,66 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.apiService = apiService
         shared.storageService = storageService
-    }
-    
-    private nonisolated(unsafe) static var isEnable = false
-    private nonisolated(unsafe) static var isFetchCompleted = false
-    
-    @objc
-    public static func enable() {
+        isFetchCompleted = false
         isEnable = true
     }
     
-    static func fetchAndStoreConfig() {
-        if !isEnable || isFetchCompleted {
+    private nonisolated(unsafe) static var isEnable = true
+    private nonisolated(unsafe) static var isFetchCompleted = false
+
+    @objc
+    public static func disable() {
+        isEnable = false
+    }
+    
+    static func fetchAndStoreConfig(completion: @escaping @Sendable (Bool) -> Void) {
+        if !isEnable {
+            AppAmbitLogger.log(message: "RemoteConfig: fetchAndStoreConfig skipped -> !isEnable")
+            completion(false)
+            return
+        }
+        if isFetchCompleted {
+            AppAmbitLogger.log(message: "RemoteConfig: fetchAndStoreConfig skipped -> isFetchCompleted")
+            completion(false)
             return
         }
         
         guard let apiService = shared.apiService,
               let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else {
             AppAmbitLogger.log(message: "RemoteConfig: No initialized services")
+            completion(false)
             return
         }
         
+        AppAmbitLogger.log(message: "RemoteConfig: Fetching configurations...")
         let endpoint = RemoteConfigEndpoint(appVersion: appVersion)
         
         apiService.executeRequest(endpoint, responseType: RemoteConfigResponse.self) { result in
             if let response = result.data {
-                if let newConfigs = response.configs {
+                AppAmbitLogger.log(message: "RemoteConfig: Received response: \(String(describing: response.configs))")
+                if let newConfigs = response.configs, !newConfigs.isEmpty {
                     let entities = newConfigs.map { (key, value) in
                         let stringValue = String(describing: value.value)
                         return RemoteConfigEntity(id: UUID().uuidString, key: key, value: stringValue)
                     }
                     RemoteConfig.isFetchCompleted = true
                     try? shared.storageService?.putConfigs(entities)
+                    
+                    if let configVal = newConfigs[AppConstants.liveSessionStreaming] {
+                        let stringVal = String(describing: configVal.value)
+                        let remoteValue = (stringVal as NSString).boolValue
+                        BreadcrumbManager.isCrashOnlyMode = !remoteValue
+                    } else {
+                        BreadcrumbManager.isCrashOnlyMode = false
+                    }
+                } else {
+                    BreadcrumbManager.isCrashOnlyMode = false
                 }
+                AppAmbitLogger.log(message: "RemoteConfig: Fetch succeeded, isCrashOnlyMode = \(BreadcrumbManager.isCrashOnlyMode)")
+                completion(true)
             } else {
                 AppAmbitLogger.log(message: "RemoteConfig: Fetch failed: \(result.errorType)")
+                completion(false)
             }
         }
     }
@@ -67,9 +92,8 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
             return boolValue
         }
         if let stringValue = value as? String {
-            if let boolValue = Bool(stringValue) {
-                return boolValue
-            }
+            // Bool(stringValue) is strictly lowercase "true" / "false"
+            // (stringValue as NSString).boolValue correctly parses "True", "TRUE", "1"
             return (stringValue as NSString).boolValue
         }
         if let numberValue = value as? NSNumber {
@@ -109,8 +133,6 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     }
     
     private static func getValue(_ key: String) -> Any? {
-        guard RemoteConfig.isEnable else { return nil }
-        
         if let storageService = shared.storageService,
            let config = try? storageService.getConfig(key: key) {
             return config.value
