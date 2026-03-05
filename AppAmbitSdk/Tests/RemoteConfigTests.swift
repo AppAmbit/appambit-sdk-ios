@@ -31,7 +31,7 @@ final class RemoteConfigTests: XCTestCase {
         apiService.stub(RemoteConfigEndpoint.self, result: ApiResult<RemoteConfigResponse>(data: nil, errorType: .networkUnavailable))
         
         // When
-        RemoteConfig.fetchAndStoreConfig()
+        RemoteConfig.fetchAndStoreConfig { _ in }
         
         // Allow async API call to complete
         let expectationFail = XCTestExpectation(description: "wait for fetch failure")
@@ -52,7 +52,7 @@ final class RemoteConfigTests: XCTestCase {
         apiService.stub(RemoteConfigEndpoint.self, result: ApiResult(data: mockResponse, errorType: .none))
         
         // When
-        RemoteConfig.fetchAndStoreConfig()
+        RemoteConfig.fetchAndStoreConfig { _ in }
         
         // Allow async API call to complete
         let expectationSuccess = XCTestExpectation(description: "wait for fetch success")
@@ -70,7 +70,7 @@ final class RemoteConfigTests: XCTestCase {
         
         // 3. Test Caching (isFetchCompleted = true)
         // When calling again
-        RemoteConfig.fetchAndStoreConfig()
+        RemoteConfig.fetchAndStoreConfig { _ in }
         
         // Then
         // Expect NO new call (total remains 2).

@@ -13,6 +13,7 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
         shared.apiService = apiService
         shared.storageService = storageService
         isFetchCompleted = false
+        applyCachedConfigToBreadcrumbManager()
     }
     
     private nonisolated(unsafe) static var isEnable = false
@@ -21,6 +22,19 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
     @objc
     public static func enable() {
         isEnable = true
+        applyCachedConfigToBreadcrumbManager()
+    }
+    
+    private static func applyCachedConfigToBreadcrumbManager() {
+        if !isEnable { return }
+        
+        if let configVal = getValue(AppConstants.liveSessionStreaming) {
+            let stringVal = String(describing: configVal)
+            let remoteValue = (stringVal as NSString).boolValue
+            BreadcrumbManager.isCrashOnlyMode = !remoteValue
+        } else {
+            BreadcrumbManager.isCrashOnlyMode = false
+        }
     }
     
     static func fetchAndStoreConfig(completion: @escaping @Sendable (Bool) -> Void) {
