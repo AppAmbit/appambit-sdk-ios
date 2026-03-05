@@ -91,8 +91,6 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
             return boolValue
         }
         if let stringValue = value as? String {
-            // Bool(stringValue) is strictly lowercase "true" / "false"
-            // (stringValue as NSString).boolValue correctly parses "True", "TRUE", "1"
             return (stringValue as NSString).boolValue
         }
         if let numberValue = value as? NSNumber {

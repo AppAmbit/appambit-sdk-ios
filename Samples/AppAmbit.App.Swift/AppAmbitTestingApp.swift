@@ -6,9 +6,7 @@ import AppAmbitPushNotifications
 struct AppAmbitTestingApp: App {
     
     init() {
-        //Uncomment the line for manual session management
-        //Analytics.enableManualSession()
-        //RemoteConfig.enable()
+        RemoteConfig.enable()
         AppAmbit.start(appKey: "<YOUR-APPKEY>") {
             PushNotifications.start(debugMode: true)
           }
