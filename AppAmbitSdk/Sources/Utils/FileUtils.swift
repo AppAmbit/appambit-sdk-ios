@@ -103,26 +103,28 @@ final class FileUtils {
     }
     
     static func getSaveJsonArray<T: Codable & IIdentifiable>(_ fileName: String, entry: T?) -> [T] {
+        let prepared = prepareFileSettings(fileName)
+        let url = prepared.url
+        let encoder = prepared.encoder
+        let decoder = prepared.decoder
+
         do {
-            let prepared = prepareFileSettings(fileName)
-            let url = prepared.url
-            let encoder = prepared.encoder
-            let decoder = prepared.decoder
-            
-            var list: [T] = []
-            if fileManager.fileExists(atPath: url.path) {
-                let data = try Data(contentsOf: url)
-                list = (try? decoder.decode([T].self, from: data)) ?? []
+            return try safeSync {
+                var list: [T] = []
+                if fileManager.fileExists(atPath: url.path) {
+                    let data = try Data(contentsOf: url)
+                    list = (try? decoder.decode([T].self, from: data)) ?? []
+                }
+
+                if let entry = entry, !list.contains(where: { $0.id == entry.id }) {
+                    list.append(entry)
+                    let listSorted = list.sorted { $0.timestamp < $1.timestamp }
+                    let out = try encoder.encode(listSorted)
+                    try out.write(to: url, options: .atomic)
+                }
+
+                return list
             }
-            
-            if let entry = entry, !list.contains(where: { $0.id == entry.id }) {
-                list.append(entry)
-                let listSorted = list.sorted { $0.timestamp < $1.timestamp }
-                let out = try encoder.encode(listSorted)
-                try safeSync { try out.write(to: url, options: .atomic) }
-            }
-            
-            return list
         } catch {
             AppAmbitLogger.log(message: "File Exception: \(error.localizedDescription)")
             return []

@@ -8,4 +8,5 @@ class AppConstants {
     static let trackEventNameMaxLimit = 80;
     static let trackEventMaxPropertyLimit = 20;
     static let trackEventPropertyMaxCharacters = 80;
+    static let liveSessionStreaming = "live_session_streaming"
 }
