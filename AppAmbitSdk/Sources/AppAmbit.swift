@@ -139,7 +139,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 Crashes.shared.loadCrashFileIfExists { error in
                     guard error == nil else { return }
                     Queues.crashFiles.async {
-                        if BreadcrumbManager.isCrashOnlyMode {
+                        if BreadcrumbManager.streamCrashSessionsOnly {
                             self.sendAllPendingData()
                         } else {
                             BreadcrumbManager.loadBreadcrumbsFromFile { _ in
@@ -197,7 +197,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                                 Crashes.shared.loadCrashFileIfExists { error in
                                     guard error == nil else { return }
                                     Queues.crashFiles.async {
-                                        if BreadcrumbManager.isCrashOnlyMode {
+                                        if BreadcrumbManager.streamCrashSessionsOnly {
                                             BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
                                             self.sendAllPendingData()
                                         } else {
@@ -358,7 +358,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
             Crashes.shared.loadCrashFileIfExists { error in
                 guard error == nil else { return }
                 let proceed: @Sendable (@escaping @Sendable () -> Void) -> Void = { done in
-                    if BreadcrumbManager.isCrashOnlyMode {
+                    if BreadcrumbManager.streamCrashSessionsOnly {
                         done()
                     } else {
                         BreadcrumbManager.loadBreadcrumbsFromFile { _ in done() }

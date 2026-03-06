@@ -19,7 +19,7 @@ final class BreadcrumbManager: @unchecked Sendable {
     static let shared = BreadcrumbManager()
     private init() {}
 
-    nonisolated(unsafe) static var isCrashOnlyMode: Bool = false
+    nonisolated(unsafe) static var streamCrashSessionsOnly: Bool = false
 
     static func initialize(apiService: ApiService, storageService: StorageService) {
         shared.api = apiService
@@ -33,7 +33,7 @@ final class BreadcrumbManager: @unchecked Sendable {
         }
         if !shouldProceed { return }
         let entity = createBreadcrumb(name: name)
-        if isCrashOnlyMode {
+        if streamCrashSessionsOnly {
             let data = entity.toData(sessionId: SessionManager.sessionId)
             let saved = FileUtils.getSaveJsonArray(BreadcrumbsConstants.fileName, entry: data)
             AppAmbitLogger.log(message: "[Breadcrumb] Saved to disk (crash-only): '\(name)' — total on disk: \(saved.count)")

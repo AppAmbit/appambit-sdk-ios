@@ -31,9 +31,9 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
         if let configVal = getValue(AppConstants.liveSessionStreaming) {
             let stringVal = String(describing: configVal)
             let remoteValue = (stringVal as NSString).boolValue
-            BreadcrumbManager.isCrashOnlyMode = !remoteValue
+            BreadcrumbManager.streamCrashSessionsOnly = !remoteValue
         } else {
-            BreadcrumbManager.isCrashOnlyMode = false
+            BreadcrumbManager.streamCrashSessionsOnly = false
         }
     }
     
@@ -73,14 +73,14 @@ public final class RemoteConfig: NSObject, @unchecked Sendable {
                     if let configVal = newConfigs[AppConstants.liveSessionStreaming] {
                         let stringVal = String(describing: configVal.value)
                         let remoteValue = (stringVal as NSString).boolValue
-                        BreadcrumbManager.isCrashOnlyMode = !remoteValue
+                        BreadcrumbManager.streamCrashSessionsOnly = !remoteValue
                     } else {
-                        BreadcrumbManager.isCrashOnlyMode = false
+                        BreadcrumbManager.streamCrashSessionsOnly = false
                     }
                 } else {
-                    BreadcrumbManager.isCrashOnlyMode = false
+                    BreadcrumbManager.streamCrashSessionsOnly = false
                 }
-                AppAmbitLogger.log(message: "RemoteConfig: Fetch succeeded, isCrashOnlyMode = \(BreadcrumbManager.isCrashOnlyMode)")
+                AppAmbitLogger.log(message: "RemoteConfig: Fetch succeeded, streamCrashSessionsOnly = \(BreadcrumbManager.streamCrashSessionsOnly)")
                 completion(true)
             } else {
                 AppAmbitLogger.log(message: "RemoteConfig: Fetch failed: \(result.errorType)")
