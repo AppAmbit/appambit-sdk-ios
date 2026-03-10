@@ -1,3 +1,9 @@
+## Version 0.4.0
+
+### AppAmbit
+
+* **[Feature]** Added option to send breadcrumbs only on crashes to improve performance and resource efficiency.
+
 ## Version 0.3.1
 
 ### AppAmbit
