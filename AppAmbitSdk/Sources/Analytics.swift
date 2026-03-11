@@ -57,6 +57,7 @@ public final class Analytics: NSObject, @unchecked Sendable {
         Queues.state.async { isManualSessionEnabled = true }
     }
 
+
     public static func clearToken() {
         Queues.state.async { ServiceContainer.shared.apiService.setToken("") }
     }

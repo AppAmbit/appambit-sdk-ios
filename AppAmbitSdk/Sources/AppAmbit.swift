@@ -139,8 +139,12 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 Crashes.shared.loadCrashFileIfExists { error in
                     guard error == nil else { return }
                     Queues.crashFiles.async {
-                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                        if BreadcrumbManager.streamCrashSessionsOnly {
                             self.sendAllPendingData()
+                        } else {
+                            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                self.sendAllPendingData()
+                            }
                         }
                     }
                 }
@@ -173,6 +177,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.initialize(apiService: apiService, storageService: storageService)
         Logging.initialize(apiService: apiService, storageService: storageService)
 
+
         self.reachability = reachabilityService
 
         monitor.pathUpdateHandler = { [weak self] path in
@@ -186,15 +191,21 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 let afterTokenReady: @Sendable () -> Void = {
                     guard SessionManager.isSessionActive else { return }
 
-                    RemoteConfig.fetchAndStoreConfig()
-                    SessionManager.sendEndSessionFromDatabase { _ in
-                        SessionManager.sendStartSessionIfExist { _ in
-                            Crashes.shared.loadCrashFileIfExists { error in
-                                guard error == nil else { return }
-                                Queues.crashFiles.async {
-                                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                                        BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
-                                        self.sendAllPendingData()
+                    RemoteConfig.fetchAndStoreConfig { _ in
+                        SessionManager.sendEndSessionFromDatabase { _ in
+                            SessionManager.sendStartSessionIfExist { _ in
+                                Crashes.shared.loadCrashFileIfExists { error in
+                                    guard error == nil else { return }
+                                    Queues.crashFiles.async {
+                                        if BreadcrumbManager.streamCrashSessionsOnly {
+                                            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
+                                            self.sendAllPendingData()
+                                        } else {
+                                            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.online)
+                                                self.sendAllPendingData()
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -227,21 +238,35 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         initializeServices()
 
         initializeConsumer {
-            // Sync any persisted push data with the backend
-            RemoteConfig.fetchAndStoreConfig()
-            ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
-            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
-            self.didSendOnStart = true
+            RemoteConfig.fetchAndStoreConfig { _ in
+                ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
+                self.didSendOnStart = true
 
-            Crashes.shared.loadCrashFileIfExists { error in
-                if error != nil {
-                    completion()
-                    return
-                }
-                Queues.crashFiles.async {
-                    BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                        self.sendAllPendingData()
-                        completion()
+                Crashes.shared.loadCrashFileIfExists { error in
+                    if error != nil {
+                        BreadcrumbManager.clearAllCachedBreadcrumbs {
+                            BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+                            completion()
+                        }
+                        return
+                    }
+
+                    let hadCrash = CrashHandler.existCrashFlag()
+
+                    Queues.crashFiles.async {
+                        if hadCrash {
+                            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
+                                self.sendAllPendingData()
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+                                completion()
+                            }
+                        } else {
+                            BreadcrumbManager.clearAllCachedBreadcrumbs {
+                                self.sendAllPendingData()
+                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onStart)
+                                completion()
+                            }
+                        }
                     }
                 }
             }
@@ -281,7 +306,6 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                // Update consumer before requesting a new token (similar to Android logic)
                 ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
                 
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
@@ -330,18 +354,26 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         if !Analytics.isManualSessionEnabled {
             SessionManager.removeSavedEndSession()
         }
-        RemoteConfig.fetchAndStoreConfig()
-        Crashes.shared.loadCrashFileIfExists { error in
-            guard error == nil else { return }
-            BreadcrumbManager.loadBreadcrumbsFromFile { _ in
-                Queues.crashFiles.async {                                       
-                    SessionManager.sendEndSessionFromDatabase { _ in
-                        SessionManager.sendStartSessionIfExist { [weak self] _ in
-                            guard let self = self else { return }
-                            if shouldSendResume {
-                                BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+        RemoteConfig.fetchAndStoreConfig { _ in
+            Crashes.shared.loadCrashFileIfExists { error in
+                guard error == nil else { return }
+                let proceed: @Sendable (@escaping @Sendable () -> Void) -> Void = { done in
+                    if BreadcrumbManager.streamCrashSessionsOnly {
+                        done()
+                    } else {
+                        BreadcrumbManager.loadBreadcrumbsFromFile { _ in done() }
+                    }
+                }
+                proceed {
+                    Queues.crashFiles.async {
+                        SessionManager.sendEndSessionFromDatabase { _ in
+                            SessionManager.sendStartSessionIfExist { [weak self] _ in
+                                guard let self = self else { return }
+                                if shouldSendResume {
+                                    BreadcrumbManager.addAsync(name: BreadcrumbsConstants.onResume)
+                                }
+                                self.sendAllPendingData()
                             }
-                            self.sendAllPendingData()
                         }
                     }
                 }
@@ -388,6 +420,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         guard let token = ServiceContainer.shared.apiService.token else { return false }
         return !token.isEmpty
     }
+    
     // Internal SDK method – not part of the public API.
     // Used only for hybrid platform integrations.
     @objc(addBreadcrumb:)
