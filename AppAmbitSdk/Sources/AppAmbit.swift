@@ -176,6 +176,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         BreadcrumbManager.initialize(apiService: apiService, storageService: storageService)
         Crashes.initialize(apiService: apiService, storageService: storageService)
         Logging.initialize(apiService: apiService, storageService: storageService)
+        Cms.initialize(apiService: apiService, storageService: storageService)
 
 
         self.reachability = reachabilityService
