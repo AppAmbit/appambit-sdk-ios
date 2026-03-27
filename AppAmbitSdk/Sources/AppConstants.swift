@@ -9,6 +9,6 @@ class AppConstants {
     static let trackEventMaxPropertyLimit = 20;
     static let trackEventPropertyMaxCharacters = 80;
     static let liveSessionStreaming = "live_session_streaming"
-    static let baseUrlSdk = "https://staging-appambit.com/api"
-    static let baseUrlCms = "https://cms.staging-appambit.com/api/v1"
+    static let baseUrlSdk = "https://appambit.com/api"
+    static let baseUrlCms = "https://cms.appambit.com/api/v1"
 }
