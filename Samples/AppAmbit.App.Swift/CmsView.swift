@@ -82,7 +82,7 @@ struct CmsView: View {
         case "Views ≤ 15000": _ = query.lessThanOrEqual("views_count", 15000)
         case "Sort Title ↑": _ = query.orderByAscending("title")
         case "Sort Title ↓": _ = query.orderByDescending("title")
-        case "Page 1 (2 per page)": _ = query.setPage(1).setPerPage(2)
+        case "Page 1 (2 per page)": _ = query.getPage(1).getPerPage(2)
         default: break
         }
 

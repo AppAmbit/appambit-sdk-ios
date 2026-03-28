@@ -327,7 +327,7 @@
     else if ([_selectedFilter isEqualToString:@"Views ≤ 15000"]) [query lessThanOrEqual:@"views_count" value:@15000];
     else if ([_selectedFilter isEqualToString:@"Sort Title ↑"]) [query orderByAscending:@"title"];
     else if ([_selectedFilter isEqualToString:@"Sort Title ↓"]) [query orderByDescending:@"title"];
-    else if ([_selectedFilter isEqualToString:@"Page 1 (2 per page)"]) { [query setPage:1]; [query setPerPage:2]; }
+    else if ([_selectedFilter isEqualToString:@"Page 1 (2 per page)"]) { [query getPage:1]; [query getPerPage:2]; }
     
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
