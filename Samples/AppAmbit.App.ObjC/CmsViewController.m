@@ -310,8 +310,6 @@
 - (void)loadPosts {
     [_pview startAnimating];
     
-    [[Cms content:@"test"] getListWithCompletion:^(NSArray * _Nonnull items) {}];
-    
     CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
     
     if ([_selectedFilter isEqualToString:@"Category = tech"]) [query equals:@"category" value:@"tech"];

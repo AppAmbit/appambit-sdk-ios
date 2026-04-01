@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol ICmsQuery {
+public protocol ICmsQuery<T> {
     associatedtype T: Decodable
     func search(_ query: String) -> Self
     func equals(_ field: String, _ value: String) -> Self

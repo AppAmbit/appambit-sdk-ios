@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Generic Query Builder
+private let getListLock = NSLock()
 
 public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     private let contentType: String
@@ -78,13 +78,18 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         let limit = perPage ?? -1
         let offset = perPage != nil ? ((page ?? 1) - 1) * perPage! : 0
 
-        if Cms.fetchedContentTypes.contains(contentType) {
+        getListLock.lock()
+        let isFetched = Cms.fetchedContentTypes.contains(contentType)
+        if !isFetched {
+            Cms.fetchedContentTypes.insert(contentType)
+        }
+        getListLock.unlock()
+
+        if isFetched {
             let cached = queryLocalCache(orderBy: orderBy, limit: limit, offset: offset)
             completion(cached)
             return
         }
-
-        Cms.fetchedContentTypes.insert(contentType)
 
         let cached = queryLocalCache(orderBy: orderBy, limit: limit, offset: offset)
         if cached.isEmpty {
@@ -99,8 +104,8 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         do {
             let jsonList = try Cms.storageService.queryCmsData(
                 contentType: contentType,
-                whereClause: whereClause,
-                args: args,
+                whereClause: whereClause.isEmpty ? nil : whereClause,
+                args: args.isEmpty ? nil : args,
                 orderBy: orderBy,
                 limit: limit,
                 offset: offset
@@ -169,38 +174,43 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     }
 
     private func fetchRemainingPages(startPage: Int, totalPages: Int, perPage: Int, completion: @escaping @Sendable ([JSONValue]) -> Void) {
-        let items = ThreadSafeArray<JSONValue>(initialItems: [])
-        let group = DispatchGroup()
         
-        for p in startPage...totalPages {
-            group.enter()
-            let endpoint = CmsEndpoint(contentType: contentType, page: p, perPage: perPage)
+        @Sendable func fetchPage(_ page: Int, accumulatedItems: [JSONValue]) {
+            guard page <= totalPages else {
+                completion(accumulatedItems)
+                return
+            }
+
+            let endpoint = CmsEndpoint(contentType: contentType, page: page, perPage: perPage)
             Cms.apiService.executeRequest(endpoint, responseType: [String: JSONValue].self) { result in
+                var nextItems = accumulatedItems
                 if let dict = result.data, case let .array(nextData) = dict["data"] {
-                    items.append(contentsOf: nextData)
+                    nextItems.append(contentsOf: nextData)
                 }
-                group.leave()
+                fetchPage(page + 1, accumulatedItems: nextItems)
             }
         }
-        
-        group.notify(queue: .global()) {
-            completion(items.all())
-        }
+
+        fetchPage(startPage, accumulatedItems: [])
     }
 
     private func storeRawDict(_ dict: [String: JSONValue], completion: @escaping @Sendable (Bool) -> Void) {
         do {
             let encoder = JSONEncoder()
             let jsonData = try encoder.encode(dict)
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                try Cms.storageService.putCmsData(contentType, jsonString)
-                debugPrint("Cms [store success]: Stored data for \(contentType)")
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else { completion(false); return }
+            
+            let existing = try? Cms.storageService.getCmsData(contentType)
+            if existing == jsonString {
+                debugPrint("Cms [store skip]: Data unchanged for \(contentType)")
                 completion(true)
-            } else {
-                completion(false)
+                return
             }
+            
+            try Cms.storageService.putCmsData(contentType, jsonString)
+            completion(true)
         } catch {
-            debugPrint("Cms [store error]: Failed to store data for \(contentType). Error: \(error)")
+            debugPrint("Cms [store error]: \(error)")
             completion(false)
         }
     }

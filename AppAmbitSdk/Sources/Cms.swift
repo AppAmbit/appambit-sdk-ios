@@ -2,8 +2,19 @@ import Foundation
 
 @objcMembers
 public final class Cms: NSObject {
-    internal nonisolated(unsafe) static var apiService: ApiService!
-    internal nonisolated(unsafe) static var storageService: StorageService!
+    private static let _lock = NSLock()
+    nonisolated(unsafe) private static var _apiService: ApiService!
+    nonisolated(unsafe) private static var _storageService: StorageService!
+
+    internal static var apiService: ApiService! {
+        get { _lock.lock(); defer { _lock.unlock() }; return _apiService }
+        set { _lock.lock(); defer { _lock.unlock() }; _apiService = newValue }
+    }
+
+    internal static var storageService: StorageService! {
+        get { _lock.lock(); defer { _lock.unlock() }; return _storageService }
+        set { _lock.lock(); defer { _lock.unlock() }; _storageService = newValue }
+    }
     internal static let fetchedContentTypes = ThreadSafeSet<String>()
 
     static func initialize(apiService: ApiService, storageService: StorageService) {
@@ -11,11 +22,11 @@ public final class Cms: NSObject {
         self.storageService = storageService
     }
 
-    public static func content<T: Decodable>(_ contentType: String, modelType: T.Type) -> CmsQuery<T> {
+    public static func content<T: Decodable>(_ contentType: String, modelType: T.Type) -> any ICmsQuery<T> {
         return CmsQuery<T>(contentType: contentType)
     }
 
-    public static func content(_ contentType: String) -> CmsQuery<JSONValue> {
+    public static func content(_ contentType: String) -> any ICmsQuery<JSONValue> {
         return CmsQuery<JSONValue>(contentType: contentType)
     }
 
@@ -29,25 +40,31 @@ public final class Cms: NSObject {
         return CmsQueryObjC(contentType: contentType)
     }
 
-    @objc(clearCacheWithContentType:)
-    public static func clearCache(_ contentType: String) {
-        guard storageService != nil else { return }
+    @discardableResult
+    @objc
+    public static func clearCache(_ contentType: String) async -> Bool {
+        guard storageService != nil else { return false }
         do {
             try storageService.deleteCmsData(contentType)
             fetchedContentTypes.remove(contentType)
+            return true
         } catch {
             debugPrint("Cms [clearCache error]: \(error)")
+            return false
         }
     }
 
+    @discardableResult
     @objc
-    public static func clearAllCache() {
-        guard storageService != nil else { return }
+    public static func clearAllCache() async -> Bool {
+        guard storageService != nil else { return false }
         do {
             try storageService.deleteAllCmsData()
             fetchedContentTypes.removeAll()
+            return true
         } catch {
             debugPrint("Cms [clearAllCache error]: \(error)")
+            return false
         }
     }
 }

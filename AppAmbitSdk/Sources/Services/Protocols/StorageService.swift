@@ -50,7 +50,7 @@ protocol StorageService {
 
     func putCmsData(_ contentType: String, _ json: String) throws
     func getCmsData(_ contentType: String) throws -> String?
-    func queryCmsData(contentType: String, whereClause: String, args: [String], orderBy: String?, limit: Int, offset: Int) throws -> [String]
+    func queryCmsData(contentType: String, whereClause: String?, args: [String]?, orderBy: String?, limit: Int, offset: Int) throws -> [String]
     func deleteCmsData(_ contentType: String) throws
     func deleteAllCmsData() throws
 }

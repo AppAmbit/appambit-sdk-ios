@@ -1103,7 +1103,7 @@ final class StorableService: StorageService {
         }
     }
 
-    func queryCmsData(contentType: String, whereClause: String, args: [String], orderBy: String?, limit: Int, offset: Int) throws -> [String] {
+    func queryCmsData(contentType: String, whereClause: String?, args: [String]?, orderBy: String?, limit: Int, offset: Int) throws -> [String] {
         try syncOnQueue {
             var results: [String] = []
             
@@ -1111,8 +1111,8 @@ final class StorableService: StorageService {
                       "json_each(\(CmsCacheConfiguration.Column.jsonData.name), '$.data') " +
                       "WHERE \(CmsCacheConfiguration.Column.contentType.name) = ?"
             
-            if !whereClause.isEmpty {
-                sql += " AND (\(whereClause))"
+            if let clause = whereClause, !clause.isEmpty {
+                sql += " AND (\(clause))"
             }
             
             if let order = orderBy, !order.isEmpty {
@@ -1132,8 +1132,10 @@ final class StorableService: StorageService {
             
             bindText(stmt, index: 1, value: contentType)
             
-            for (index, arg) in args.enumerated() {
-                bindText(stmt, index: Int32(index + 2), value: arg)
+            if let validArgs = args {
+                for (index, arg) in validArgs.enumerated() {
+                    bindText(stmt, index: Int32(index + 2), value: arg)
+                }
             }
             
             while sqlite3_step(stmt) == SQLITE_ROW {
