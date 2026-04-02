@@ -22,6 +22,14 @@ public final class Cms: NSObject {
         self.storageService = storageService
     }
 
+    internal static func resetFetchState(_ contentType: String? = nil) {
+        if let contentType {
+            fetchedContentTypes.remove(contentType)
+        } else {
+            fetchedContentTypes.removeAll()
+        }
+    }
+
     public static func content<T: Decodable>(_ contentType: String, modelType: T.Type) -> any ICmsQuery<T> {
         return CmsQuery<T>(contentType: contentType)
     }
@@ -46,7 +54,7 @@ public final class Cms: NSObject {
         guard storageService != nil else { return false }
         do {
             try storageService.deleteCmsData(contentType)
-            fetchedContentTypes.remove(contentType)
+            resetFetchState(contentType)
             return true
         } catch {
             debugPrint("Cms [clearCache error]: \(error)")
@@ -60,7 +68,7 @@ public final class Cms: NSObject {
         guard storageService != nil else { return false }
         do {
             try storageService.deleteAllCmsData()
-            fetchedContentTypes.removeAll()
+            resetFetchState()
             return true
         } catch {
             debugPrint("Cms [clearAllCache error]: \(error)")

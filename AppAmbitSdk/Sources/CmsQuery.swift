@@ -80,9 +80,6 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
         getListLock.lock()
         let isFetched = Cms.fetchedContentTypes.contains(contentType)
-        if !isFetched {
-            Cms.fetchedContentTypes.insert(contentType)
-        }
         getListLock.unlock()
 
         if isFetched {
@@ -145,6 +142,8 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
                 completion(false)
                 return
             }
+
+            Cms.fetchedContentTypes.insert(self.contentType)
 
             guard case let .array(dataArray) = responseDict["data"] else {
                 self.storeRawDict(responseDict, completion: completion)
