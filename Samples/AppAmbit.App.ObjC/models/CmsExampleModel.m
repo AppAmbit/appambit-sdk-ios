@@ -1,4 +1,4 @@
-#import "Post.h"
+#import "CmsExampleModel.h"
 
 @implementation AuthorRelation
 
@@ -24,7 +24,7 @@
 
 @end
 
-@implementation Post
+@implementation CmsExampleModel
 
 - (id)safeObject:(id)obj {
     return (obj == [NSNull null]) ? nil : obj;

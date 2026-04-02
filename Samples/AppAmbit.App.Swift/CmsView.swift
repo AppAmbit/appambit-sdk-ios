@@ -2,7 +2,7 @@ import SwiftUI
 import AppAmbit
 
 struct CmsView: View {
-    @State private var posts: [Post] = []
+    @State private var posts: [CmsExampleModel] = []
     @State private var isLoading = false
     @State private var selectedFilter = "All Posts"
 
@@ -66,7 +66,7 @@ struct CmsView: View {
 
     private func loadPosts() {
         isLoading = true
-        let query = Cms.content("blog_extended", modelType: Post.self)
+        let query = Cms.content("blog_extended", modelType: CmsExampleModel.self)
 
         switch selectedFilter {
         case "Category = tech": _ = query.equals("category", "tech")
@@ -96,7 +96,7 @@ struct CmsView: View {
 }
 
 struct PostCard: View {
-    let post: Post
+    let post: CmsExampleModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

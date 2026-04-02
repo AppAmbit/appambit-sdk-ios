@@ -12,7 +12,7 @@ struct AuthorRelation: Decodable {
     }
 }
 
-struct Post: Decodable, Identifiable {
+struct CmsExampleModel: Decodable, Identifiable {
     let id: String?
     let title: String?
     let body: String?

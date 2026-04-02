@@ -10,7 +10,7 @@
 - (NSString * _Nonnull)displayString;
 @end
 
-@interface Post : NSObject
+@interface CmsExampleModel : NSObject
 
 @property (nonatomic, copy, nullable) NSString *id;
 @property (nonatomic, copy, nullable) NSString *title;

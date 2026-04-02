@@ -1,5 +1,5 @@
 #import "CmsViewController.h"
-#import "Post.h"
+#import "models/CmsExampleModel.h"
 @import AppAmbit;
 
 @interface PostTableViewCell : UITableViewCell
@@ -12,7 +12,7 @@
 @property (nonatomic, strong) UILabel *categoryBadgeLabel;
 @property (nonatomic, strong) UILabel *eventDateLabel;
 @property (nonatomic, strong) UILabel *metaDataLabel;
-- (void)configureWithPost:(Post *)post;
+- (void)configureWithPost:(CmsExampleModel *)post;
 @end
 
 @implementation PostTableViewCell
@@ -113,7 +113,7 @@
     return result;
 }
 
-- (void)configureWithPost:(Post *)post {
+- (void)configureWithPost:(CmsExampleModel *)post {
     _titleLabel.text = post.title.length > 0 ? post.title : @"No Title";
     _bodyLabel.text = post.body.length > 0 ? post.body : @"";
 
@@ -194,7 +194,7 @@
 
 @interface CmsViewController () {
     UITableView *_tableView;
-    NSArray<Post *> *_posts;
+    NSArray<CmsExampleModel *> *_posts;
     NSArray *_filters;
     NSString *_selectedFilter;
     UIActivityIndicatorView *_pview;
@@ -330,7 +330,7 @@
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
         for (NSDictionary *d in items) {
-            [postObjs addObject:[[Post alloc] initWithDictionary:d]];
+            [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             self->_posts = postObjs;
