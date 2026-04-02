@@ -25,6 +25,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("RemoteConfig", systemImage: "arrow.2.circlepath.circle")
                 }
+
+            CmsView()
+                .tabItem {
+                    Label("CMS", systemImage: "doc.richtext")
+                }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
