@@ -5,6 +5,7 @@ struct CmsView: View {
     @State private var posts: [CmsExampleModel] = []
     @State private var isLoading = false
     @State private var selectedFilter = "All Posts"
+    @State private var searchText = ""
 
     let filters = [
         "All Posts",
@@ -27,24 +28,40 @@ struct CmsView: View {
     var body: some View {
         NavigationView {
             VStack {
-                ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 16) {
+                    Text("CMS Query Builder")
+                        .font(.title3)
+                        .bold()
+                    
                     HStack {
-                        ForEach(filters, id: \.self) { filter in
-                            Button(action: {
-                                selectedFilter = filter
-                                loadPosts()
-                            }) {
-                                Text(filter)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(selectedFilter == filter ? Color.blue : Color.gray.opacity(0.2))
-                                    .foregroundColor(selectedFilter == filter ? .white : .primary)
-                                    .cornerRadius(20)
+                        Picker("Select a filter...", selection: $selectedFilter) {
+                            ForEach(filters, id: \.self) { filter in
+                                Text(filter).tag(filter)
                             }
                         }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        Button("Apply") {
+                            loadPosts()
+                        }
                     }
-                    .padding()
+                    
+                    HStack {
+                        TextField("Search term...", text: $searchText)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        Button("Search") {
+                            searchPosts()
+                        }
+                    }
+                    
+                    Button("Get All List") {
+                        selectedFilter = "All Posts"
+                        loadPosts()
+                    }
                 }
+                .padding()
 
                 if isLoading {
                     Spacer()
@@ -58,6 +75,7 @@ struct CmsView: View {
                 }
             }
             .navigationTitle("CMS Posts")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 loadPosts()
             }
@@ -86,6 +104,20 @@ struct CmsView: View {
         default: break
         }
 
+        query.getList { results in
+            DispatchQueue.main.async {
+                self.posts = results
+                self.isLoading = false
+            }
+        }
+    }
+    
+    private func searchPosts() {
+        guard !searchText.isEmpty else { return }
+        isLoading = true
+        let query = Cms.content("blog_extended", modelType: CmsExampleModel.self)
+        _ = query.search(searchText)
+        
         query.getList { results in
             DispatchQueue.main.async {
                 self.posts = results

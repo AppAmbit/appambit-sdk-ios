@@ -91,22 +91,15 @@ public enum JSONValue: Codable, @unchecked Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let x = try? container.decode(Int.self) { self = .int(x) }
+        if let x = try? container.decode(Bool.self) { self = .bool(x) }
+        else if let x = try? container.decode(Int.self) { self = .int(x) }
         else if let x = try? container.decode(Double.self) { self = .double(x) }
-        else if let x = try? container.decode(Bool.self) { self = .bool(x) }
         else if let x = try? container.decode(String.self) {
-            let lowercased = x.lowercased()
-            if let intVal = Int(x) {
-                self = .int(intVal)
-            } else if let doubleVal = Double(x) {
-                self = .double(doubleVal)
-            } else if lowercased == "true" || lowercased == "1" {
-                self = .bool(true)
-            } else if lowercased == "false" || lowercased == "0" {
-                self = .bool(false)
-            } else {
-                self = .string(x)
-            }
+            if let intVal = Int(x) { self = .int(intVal) }
+            else if let doubleVal = Double(x) { self = .double(doubleVal) }
+            else if x.lowercased() == "true" { self = .bool(true) }
+            else if x.lowercased() == "false" { self = .bool(false) }
+            else { self = .string(x) }
         }
         else if let x = try? container.decode([String: JSONValue].self) { self = .object(x) }
         else if let x = try? container.decode([JSONValue].self) { self = .array(x) }
@@ -142,13 +135,19 @@ public enum JSONValue: Codable, @unchecked Sendable {
 
 public struct AnyDecodable: Decodable, CustomStringConvertible, @unchecked Sendable {
     public let value: Any
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let string = try? container.decode(String.self) { value = string }
-        else if let int = try? container.decode(Int.self) { value = int }
+        if let int = try? container.decode(Int.self) { value = int }
         else if let double = try? container.decode(Double.self) { value = double }
         else if let bool = try? container.decode(Bool.self) { value = bool }
+        else if let string = try? container.decode(String.self) {
+            if let intVal = Int(string) { value = intVal }
+            else if let doubleVal = Double(string) { value = doubleVal }
+            else if string.lowercased() == "true" { value = true }
+            else if string.lowercased() == "false" { value = false }
+            else { value = string }
+        }
         else if let dict = try? container.decode([String: AnyDecodable].self) { value = dict }
         else if let array = try? container.decode([AnyDecodable].self) { value = array }
         else if container.decodeNil() { value = "null" }

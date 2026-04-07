@@ -192,14 +192,16 @@
 }
 @end
 
-@interface CmsViewController () {
+@interface CmsViewController () <UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate> {
     UITableView *_tableView;
     NSArray<CmsExampleModel *> *_posts;
     NSArray *_filters;
     NSString *_selectedFilter;
+    NSString *_searchText;
     UIActivityIndicatorView *_pview;
+    UIButton *_filterBtn;
+    UITextField *_searchField;
 }
-@property (nonatomic, weak) UIStackView *filterStackView;
 @end
 
 @implementation CmsViewController
@@ -222,46 +224,65 @@
     [self loadPosts];
 }
 
-- (void)updateButtonColors:(UIButton *)btn title:(NSString *)title {
-    BOOL isSelected = [title isEqualToString:_selectedFilter];
-    btn.backgroundColor = isSelected ? [UIColor systemBlueColor] : [UIColor systemFillColor];
-    [btn setTitleColor:isSelected ? [UIColor whiteColor] : [UIColor labelColor] forState:UIControlStateNormal];
-}
-
 - (void)setupUI {
-    UIScrollView *filterScroll = [[UIScrollView alloc] init];
-    filterScroll.translatesAutoresizingMaskIntoConstraints = NO;
-    filterScroll.showsHorizontalScrollIndicator = NO;
+    UILabel *titleLabel = [UILabel new];
+    titleLabel.text = @"CMS Query Builder";
+    titleLabel.font = [UIFont boldSystemFontOfSize:18];
+    titleLabel.textAlignment = NSTextAlignmentCenter;
     
-    UIStackView *stack = [[UIStackView alloc] init];
-    stack.axis = UILayoutConstraintAxisHorizontal;
-    stack.spacing = 10;
-    stack.layoutMargins = UIEdgeInsetsMake(0, 15, 0, 15);
-    stack.layoutMarginsRelativeArrangement = YES;
-    self.filterStackView = stack;
+    _filterBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [_filterBtn setTitle:@"Select a filter..." forState:UIControlStateNormal];
+    _filterBtn.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    [_filterBtn addTarget:self action:@selector(showFilterPicker:) forControlEvents:UIControlEventTouchUpInside];
+    [_filterBtn setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     
-    for (NSString *f in _filters) {
-        UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
-        [btn setTitle:f forState:UIControlStateNormal];
-        [btn addTarget:self action:@selector(filterTapped:) forControlEvents:UIControlEventTouchUpInside];
-        btn.layer.cornerRadius = 15;
-        btn.contentEdgeInsets = UIEdgeInsetsMake(5, 12, 5, 12);
-        [self updateButtonColors:btn title:f];
-        [stack addArrangedSubview:btn];
-    }
+    UIButton *applyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [applyBtn setTitle:@"Apply" forState:UIControlStateNormal];
+    applyBtn.backgroundColor = [UIColor systemBlueColor];
+    [applyBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    applyBtn.layer.cornerRadius = 6;
+    applyBtn.contentEdgeInsets = UIEdgeInsetsMake(6, 12, 6, 12);
+    [applyBtn addTarget:self action:@selector(applyFilterTapped) forControlEvents:UIControlEventTouchUpInside];
+    [applyBtn setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [applyBtn setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     
-    stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [filterScroll addSubview:stack];
+    UIStackView *filterRow = [[UIStackView alloc] initWithArrangedSubviews:@[_filterBtn, applyBtn]];
+    filterRow.axis = UILayoutConstraintAxisHorizontal;
+    filterRow.spacing = 10;
     
-    [NSLayoutConstraint activateConstraints:@[
-        [stack.topAnchor constraintEqualToAnchor:filterScroll.contentLayoutGuide.topAnchor],
-        [stack.bottomAnchor constraintEqualToAnchor:filterScroll.contentLayoutGuide.bottomAnchor],
-        [stack.leadingAnchor constraintEqualToAnchor:filterScroll.contentLayoutGuide.leadingAnchor],
-        [stack.trailingAnchor constraintEqualToAnchor:filterScroll.contentLayoutGuide.trailingAnchor],
-        [stack.heightAnchor constraintEqualToAnchor:filterScroll.frameLayoutGuide.heightAnchor]
-    ]];
+    _searchField = [[UITextField alloc] init];
+    _searchField.placeholder = @"Search term...";
+    _searchField.borderStyle = UITextBorderStyleRoundedRect;
+    _searchField.delegate = self;
+    _searchField.returnKeyType = UIReturnKeySearch;
+    [_searchField setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     
-    [self.view addSubview:filterScroll];
+    UIButton *searchBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [searchBtn setTitle:@"Search" forState:UIControlStateNormal];
+    searchBtn.backgroundColor = [UIColor systemBlueColor];
+    [searchBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    searchBtn.layer.cornerRadius = 6;
+    searchBtn.contentEdgeInsets = UIEdgeInsetsMake(6, 12, 6, 12);
+    [searchBtn addTarget:self action:@selector(searchTapped) forControlEvents:UIControlEventTouchUpInside];
+    [searchBtn setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [searchBtn setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    
+    UIStackView *searchRow = [[UIStackView alloc] initWithArrangedSubviews:@[_searchField, searchBtn]];
+    searchRow.axis = UILayoutConstraintAxisHorizontal;
+    searchRow.spacing = 10;
+    
+    UIButton *getAllBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [getAllBtn setTitle:@"Get All List" forState:UIControlStateNormal];
+    [getAllBtn addTarget:self action:@selector(getAllTapped) forControlEvents:UIControlEventTouchUpInside];
+    
+    UIStackView *headerStack = [[UIStackView alloc] initWithArrangedSubviews:@[titleLabel, filterRow, searchRow, getAllBtn]];
+    headerStack.axis = UILayoutConstraintAxisVertical;
+    headerStack.spacing = 15;
+    headerStack.translatesAutoresizingMaskIntoConstraints = NO;
+    headerStack.layoutMargins = UIEdgeInsetsMake(15, 15, 15, 15);
+    headerStack.layoutMarginsRelativeArrangement = YES;
+    
+    [self.view addSubview:headerStack];
     
     _tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     _tableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -277,12 +298,11 @@
     [self.view addSubview:_pview];
     
     [NSLayoutConstraint activateConstraints:@[
-        [filterScroll.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-        [filterScroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [filterScroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [filterScroll.heightAnchor constraintEqualToConstant:50],
+        [headerStack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [headerStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [headerStack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         
-        [_tableView.topAnchor constraintEqualToAnchor:filterScroll.bottomAnchor],
+        [_tableView.topAnchor constraintEqualToAnchor:headerStack.bottomAnchor],
         [_tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [_tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [_tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -292,18 +312,54 @@
     ]];
 }
 
-- (void)filterTapped:(UIButton *)sender {
-    _selectedFilter = sender.titleLabel.text;
-    
-    if (self.filterStackView) {
-        for (UIView *view in self.filterStackView.arrangedSubviews) {
-            if ([view isKindOfClass:[UIButton class]]) {
-                UIButton *btn = (UIButton *)view;
-                [self updateButtonColors:btn title:btn.titleLabel.text];
-            }
-        }
+- (void)showFilterPicker:(UIButton *)sender {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Select Filter" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    for (NSString *f in _filters) {
+        [alert addAction:[UIAlertAction actionWithTitle:f style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            self->_selectedFilter = f;
+            [self->_filterBtn setTitle:f forState:UIControlStateNormal];
+        }]];
     }
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        alert.popoverPresentationController.sourceView = sender;
+        alert.popoverPresentationController.sourceRect = sender.bounds;
+    }
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)applyFilterTapped {
+    [_searchField resignFirstResponder];
+    _searchField.text = @"";
+    _searchText = @"";
+    [self loadPosts];
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    [self searchTapped];
+    return YES;
+}
+
+- (void)searchTapped {
+    [_searchField resignFirstResponder];
+    _searchText = _searchField.text;
+    if (_searchText.length > 0) {
+        [_filterBtn setTitle:@"All Posts" forState:UIControlStateNormal];
+        _selectedFilter = @"All Posts";
+        [self searchPosts];
+    } else {
+        [self getAllTapped];
+    }
+}
+
+- (void)getAllTapped {
+    [_searchField resignFirstResponder];
+    _selectedFilter = @"All Posts";
+    [_filterBtn setTitle:@"All Posts" forState:UIControlStateNormal];
+    _searchText = @"";
+    _searchField.text = @"";
     [self loadPosts];
 }
 
@@ -326,6 +382,24 @@
     else if ([_selectedFilter isEqualToString:@"Sort Title ↑"]) [query orderByAscending:@"title"];
     else if ([_selectedFilter isEqualToString:@"Sort Title ↓"]) [query orderByDescending:@"title"];
     else if ([_selectedFilter isEqualToString:@"Page 1 (2 per page)"]) { [query getPage:1]; [query getPerPage:2]; }
+    
+    [query getListWithCompletion:^(NSArray * _Nonnull items) {
+        NSMutableArray *postObjs = [NSMutableArray new];
+        for (NSDictionary *d in items) {
+            [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self->_posts = postObjs;
+            [self->_tableView reloadData];
+            [self->_pview stopAnimating];
+        });
+    }];
+}
+
+- (void)searchPosts {
+    [_pview startAnimating];
+    CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
+    [query search:_searchText];
     
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
