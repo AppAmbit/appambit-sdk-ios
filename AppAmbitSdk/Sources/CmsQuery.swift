@@ -195,8 +195,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     }
 
     private func fetchAllRemoteDataSync(completion: @escaping @Sendable (Bool) -> Void) {
-        let perPageFetch = 100
-        let endpoint = CmsEndpoint(contentType: contentType, page: 1, perPage: perPageFetch)
+        let endpoint = CmsEndpoint(contentType: contentType, page: 1)
         
         Cms.apiService.executeRequest(endpoint, responseType: [String: JSONValue].self) { result in
             guard let responseDict = result.data else {
@@ -212,18 +211,16 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
                 return
             }
 
-            var total = 0
+            var totalPages = 1
             if case let .object(metaObj) = responseDict["meta"],
-               case let .int(t) = metaObj["total"] {
-                total = t
+               case let .int(lastPage) = metaObj["last_page"] {
+                totalPages = lastPage
             }
-
-            let totalPages = Int(ceil(Double(total) / Double(perPageFetch)))
 
             if totalPages <= 1 {
                 self.storeRawDict(responseDict, completion: completion)
             } else {
-                self.fetchRemainingPages(startPage: 2, totalPages: totalPages, perPage: perPageFetch) { finalExtraItems in
+                self.fetchRemainingPages(startPage: 2, totalPages: totalPages) { finalExtraItems in
                     var allItems = dataArray
                     allItems.append(contentsOf: finalExtraItems)
                     var localDict = responseDict
@@ -234,7 +231,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         }
     }
 
-    private func fetchRemainingPages(startPage: Int, totalPages: Int, perPage: Int, completion: @escaping @Sendable ([JSONValue]) -> Void) {
+    private func fetchRemainingPages(startPage: Int, totalPages: Int, completion: @escaping @Sendable ([JSONValue]) -> Void) {
         
         @Sendable func fetchPage(_ page: Int, accumulatedItems: [JSONValue]) {
             guard page <= totalPages else {
@@ -242,7 +239,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
                 return
             }
 
-            let endpoint = CmsEndpoint(contentType: contentType, page: page, perPage: perPage)
+            let endpoint = CmsEndpoint(contentType: contentType, page: page)
             Cms.apiService.executeRequest(endpoint, responseType: [String: JSONValue].self) { result in
                 var nextItems = accumulatedItems
                 if let dict = result.data, case let .array(nextData) = dict["data"] {

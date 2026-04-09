@@ -9,10 +9,10 @@ class CmsEndpoint: BaseEndpoint {
         self.method = .get
     }
 
-    init(contentType: String, page: Int, perPage: Int) {
+    init(contentType: String, page: Int) {
         super.init()
         self.baseUrl = self.baseUrlCms
-        self.url = "/\(contentType)/?per_page=\(perPage)&page=\(page)"
+        self.url = "/\(contentType)/?page=\(page)"
         self.method = .get
     }
 }
