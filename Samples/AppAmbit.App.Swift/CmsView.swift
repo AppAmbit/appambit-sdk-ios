@@ -11,6 +11,8 @@ struct CmsView: View {
         "All Posts",
         "Category = tech",
         "Category ≠ tech",
+        "Is Published = true",
+        "Is Published = false",
         "Search 'swift'",
         "Title contains 't1'",
         "Category starts with 'n'",
@@ -22,7 +24,10 @@ struct CmsView: View {
         "Views ≤ 15000",
         "Sort Title ↑",
         "Sort Title ↓",
-        "Page 1 (2 per page)"
+        "Sort Views ↑",
+        "Sort Views ↓",
+        "Page 1 (2 per page)",
+        "Page 2 (2 per page)"
     ]
 
     var body: some View {
@@ -89,6 +94,8 @@ struct CmsView: View {
         switch selectedFilter {
         case "Category = tech": _ = query.equals("category", "tech")
         case "Category ≠ tech": _ = query.notEquals("category", "tech")
+        case "Is Published = true": _ = query.equals("is_published", "true")
+        case "Is Published = false": _ = query.equals("is_published", "false")
         case "Search 'swift'": _ = query.search("swift")
         case "Title contains 't1'": _ = query.contains("title", "t1")
         case "Category starts with 'n'": _ = query.startsWith("category", "n")
@@ -100,7 +107,10 @@ struct CmsView: View {
         case "Views ≤ 15000": _ = query.lessThanOrEqual("views_count", 15000)
         case "Sort Title ↑": _ = query.orderByAscending("title")
         case "Sort Title ↓": _ = query.orderByDescending("title")
+        case "Sort Views ↑": _ = query.orderByAscending("views_count")
+        case "Sort Views ↓": _ = query.orderByDescending("views_count")
         case "Page 1 (2 per page)": _ = query.getPage(1).getPerPage(2)
+        case "Page 2 (2 per page)": _ = query.getPage(2).getPerPage(2)
         default: break
         }
 

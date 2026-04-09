@@ -16,8 +16,15 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
     private func addCondition(_ field: String, _ op: String, _ value: String) {
         if !whereClause.isEmpty { whereClause += " AND " }
-        whereClause += "json_extract(value, '$.\(field)') \(op) ?"
-        args.append(value)
+        let lowerValue = value.lowercased()
+        if lowerValue == "true" {
+            whereClause += "json_extract(value, '$.\(field)') \(op) 1"
+        } else if lowerValue == "false" {
+            whereClause += "json_extract(value, '$.\(field)') \(op) 0"
+        } else {
+            whereClause += "json_extract(value, '$.\(field)') \(op) ?"
+            args.append(value)
+        }
     }
 
     private func addNumericCondition(_ field: String, _ op: String, _ value: Any) {

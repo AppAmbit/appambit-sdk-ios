@@ -214,10 +214,10 @@
     _posts = @[];
     _selectedFilter = @"All Posts";
     _filters = @[
-        @"All Posts", @"Category = tech", @"Category ≠ tech", @"Search 'swift'",
+        @"All Posts", @"Category = tech", @"Category ≠ tech", @"Is Published = true", @"Is Published = false", @"Search 'swift'",
         @"Title contains 't1'", @"Category starts with 'n'", @"Category IN [science, tech]",
         @"Category NOT IN [tech, news]", @"Views > 1000", @"Views ≥ 555",
-        @"Views < 15000", @"Views ≤ 15000", @"Sort Title ↑", @"Sort Title ↓", @"Page 1 (2 per page)"
+        @"Views < 15000", @"Views ≤ 15000", @"Sort Title ↑", @"Sort Title ↓", @"Sort Views ↑", @"Sort Views ↓", @"Page 1 (2 per page)", @"Page 2 (2 per page)"
     ];
     
     [self setupUI];
@@ -370,6 +370,8 @@
     
     if ([_selectedFilter isEqualToString:@"Category = tech"]) [query equals:@"category" value:@"tech"];
     else if ([_selectedFilter isEqualToString:@"Category ≠ tech"]) [query notEquals:@"category" value:@"tech"];
+    else if ([_selectedFilter isEqualToString:@"Is Published = true"]) [query equals:@"is_published" value:@"true"];
+    else if ([_selectedFilter isEqualToString:@"Is Published = false"]) [query equals:@"is_published" value:@"false"];
     else if ([_selectedFilter isEqualToString:@"Search 'swift'"]) [query search:@"swift"];
     else if ([_selectedFilter isEqualToString:@"Title contains 't1'"]) [query contains:@"title" value:@"t1"];
     else if ([_selectedFilter isEqualToString:@"Category starts with 'n'"]) [query startsWith:@"category" value:@"n"];
@@ -381,7 +383,10 @@
     else if ([_selectedFilter isEqualToString:@"Views ≤ 15000"]) [query lessThanOrEqual:@"views_count" value:@15000];
     else if ([_selectedFilter isEqualToString:@"Sort Title ↑"]) [query orderByAscending:@"title"];
     else if ([_selectedFilter isEqualToString:@"Sort Title ↓"]) [query orderByDescending:@"title"];
+    else if ([_selectedFilter isEqualToString:@"Sort Views ↑"]) [query orderByAscending:@"views_count"];
+    else if ([_selectedFilter isEqualToString:@"Sort Views ↓"]) [query orderByDescending:@"views_count"];
     else if ([_selectedFilter isEqualToString:@"Page 1 (2 per page)"]) { [query getPage:1]; [query getPerPage:2]; }
+    else if ([_selectedFilter isEqualToString:@"Page 2 (2 per page)"]) { [query getPage:2]; [query getPerPage:2]; }
     
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
