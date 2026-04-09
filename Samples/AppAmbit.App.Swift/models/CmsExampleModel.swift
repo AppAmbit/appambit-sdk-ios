@@ -2,13 +2,10 @@ import Foundation
 import AppAmbit
 
 struct AuthorRelation: Decodable {
-    let id: String?
-    let name: String?
-    let title: String?
-    let email: String?
+    let author: String?
     
     var displayString: String {
-        return name ?? title ?? email ?? "Unknown Author"
+        return author ?? "Unknown Author"
     }
 }
 

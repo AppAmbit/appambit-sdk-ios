@@ -5,20 +5,13 @@
 - (instancetype)initWithDictionary:(NSDictionary *)dict {
     self = [super init];
     if (self && dict && [dict isKindOfClass:[NSDictionary class]]) {
-        _id = dict[@"id"];
-        _name = dict[@"name"];
-        _title = dict[@"title"];
-        _email = dict[@"email"];
         _author = dict[@"author"];
     }
     return self;
 }
 
 - (NSString *)displayString {
-    if (self.name && ![self.name isKindOfClass:[NSNull class]]) return self.name;
-    if (self.title && ![self.title isKindOfClass:[NSNull class]]) return self.title;
     if (self.author && ![self.author isKindOfClass:[NSNull class]]) return self.author;
-    if (self.email && ![self.email isKindOfClass:[NSNull class]]) return self.email;
     return @"Unknown Author";
 }
 

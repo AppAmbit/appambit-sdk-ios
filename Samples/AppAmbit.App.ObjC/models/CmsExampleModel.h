@@ -1,10 +1,6 @@
 #import <Foundation/Foundation.h>
 
 @interface AuthorRelation : NSObject
-@property (nonatomic, copy, nullable) NSString *id;
-@property (nonatomic, copy, nullable) NSString *name;
-@property (nonatomic, copy, nullable) NSString *title;
-@property (nonatomic, copy, nullable) NSString *email;
 @property (nonatomic, copy, nullable) NSString *author;
 - (instancetype _Nullable)initWithDictionary:(NSDictionary * _Nullable)dict;
 - (NSString * _Nonnull)displayString;

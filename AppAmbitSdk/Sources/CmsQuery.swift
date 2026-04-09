@@ -47,18 +47,79 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
     public func inList(_ field: String, _ values: [String]) -> Self {
         if !whereClause.isEmpty { whereClause += " AND " }
-        let placeholders = Array(repeating: "?", count: values.count).joined(separator: ", ")
-        whereClause += "json_extract(value, '$.\(field)') IN (\(placeholders))"
-        args.append(contentsOf: values)
+        appendListCondition(field, values, negate: false)
         return self
     }
 
     public func notInList(_ field: String, _ values: [String]) -> Self {
         if !whereClause.isEmpty { whereClause += " AND " }
-        let placeholders = Array(repeating: "?", count: values.count).joined(separator: ", ")
-        whereClause += "json_extract(value, '$.\(field)') NOT IN (\(placeholders))"
-        args.append(contentsOf: values)
+        appendListCondition(field, values, negate: true)
         return self
+    }
+
+    private func appendListCondition(_ field: String, _ values: [String], negate: Bool) {
+        var plainValues: [String] = []
+        var jsonValues: [String] = []
+
+        for val in values {
+            if let data = val.data(using: .utf8), let _ = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                jsonValues.append(val)
+            } else {
+                plainValues.append(val)
+            }
+        }
+
+        if !negate {
+            var orClauses: [String] = []
+
+            if !plainValues.isEmpty {
+                let placeholders = Array(repeating: "?", count: plainValues.count).joined(separator: ", ")
+                orClauses.append("json_extract(value, '$.\(field)') IN (\(placeholders))")
+                args.append(contentsOf: plainValues)
+            }
+
+            for jsonVal in jsonValues {
+                orClauses.append("json_extract(value, '$.\(field)') = json(?)")
+                args.append(jsonVal)
+            }
+
+            if orClauses.isEmpty {
+                whereClause += "1 = 0"
+                return
+            }
+
+            if orClauses.count == 1 {
+                whereClause += orClauses[0]
+            } else {
+                whereClause += "(" + orClauses.joined(separator: " OR ") + ")"
+            }
+
+        } else {
+            var andClauses: [String] = []
+
+            if !plainValues.isEmpty {
+                let placeholders = Array(repeating: "?", count: plainValues.count).joined(separator: ", ")
+                andClauses.append("json_extract(value, '$.\(field)') NOT IN (\(placeholders))")
+                args.append(contentsOf: plainValues)
+            }
+
+            for jsonVal in jsonValues {
+                let extracted = "json_extract(value, '$.\(field)')"
+                andClauses.append("(\(extracted) IS NULL OR \(extracted) != json(?))")
+                args.append(jsonVal)
+            }
+
+            if andClauses.isEmpty {
+                whereClause += "1 = 1"
+                return
+            }
+
+            if andClauses.count == 1 {
+                whereClause += andClauses[0]
+            } else {
+                whereClause += "(" + andClauses.joined(separator: " AND ") + ")"
+            }
+        }
     }
 
     public func orderByAscending(_ field: String) -> Self {
@@ -75,6 +136,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     public func getPerPage(_ perPage: Int) -> Self { self.perPage = perPage; return self }
 
     public func getList(completion: @escaping @Sendable ([T]) -> Void) {
+        if page == 0 || perPage == 0 { completion([]); return }
         let limit = perPage ?? -1
         let offset = perPage != nil ? ((page ?? 1) - 1) * perPage! : 0
 
@@ -133,7 +195,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     }
 
     private func fetchAllRemoteDataSync(completion: @escaping @Sendable (Bool) -> Void) {
-        let perPageFetch = 20
+        let perPageFetch = 100
         let endpoint = CmsEndpoint(contentType: contentType, page: 1, perPage: perPageFetch)
         
         Cms.apiService.executeRequest(endpoint, responseType: [String: JSONValue].self) { result in
