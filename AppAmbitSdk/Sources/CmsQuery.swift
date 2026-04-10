@@ -54,17 +54,17 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
     public func inList(_ field: String, _ values: [String]) -> Self {
         if !whereClause.isEmpty { whereClause += " AND " }
-        appendListCondition(field, values, negate: false)
+        buildListClause(field, values, negate: false)
         return self
     }
 
     public func notInList(_ field: String, _ values: [String]) -> Self {
         if !whereClause.isEmpty { whereClause += " AND " }
-        appendListCondition(field, values, negate: true)
+        buildListClause(field, values, negate: true)
         return self
     }
 
-    private func appendListCondition(_ field: String, _ values: [String], negate: Bool) {
+    private func buildListClause(_ field: String, _ values: [String], negate: Bool) {
         var plainValues: [String] = []
         var jsonValues: [String] = []
 
