@@ -184,8 +184,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
                 limit: limit,
                 offset: offset
             )
-            let decoder = JSONDecoder()
-            return jsonList.compactMap { Cms.decodeCmsItem($0, decoder: decoder) }
+            return jsonList.compactMap { Cms.decodeCmsItem($0) }
         } catch {
             return []
         }

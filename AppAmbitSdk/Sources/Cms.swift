@@ -76,28 +76,11 @@ public final class Cms: NSObject {
         }
     }
     
-    static func decodeCmsItem<T: Decodable>(_ jsonString: String, decoder: JSONDecoder) -> T? {
-        guard let data = jsonString.data(using: .utf8) else { return nil }
+    static func decodeCmsItem<T: Decodable>(_ jsonString: String) -> T? {
+        guard let data = jsonString.data(using: .utf8),
+              let jsonObj = try? JSONSerialization.jsonObject(with: data) else { return nil }
         do {
-            return try decoder.decode(T.self, from: data)
-        } catch let error as DecodingError {
-            if case .typeMismatch = error,
-               var dict = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any] {
-                var mutated = false
-                for (key, val) in dict {
-                    if let arr = val as? [Any] {
-                        dict[key] = arr.map { "\($0)" }.joined(separator: ", ")
-                        mutated = true
-                    }
-                }
-                if mutated,
-                   let patchedData = try? JSONSerialization.data(withJSONObject: dict, options: []),
-                   let result = try? decoder.decode(T.self, from: patchedData) {
-                    return result
-                }
-            }
-            debugPrint("Cms [decode error] \(T.self): \(error)")
-            return nil
+            return try T(from: FlexibleDecoder(value: jsonObj, codingPath: []))
         } catch {
             debugPrint("Cms [decode error] \(T.self): \(error)")
             return nil
