@@ -6,6 +6,9 @@ internal struct FlexibleDecoder: Decoder {
     var userInfo: [CodingUserInfoKey: Any] = [:]
 
     func container<Key: CodingKey>(keyedBy type: Key.Type) throws -> KeyedDecodingContainer<Key> {
+        if let arr = value as? [Any], arr.isEmpty {
+            return KeyedDecodingContainer(FlexibleKeyedContainer<Key>(dict: [:], codingPath: codingPath))
+        }
         guard let dict = value as? [String: Any] else {
             throw DecodingError.typeMismatch([String: Any].self,
                 .init(codingPath: codingPath, debugDescription: "Expected a JSON object"))
