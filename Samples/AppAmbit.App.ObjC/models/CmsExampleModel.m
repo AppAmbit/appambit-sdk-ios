@@ -29,7 +29,14 @@
         _id = [self safeObject:dict[@"id"]];
         _title = [self safeObject:dict[@"title"]];
         _body = [self safeObject:dict[@"body"]];
-        _category = [self safeObject:dict[@"category"]];
+        id catObj = [self safeObject:dict[@"category"]];
+        if ([catObj isKindOfClass:[NSArray class]]) {
+            _category = catObj;
+        } else if ([catObj isKindOfClass:[NSString class]] && [(NSString *)catObj length] > 0) {
+            _category = @[catObj];
+        } else {
+            _category = nil;
+        }
         _featuredImage = [self safeObject:dict[@"featured_image"]];
         
         id authorObj = [self safeObject:dict[@"author"]];

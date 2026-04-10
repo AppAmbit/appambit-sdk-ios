@@ -13,7 +13,7 @@ struct CmsExampleModel: Decodable, Identifiable {
     let id: String?
     let title: String?
     let body: String?
-    let category: String?
+    let category: [String]?
     let author: AuthorRelation?
     let featuredImage: String?
     

@@ -9,13 +9,13 @@ struct CmsView: View {
 
     let filters = [
         "All Posts",
-        "Category = tech",
-        "Category ≠ tech",
+        "Title = T20",
+        "Title ≠ T20",
         "Is Published = true",
         "Is Published = false",
         "Search 'swift'",
         "Title contains 't1'",
-        "Category starts with 'n'",
+        "Title starts with 't'",
         "Category IN [science, tech]",
         "Category NOT IN [tech, news]",
         "Views > 1000",
@@ -92,13 +92,13 @@ struct CmsView: View {
         let query = Cms.content("blog_extended", modelType: CmsExampleModel.self)
 
         switch selectedFilter {
-        case "Category = tech": _ = query.equals("category", "tech")
-        case "Category ≠ tech": _ = query.notEquals("category", "tech")
+        case "Title = T20": _ = query.equals("title", "T20")
+        case "Title ≠ T20": _ = query.notEquals("title", "T20")
         case "Is Published = true": _ = query.equals("is_published", "true")
         case "Is Published = false": _ = query.equals("is_published", "false")
         case "Search 'swift'": _ = query.search("swift")
         case "Title contains 't1'": _ = query.contains("title", "t1")
-        case "Category starts with 'n'": _ = query.startsWith("category", "n")
+        case "Title starts with 't'": _ = query.startsWith("title", "t")
         case "Category IN [science, tech]": _ = query.inList("category", ["science", "tech"])
         case "Category NOT IN [tech, news]": _ = query.notInList("category", ["tech", "news"])
         case "Views > 1000": _ = query.greaterThan("views_count", 1000)
@@ -183,14 +183,33 @@ struct PostCard: View {
                         .cornerRadius(4)
                 }
                 Spacer()
-                Text(post.category ?? "Uncategorized")
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(8)
             }
             .font(.caption2)
             .foregroundColor(.secondary)
+
+            if let categories = post.category, !categories.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(categories, id: \.self) { cat in
+                            Text(cat)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+                .font(.caption2)
+            } else {
+                Text("Uncategorized")
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .foregroundColor(.blue)
+                    .cornerRadius(8)
+                    .font(.caption2)
+            }
             
             if let date = post.eventDate {
                 Text("Event: \(date)")

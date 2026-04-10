@@ -1107,8 +1107,8 @@ final class StorableService: StorageService {
         try syncOnQueue {
             var results: [String] = []
             
-            var sql = "SELECT json_extract(value, '$') FROM \(CmsCacheConfiguration.tableName), " +
-                      "json_each(\(CmsCacheConfiguration.Column.jsonData.name), '$.data') " +
+            var sql = "SELECT json_extract(jitem.value, '$') FROM \(CmsCacheConfiguration.tableName), " +
+                      "json_each(\(CmsCacheConfiguration.Column.jsonData.name), '$.data') AS jitem " +
                       "WHERE \(CmsCacheConfiguration.Column.contentType.name) = ?"
             
             if let clause = whereClause, !clause.isEmpty {

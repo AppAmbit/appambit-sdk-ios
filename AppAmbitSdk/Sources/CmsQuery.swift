@@ -18,18 +18,18 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         if !whereClause.isEmpty { whereClause += " AND " }
         let lowerValue = value.lowercased()
         if lowerValue == "true" {
-            whereClause += "json_extract(value, '$.\(field)') \(op) 1"
+            whereClause += "json_extract(jitem.value, '$.\(field)') \(op) 1"
         } else if lowerValue == "false" {
-            whereClause += "json_extract(value, '$.\(field)') \(op) 0"
+            whereClause += "json_extract(jitem.value, '$.\(field)') \(op) 0"
         } else {
-            whereClause += "json_extract(value, '$.\(field)') \(op) ?"
+            whereClause += "json_extract(jitem.value, '$.\(field)') \(op) ?"
             args.append(value)
         }
     }
 
     private func addNumericCondition(_ field: String, _ op: String, _ value: Any) {
         if !whereClause.isEmpty { whereClause += " AND " }
-        whereClause += "CAST(json_extract(value, '$.\(field)') AS REAL) \(op) ?"
+        whereClause += "CAST(json_extract(jitem.value, '$.\(field)') AS REAL) \(op) ?"
         args.append("\(value)")
     }
 
@@ -37,7 +37,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             if !whereClause.isEmpty { whereClause += " AND " }
-            whereClause += "value LIKE ?"
+            whereClause += "jitem.value LIKE ?"
             args.append("%\(trimmed)%")
         }
         return self
@@ -81,12 +81,16 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
             if !plainValues.isEmpty {
                 let placeholders = Array(repeating: "?", count: plainValues.count).joined(separator: ", ")
-                orClauses.append("json_extract(value, '$.\(field)') IN (\(placeholders))")
+                orClauses.append("json_extract(jitem.value, '$.\(field)') IN (\(placeholders))")
                 args.append(contentsOf: plainValues)
+                    for plainVal in plainValues {
+                    orClauses.append("EXISTS (SELECT 1 FROM json_each(json_extract(jitem.value, '$.\(field)')) WHERE json_each.value = ?)")
+                    args.append(plainVal)
+                }
             }
 
             for jsonVal in jsonValues {
-                orClauses.append("json_extract(value, '$.\(field)') = json(?)")
+                orClauses.append("json_extract(jitem.value, '$.\(field)') = json(?)")
                 args.append(jsonVal)
             }
 
@@ -106,12 +110,16 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
 
             if !plainValues.isEmpty {
                 let placeholders = Array(repeating: "?", count: plainValues.count).joined(separator: ", ")
-                andClauses.append("json_extract(value, '$.\(field)') NOT IN (\(placeholders))")
+                andClauses.append("json_extract(jitem.value, '$.\(field)') NOT IN (\(placeholders))")
                 args.append(contentsOf: plainValues)
+                for plainVal in plainValues {
+                    andClauses.append("NOT EXISTS (SELECT 1 FROM json_each(json_extract(jitem.value, '$.\(field)')) WHERE json_each.value = ?)")
+                    args.append(plainVal)
+                }
             }
 
             for jsonVal in jsonValues {
-                let extracted = "json_extract(value, '$.\(field)')"
+                let extracted = "json_extract(jitem.value, '$.\(field)')"
                 andClauses.append("(\(extracted) IS NULL OR \(extracted) != json(?))")
                 args.append(jsonVal)
             }
@@ -130,12 +138,12 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     }
 
     public func orderByAscending(_ field: String) -> Self {
-        self.orderBy = "json_extract(value, '$.\(field)') ASC"
+        self.orderBy = "json_extract(jitem.value, '$.\(field)') ASC"
         return self
     }
 
     public func orderByDescending(_ field: String) -> Self {
-        self.orderBy = "json_extract(value, '$.\(field)') DESC"
+        self.orderBy = "json_extract(jitem.value, '$.\(field)') DESC"
         return self
     }
 
@@ -177,15 +185,7 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
                 offset: offset
             )
             let decoder = JSONDecoder()
-            return jsonList.compactMap { jsonString in
-                guard let data = jsonString.data(using: .utf8) else { return nil }
-                do {
-                    return try decoder.decode(T.self, from: data)
-                } catch {
-                    debugPrint("Cms [decode error] \(T.self): \(error)")
-                    return nil
-                }
-            }
+            return jsonList.compactMap { Cms.decodeCmsItem($0, decoder: decoder) }
         } catch {
             return []
         }

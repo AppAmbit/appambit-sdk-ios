@@ -143,7 +143,11 @@
     }
     _statusBadgeLabel.hidden = NO;
 
-    _categoryBadgeLabel.text = [NSString stringWithFormat:@" %@ ", post.category.length > 0 ? post.category : @"Uncategorized"];
+    NSString *catText = @"Uncategorized";
+    if (post.category.count > 0) {
+        catText = [post.category componentsJoinedByString:@" · "];
+    }
+    _categoryBadgeLabel.text = [NSString stringWithFormat:@" %@ ", catText];
 
     if (post.eventDate.length > 0) {
         _eventDateLabel.attributedText = [self iconLabel:@"calendar" text:[NSString stringWithFormat:@" %@", post.eventDate] color:[UIColor systemGrayColor]];
@@ -214,10 +218,15 @@
     _posts = @[];
     _selectedFilter = @"All Posts";
     _filters = @[
-        @"All Posts", @"Category = tech", @"Category ≠ tech", @"Is Published = true", @"Is Published = false", @"Search 'swift'",
-        @"Title contains 't1'", @"Category starts with 'n'", @"Category IN [science, tech]",
-        @"Category NOT IN [tech, news]", @"Views > 1000", @"Views ≥ 555",
-        @"Views < 15000", @"Views ≤ 15000", @"Sort Title ↑", @"Sort Title ↓", @"Sort Views ↑", @"Sort Views ↓", @"Page 1 (2 per page)", @"Page 2 (2 per page)"
+        @"All Posts",
+        @"Title = T20", @"Title ≠ T20",
+        @"Is Published = true", @"Is Published = false",
+        @"Search 'swift'",
+        @"Title contains 't1'", @"Title starts with 't'",
+        @"Category IN [science, tech]", @"Category NOT IN [tech, news]",
+        @"Views > 1000", @"Views ≥ 555", @"Views < 15000", @"Views ≤ 15000",
+        @"Sort Title ↑", @"Sort Title ↓", @"Sort Views ↑", @"Sort Views ↓",
+        @"Page 1 (2 per page)", @"Page 2 (2 per page)"
     ];
     
     [self setupUI];
@@ -368,13 +377,13 @@
     
     CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
     
-    if ([_selectedFilter isEqualToString:@"Category = tech"]) [query equals:@"category" value:@"tech"];
-    else if ([_selectedFilter isEqualToString:@"Category ≠ tech"]) [query notEquals:@"category" value:@"tech"];
+    if ([_selectedFilter isEqualToString:@"Title = T20"]) [query equals:@"title" value:@"T20"];
+    else if ([_selectedFilter isEqualToString:@"Title ≠ T20"]) [query notEquals:@"title" value:@"T20"];
     else if ([_selectedFilter isEqualToString:@"Is Published = true"]) [query equals:@"is_published" value:@"true"];
     else if ([_selectedFilter isEqualToString:@"Is Published = false"]) [query equals:@"is_published" value:@"false"];
     else if ([_selectedFilter isEqualToString:@"Search 'swift'"]) [query search:@"swift"];
     else if ([_selectedFilter isEqualToString:@"Title contains 't1'"]) [query contains:@"title" value:@"t1"];
-    else if ([_selectedFilter isEqualToString:@"Category starts with 'n'"]) [query startsWith:@"category" value:@"n"];
+    else if ([_selectedFilter isEqualToString:@"Title starts with 't'"]) [query startsWith:@"title" value:@"t"];
     else if ([_selectedFilter isEqualToString:@"Category IN [science, tech]"]) [query inList:@"category" values:@[@"science", @"tech"]];
     else if ([_selectedFilter isEqualToString:@"Category NOT IN [tech, news]"]) [query notInList:@"category" values:@[@"tech", @"news"]];
     else if ([_selectedFilter isEqualToString:@"Views > 1000"]) [query greaterThan:@"views_count" value:@1000];

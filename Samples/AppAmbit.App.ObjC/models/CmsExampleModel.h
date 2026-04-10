@@ -11,7 +11,7 @@
 @property (nonatomic, copy, nullable) NSString *id;
 @property (nonatomic, copy, nullable) NSString *title;
 @property (nonatomic, copy, nullable) NSString *body;
-@property (nonatomic, copy, nullable) NSString *category;
+@property (nonatomic, strong, nullable) NSArray<NSString *> *category;
 @property (nonatomic, strong, nullable) AuthorRelation *author;
 @property (nonatomic, copy, nullable) NSString *featuredImage;
 
