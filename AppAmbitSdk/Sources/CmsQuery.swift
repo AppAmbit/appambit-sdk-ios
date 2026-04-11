@@ -138,12 +138,14 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
     }
 
     public func orderByAscending(_ field: String) -> Self {
-        self.orderBy = "json_extract(jitem.value, '$.\(field)') ASC"
+        let extract = "json_extract(jitem.value, '$.\(field)')"
+        self.orderBy = "\(extract) IS NULL ASC, \(extract) COLLATE NOCASE ASC"
         return self
     }
 
     public func orderByDescending(_ field: String) -> Self {
-        self.orderBy = "json_extract(jitem.value, '$.\(field)') DESC"
+        let extract = "json_extract(jitem.value, '$.\(field)')"
+        self.orderBy = "\(extract) IS NULL ASC, \(extract) COLLATE NOCASE DESC"
         return self
     }
 
