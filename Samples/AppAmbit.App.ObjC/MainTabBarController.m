@@ -2,12 +2,12 @@
 #import "CrashesViewController.h"
 #import "AnalyticsViewController.h"
 #import "RemoteConfigViewController.h"
+#import "CmsViewController.h"
 
 @implementation MainTabBarController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-
 
     CrashesViewController *crashes = [CrashesViewController new];
     crashes.title = @"Crashes";
@@ -29,8 +29,15 @@
                                                             image:[UIImage systemImageNamed:@"arrow.2.circlepath.circle"]
                                                               tag:2];
     UINavigationController *navRemoteConfig = [[UINavigationController alloc] initWithRootViewController:remoteConfig];
+    
+    CmsViewController *cms = [CmsViewController new];
+    cms.title = @"CMS";
+    cms.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"CMS"
+                                                   image:[UIImage systemImageNamed:@"doc.richtext"]
+                                                     tag:3];
+    UINavigationController *navCms = [[UINavigationController alloc] initWithRootViewController:cms];
 
-    self.viewControllers = @[navCrashes, navAnalytics, navRemoteConfig];
+    self.viewControllers = @[navCrashes, navAnalytics, navRemoteConfig, navCms];
 }
 
 @end

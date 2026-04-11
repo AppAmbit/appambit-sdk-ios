@@ -1063,5 +1063,113 @@ final class StorableService: StorageService {
             return RemoteConfigEntity(id: id, key: keyVal, value: value)
         }
     }
-    
+    // MARK: - CMS
+
+    func putCmsData(_ contentType: String, _ json: String) throws {
+        try syncOnQueue {
+            let sql = "INSERT OR REPLACE INTO \(CmsCacheConfiguration.tableName) " +
+                      "(\(CmsCacheConfiguration.Column.contentType.name), " +
+                      " \(CmsCacheConfiguration.Column.jsonData.name), " +
+                      " \(CmsCacheConfiguration.Column.lastUpdated.name)) " +
+                      "VALUES (?, ?, ?);"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            bindText(stmt, index: 1, value: contentType)
+            bindText(stmt, index: 2, value: json)
+            bindText(stmt, index: 3, value: stringFromDateIso(Date()))
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
+        }
+    }
+
+    func getCmsData(_ contentType: String) throws -> String? {
+        try syncOnQueue {
+            let sql = "SELECT \(CmsCacheConfiguration.Column.jsonData.name) " +
+                      "FROM \(CmsCacheConfiguration.tableName) " +
+                      "WHERE \(CmsCacheConfiguration.Column.contentType.name) = ? " +
+                      "LIMIT 1;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            bindText(stmt, index: 1, value: contentType)
+
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+
+            guard let cStr = sqlite3_column_text(stmt, 0) else { return nil }
+            return String(cString: cStr)
+        }
+    }
+
+    func queryCmsData(contentType: String, whereClause: String?, args: [String]?, orderBy: String?, limit: Int, offset: Int) throws -> [String] {
+        try syncOnQueue {
+            var results: [String] = []
+            
+            var sql = "SELECT json_extract(jitem.value, '$') FROM \(CmsCacheConfiguration.tableName), " +
+                      "json_each(\(CmsCacheConfiguration.Column.jsonData.name), '$.data') AS jitem " +
+                      "WHERE \(CmsCacheConfiguration.Column.contentType.name) = ?"
+            
+            if let clause = whereClause, !clause.isEmpty {
+                sql += " AND (\(clause))"
+            }
+            
+            if let order = orderBy, !order.isEmpty {
+                sql += " ORDER BY \(order)"
+            }
+            
+            if limit > 0 {
+                sql += " LIMIT \(limit)"
+                if offset > 0 {
+                    sql += " OFFSET \(offset)"
+                }
+            }
+            
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+            
+            bindText(stmt, index: 1, value: contentType)
+            
+            if let validArgs = args {
+                for (index, arg) in validArgs.enumerated() {
+                    bindText(stmt, index: Int32(index + 2), value: arg)
+                }
+            }
+            
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let cStr = sqlite3_column_text(stmt, 0) {
+                    results.append(String(cString: cStr))
+                }
+            }
+            
+            return results
+        }
+    }
+
+    func deleteCmsData(_ contentType: String) throws {
+        try syncOnQueue {
+            let sql = "DELETE FROM \(CmsCacheConfiguration.tableName) " +
+                      "WHERE \(CmsCacheConfiguration.Column.contentType.name) = ?;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            bindText(stmt, index: 1, value: contentType)
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
+        }
+    }
+
+    func deleteAllCmsData() throws {
+        try syncOnQueue {
+            let sql = "DELETE FROM \(CmsCacheConfiguration.tableName);"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw sqliteError }
+            defer { sqlite3_finalize(stmt) }
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { throw sqliteError }
+        }
+    }
 }
