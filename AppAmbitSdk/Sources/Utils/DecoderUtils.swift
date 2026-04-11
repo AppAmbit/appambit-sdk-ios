@@ -251,6 +251,11 @@ public enum JSONValue: Codable, @unchecked Sendable {
     case null
 
     public init(from decoder: Decoder) throws {
+        if let flex = decoder as? FlexibleDecoder {
+            self = JSONValue.from(any: flex.value)
+            return
+        }
+
         let container = try decoder.singleValueContainer()
         if let x = try? container.decode(Bool.self) { self = .bool(x) }
         else if let x = try? container.decode(Int.self) { self = .int(x) }
@@ -266,6 +271,32 @@ public enum JSONValue: Codable, @unchecked Sendable {
         else if let x = try? container.decode([JSONValue].self) { self = .array(x) }
         else if container.decodeNil() { self = .null }
         else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Wrong type for JSONValue") }
+    }
+
+    public static func from(any value: Any) -> JSONValue {
+        if let dict = value as? [String: Any] {
+            return .object(dict.mapValues { from(any: $0) })
+        }
+        if let arr = value as? [Any] {
+            return .array(arr.map { from(any: $0) })
+        }
+        if let s = value as? String {
+            return .string(s)
+        }
+        if let n = value as? NSNumber {
+            if CFGetTypeID(n) == CFBooleanGetTypeID() {
+                return .bool(n.boolValue)
+            }
+            let type = String(cString: n.objCType)
+            if type == "d" || type == "f" {
+                return .double(n.doubleValue)
+            }
+            return .int(n.intValue)
+        }
+        if value is NSNull {
+            return .null
+        }
+        return .string("\(value)")
     }
 
     public func encode(to encoder: Encoder) throws {

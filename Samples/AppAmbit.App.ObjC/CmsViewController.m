@@ -113,11 +113,22 @@
     return result;
 }
 
+- (NSString *)formatCount:(double)count {
+    if (count >= 1000000) return [NSString stringWithFormat:@"%.1fM", count / 1000000.0];
+    if (count >= 1000) return [NSString stringWithFormat:@"%.1fK", count / 1000.0];
+    return [NSString stringWithFormat:@"%.0f", count];
+}
+
 - (void)configureWithPost:(CmsExampleModel *)post {
     _titleLabel.text = post.title.length > 0 ? post.title : @"No Title";
-    _bodyLabel.text = post.body.length > 0 ? post.body : @"";
+    NSString *cleanBody = [post.body stringByReplacingOccurrencesOfString:@"<p>" withString:@""];
+    cleanBody = [cleanBody stringByReplacingOccurrencesOfString:@"</p>" withString:@""];
+    cleanBody = [cleanBody stringByReplacingOccurrencesOfString:@"<s>" withString:@""];
+    cleanBody = [cleanBody stringByReplacingOccurrencesOfString:@"</s>" withString:@""];
+    _bodyLabel.text = cleanBody.length > 0 ? cleanBody : @"";
 
-    _viewsLabel.attributedText = [self iconLabel:@"eye" text:[NSString stringWithFormat:@" %.0f", post.viewsCount] color:[UIColor secondaryLabelColor]];
+    NSString *formattedViews = [self formatCount:post.viewsCount];
+    _viewsLabel.attributedText = [self iconLabel:@"eye" text:[NSString stringWithFormat:@" %@", formattedViews] color:[UIColor secondaryLabelColor]];
     [_viewsLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
 
     // Author: always show something
@@ -399,7 +410,16 @@
     
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
-        for (NSDictionary *d in items) {
+        
+        NSArray *actualItems = items;
+        if ([items isKindOfClass:[NSDictionary class]]) {
+            NSDictionary *dict = (NSDictionary *)items;
+            if ([dict[@"data"] isKindOfClass:[NSArray class]]) {
+                actualItems = dict[@"data"];
+            }
+        }
+        
+        for (NSDictionary *d in actualItems) {
             [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -417,7 +437,16 @@
     
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
         NSMutableArray *postObjs = [NSMutableArray new];
-        for (NSDictionary *d in items) {
+        
+        NSArray *actualItems = items;
+        if ([items isKindOfClass:[NSDictionary class]]) {
+            NSDictionary *dict = (NSDictionary *)items;
+            if ([dict[@"data"] isKindOfClass:[NSArray class]]) {
+                actualItems = dict[@"data"];
+            }
+        }
+        
+        for (NSDictionary *d in actualItems) {
             [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{

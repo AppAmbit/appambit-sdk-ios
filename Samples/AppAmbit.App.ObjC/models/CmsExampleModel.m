@@ -25,7 +25,7 @@
 
 - (instancetype)initWithDictionary:(NSDictionary *)dict {
     self = [super init];
-    if (self) {
+    if (self && [dict isKindOfClass:[NSDictionary class]]) {
         _id = [self safeObject:dict[@"id"]];
         _title = [self safeObject:dict[@"title"]];
         _body = [self safeObject:dict[@"body"]];
