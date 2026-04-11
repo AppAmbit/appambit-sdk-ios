@@ -45,6 +45,8 @@ private struct FlexibleKeyedContainer<K: CodingKey>: KeyedDecodingContainerProto
 
     func decode(_ type: String.Type, forKey key: K) throws -> String {
         guard let val = dict[key.stringValue], !(val is NSNull) else { throw missing(key) }
+        if let s = val as? String { return s }
+        if val is [String: Any] || val is [Any] { throw mismatch(String.self, key: key, found: val) }
         return "\(val)"
     }
 
@@ -134,7 +136,12 @@ private struct FlexibleUnkeyedContainer: UnkeyedDecodingContainer {
         currentIndex += 1; return true
     }
 
-    mutating func decode(_ type: String.Type) throws -> String { "\(pop())" }
+    mutating func decode(_ type: String.Type) throws -> String {
+        let val = pop()
+        if let s = val as? String { return s }
+        if val is [String: Any] || val is [Any] { throw typeMismatch(String.self, value: val) }
+        return "\(val)"
+    }
     mutating func decode(_ type: Bool.Type) throws -> Bool {
         let v = pop()
         if let b = v as? Bool { return b }
@@ -191,7 +198,11 @@ private struct FlexibleSingleValueContainer: SingleValueDecodingContainer {
     var codingPath: [CodingKey]
 
     func decodeNil() -> Bool { value is NSNull }
-    func decode(_ type: String.Type) throws -> String { "\(value)" }
+    func decode(_ type: String.Type) throws -> String {
+        if let s = value as? String { return s }
+        if value is [String: Any] || value is [Any] { throw mismatch(String.self) }
+        return "\(value)"
+    }
     func decode(_ type: Bool.Type) throws -> Bool {
         if let b = value as? Bool { return b }
         if let n = value as? NSNumber { return n.boolValue }
