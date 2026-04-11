@@ -8,11 +8,6 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
-    if (@available(iOS 18.0, *)) {
-        self.mode = UITabBarControllerModeTabBar;
-        self.view.backgroundColor = [UIColor systemBackgroundColor];
-    }
 
     CrashesViewController *crashes = [CrashesViewController new];
     crashes.title = @"Crashes";
