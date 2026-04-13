@@ -201,6 +201,13 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     }
 
     private func addAuthorizationHeaderIfNeeded(for request: inout URLRequest, endpoint: Endpoint) {
+        if endpoint is CmsEndpoint {
+            if let appId = try? ServiceContainer.shared.storageService.getAppId() {
+                request.addValue(appId, forHTTPHeaderField: "X-App-Key")
+            }
+            return
+        }
+        
         if !endpoint.skipAuthorization, let token = self.token {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

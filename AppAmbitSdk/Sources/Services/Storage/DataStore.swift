@@ -42,6 +42,7 @@ final class DataStore {
         try exec(EventEntityConfiguration.createTable)
         try exec(BreadcrumbEntityConfiguration.createTable)
         try exec(RemoteConfigEntityConfiguration.createTable)
+        try exec(CmsCacheConfiguration.createTable)
         
         // Migrate existing secrets table to add push notification columns if they don't exist
         migrateSecretsTable()
