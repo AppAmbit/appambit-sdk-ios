@@ -1,3 +1,9 @@
+## Version 0.5.0
+
+### AppAmbit
+
+* **[Feature]** Added support for CMS (Content Management System) integration, allowing dynamic content updates and management within the app without requiring app updates. Using fluent API design for easy integration and configuration of CMS features.
+
 ## Version 0.4.0
 
 ### AppAmbit
