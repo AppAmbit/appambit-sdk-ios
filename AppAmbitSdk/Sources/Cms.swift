@@ -50,7 +50,7 @@ public final class Cms: NSObject {
 
     @discardableResult
     @objc
-    public static func clearCache(_ contentType: String) async -> Bool {
+    public static func clearCache(_ contentType: String) -> Bool {
         guard storageService != nil else { return false }
         do {
             try storageService.deleteCmsData(contentType)
@@ -64,7 +64,7 @@ public final class Cms: NSObject {
 
     @discardableResult
     @objc
-    public static func clearAllCache() async -> Bool {
+    public static func clearAllCache() -> Bool {
         guard storageService != nil else { return false }
         do {
             try storageService.deleteAllCmsData()

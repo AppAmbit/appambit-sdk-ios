@@ -5,6 +5,6 @@ public protocol ICms {
     static func content(_ contentType: String) -> any ICmsQuery<JSONValue>
     static func contentObjC(_ contentType: String) -> CmsQueryObjC
     static func contentTypelessObjC(_ contentType: String) -> CmsQueryObjC
-    static func clearCache(_ contentType: String) async -> Bool
-    static func clearAllCache() async -> Bool
+    static func clearCache(_ contentType: String) -> Bool
+    static func clearAllCache() -> Bool
 }
