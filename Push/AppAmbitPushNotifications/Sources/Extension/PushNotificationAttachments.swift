@@ -1,10 +1,9 @@
 import Foundation
 import UserNotifications
 
-/// Helper for handling notification attachments, such as rich images.
+/// Helper for handling notification attachments.
 public enum PushNotificationAttachments {
     
-    /// Downloads an image from a URL and converts it into a UNNotificationAttachment.
     public static func loadImageAttachment(from urlString: String,
                                            completion: @escaping (UNNotificationAttachment?) -> Void) {
         guard let url = URL(string: urlString) else {
@@ -14,7 +13,7 @@ public enum PushNotificationAttachments {
 
         let task = URLSession.shared.downloadTask(with: url) { tempUrl, _, error in
             guard let tempUrl, error == nil else {
-                debugPrint("[AppAmbitPushSDK] Download error: \(error?.localizedDescription ?? "Invalid URL")")
+                PushLogger.error("Download failed: \(error?.localizedDescription ?? "Invalid URL")")
                 completion(nil)
                 return
             }
@@ -25,7 +24,6 @@ public enum PushNotificationAttachments {
                 .appendingPathExtension(ext)
 
             do {
-                // Move the temporary file to a permanent location for iOS to use
                 try FileManager.default.moveItem(at: tempUrl, to: localUrl)
                 let attachment = try UNNotificationAttachment(
                     identifier: "image",
@@ -34,7 +32,7 @@ public enum PushNotificationAttachments {
                 )
                 completion(attachment)
             } catch {
-                debugPrint("[AppAmbitPushSDK] Attachment creation failed: \(error.localizedDescription)")
+                PushLogger.error("Attachment failed: \(error.localizedDescription)")
                 completion(nil)
             }
         }
@@ -42,7 +40,6 @@ public enum PushNotificationAttachments {
         task.resume()
     }
 
-    /// Convenience method to load an attachment from an AppAmbitNotification model.
     public static func loadImageAttachment(for notification: AppAmbitNotification,
                                            completion: @escaping (UNNotificationAttachment?) -> Void) {
         guard let urlString = notification.imageUrl, !urlString.isEmpty else {

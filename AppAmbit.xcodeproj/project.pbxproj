@@ -10,6 +10,7 @@
 		7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 7916DAD22E171C9B00CFEFA2 /* AppAmbit */; };
 		797B71702F1050260032E3ED /* AppAmbitNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 797B71692F1050260032E3ED /* AppAmbitNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		79C6A7CB2E7D34AE001EDDD2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */; };
+		79D1D4072FA533C700A33B23 /* AppAmbitPushNotifications in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		79E047D62EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
 		79E047E12EF50AB9007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
 		79F0B1C22F200000007952FD /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 79E047D52EF50AB9007952FD /* AppAmbitPushNotifications */; };
@@ -37,6 +38,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		79D1D4082FA533C700A33B23 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				79D1D4072FA533C700A33B23 /* AppAmbitPushNotifications in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -61,10 +73,10 @@
 				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
 				AppAmbit.App.Swift/Assets.xcassets,
 				AppAmbit.App.Swift/CmsView.swift,
-				AppAmbit.App.Swift/models/CmsExampleModel.swift,
 				AppAmbit.App.Swift/ContentView.swift,
 				AppAmbit.App.Swift/CrashesView.swift,
 				AppAmbit.App.Swift/LoadView.swift,
+				AppAmbit.App.Swift/models/CmsExampleModel.swift,
 				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
 				AppAmbit.App.Swift/RemoteConfigView.swift,
 				AppAmbit.App.Swift/SecondView.swift,
@@ -83,10 +95,10 @@
 				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
 				AppAmbit.App.Swift/Assets.xcassets,
 				AppAmbit.App.Swift/CmsView.swift,
-				AppAmbit.App.Swift/models/CmsExampleModel.swift,
 				AppAmbit.App.Swift/ContentView.swift,
 				AppAmbit.App.Swift/CrashesView.swift,
 				AppAmbit.App.Swift/LoadView.swift,
+				AppAmbit.App.Swift/models/CmsExampleModel.swift,
 				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
 				AppAmbit.App.Swift/RemoteConfigView.swift,
 				AppAmbit.App.Swift/SecondView.swift,
@@ -194,6 +206,7 @@
 				79260B892E139E23008BF6CB /* Frameworks */,
 				79260B8A2E139E23008BF6CB /* Resources */,
 				797B71712F1050260032E3ED /* Embed Foundation Extensions */,
+				79D1D4082FA533C700A33B23 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);

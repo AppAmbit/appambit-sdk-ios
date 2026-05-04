@@ -4,12 +4,11 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 
 ## Features
 
-- **Simple API**: Matches Android SDK for cross-platform consistency
-- **Minimal setup**: Just call `PushNotifications.start()` after AppAmbit initialization
-- **Decoupled architecture**: Internal `PushKernel` handles APNs, public `PushNotifications` facade
-- **Notification handling**: Receive and customize notifications with typed data
+- **Unified Listener**: Single entry point to handle foreground, tap, and background notifications
+- **State-aware Callbacks**: Know exactly how the notification was received (`.foreground`, `.opened`, `.background`)
+- **Notification Customization**: Modify notifications before display using `NotificationServiceExtension`
+- **Zero-Config Setup**: Automatic APNs token capture via method swizzling
 - **Thread-safe**: Compatible with Swift 6 Concurrency
-- **Persistent state**: User preferences stored in UserDefaults
 
 ## Requirements
 
@@ -42,15 +41,29 @@ pod install
 
 Open the generated `.xcworkspace` project.
 
-*(If you get an error like “Unable to find a specification for `AppAmbitPushNotifications`”: run `pod repo update`, then `pod install`.)*
+*(If you get an error like "Unable to find a specification for `AppAmbitPushNotifications`": run `pod repo update`, then `pod install`.)*
 
 ---
 
-## Basic Usage
+## Setup
 
-### 1. Initialize in your App
+### 1. Enable Capabilities in Xcode
 
-#### Swift
+Before writing any code, you must enable the required capabilities in your Xcode project:
+
+1. Select your **app target** in Xcode.
+2. Go to **Signing & Capabilities**.
+3. Click **+ Capability** and add:
+   - **Push Notifications**
+   - **Background Modes** → enable:
+     - ✅ **Background fetch**
+     - ✅ **Remote notifications**
+
+> Without these capabilities, iOS will not deliver notifications to your app in the background.
+
+### 2. Configure AppDelegate
+
+For SwiftUI apps, use the provided `AppAmbitAppDelegate` adaptor:
 
 ```swift
 import SwiftUI
@@ -59,12 +72,11 @@ import AppAmbitPushNotifications
 
 @main
 struct MyApp: App {
+    @UIApplicationDelegateAdaptor(AppAmbitAppDelegate.self) var appDelegate
+    
     init() {
-        // First, start AppAmbit Core SDK
-        AppAmbit.start(appKey: "<YOUR-APPKEY>") {
-            // Then start Push SDK after AppAmbit finishes initialization
-            PushNotifications.start()
-        }
+        PushNotifications.start()
+        AppAmbit.start(appKey: "<YOUR-APPKEY>")
     }
     
     var body: some Scene {
@@ -75,328 +87,293 @@ struct MyApp: App {
 }
 ```
 
-#### Objective-C
+For UIKit apps, your AppDelegate works automatically — the SDK uses method swizzling to intercept the necessary delegate calls.
 
-```objc
-#import "AppDelegate.h"
-@import AppAmbit;
-@import AppAmbitPushNotifications;
-
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    [AppAmbit start:@"<YOUR-APPKEY>"];
-    [PushNotifications start];
-    return YES;
-}
-```
-
-### 2. Manual Permission Request
-
-#### Swift
+### 3. Request Permission
 
 ```swift
-// Request notification permission from the user
 PushNotifications.requestNotificationPermission { granted in
     if granted {
-        print("Permission granted!")
-        // Optionally enable notifications
         PushNotifications.setNotificationsEnabled(true)
-    } else {
-        print("Permission denied")
     }
 }
 ```
 
-#### Objective-C
+---
 
-```objc
-[PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {
-    if (granted) {
-        [PushNotifications setNotificationsEnabled:YES];
-    } else {
-        NSLog(@"Permission denied");
-    }
-}];
-```
+## Receiving Notifications
 
-### 3. Enable/Disable Notifications
+### Unified Notification Listener
 
-#### Swift
+Use `setNotificationListener` to handle all incoming notifications. The callback provides two parameters:
+- `userInfo`: the notification payload.
+- `state`: a `PushNotificationState` enum indicating how the notification was received.
+
+`setNotificationListener` is the default app-side integration and should be your primary entry point for notification handling.
+You can use it on its own (no extension required) for foreground, opened, and background app events.
 
 ```swift
-// Enable notifications (registers for APNs and syncs with backend)
-PushNotifications.setNotificationsEnabled(true)
-
-// Disable notifications (unregisters from APNs and syncs with backend)
-PushNotifications.setNotificationsEnabled(false)
-
-// Check current status
-let isEnabled = PushNotifications.isNotificationsEnabled()
-```
-
-#### Objective-C
-
-```objc
-// Enable notifications
-[PushNotifications setNotificationsEnabled:YES];
-
-// Disable notifications
-[PushNotifications setNotificationsEnabled:NO];
-
-// Check current status
-BOOL isEnabled = [PushNotifications isNotificationsEnabled];
-```
-
-### 4. Handling Incoming Notifications
-
-Set a handler to receive and optionally customize notifications when they arrive.
-
-#### Swift
-
-```swift
-// Professional way to listen and customize notifications
-PushNotifications.setNotificationCustomizer { notification in
-    let title = notification.request.content.title
-    let userInfo = notification.request.content.userInfo
-    
-    print("Received: \(title)")
-    
-    // Access custom data payload
-    if let customData = userInfo["myCustomKey"] as? String {
-        print("Custom data: \(customData)")
+PushNotifications.setNotificationListener { userInfo, state in
+    switch state {
+    case .foreground:
+        // The app was open when the notification arrived.
+        // Use this to update UI or show an in-app alert.
+        print("Received in foreground")
+        
+    case .opened:
+        // The user tapped the notification banner to open the app.
+        // Use this to navigate to the relevant screen.
+        print("User opened notification")
+        
+    case .background:
+        // The app was woken up in the background.
+        // Use this to sync data or update local storage.
+        print("Received in background")
+        
+    @unknown default:
+        break
     }
 }
 ```
 
-For **foreground notifications** (app open), the SDK automatically handles them if swizzling is enabled. You can intercept them using `setNotificationCustomizer`.
+### Notification States
 
-For **background notifications** (app closed), override in your `NotificationService`:
+| State | When it fires | Typical use case |
+|---|---|---|
+| `.foreground` | App is open and visible | Update UI, show in-app banner |
+| `.opened` | User tapped the notification | Navigate to relevant content |
+| `.background` | App was woken in background | Sync data, update local cache |
 
-```swift
-class NotificationService: AppAmbitNotificationService {
-    override func handlePayload(_ notification: AppAmbitNotification, userInfo: [AnyHashable: Any]) {
-        // Process background notification
-        print("Background: \(notification.title ?? "")")
-    }
-}
-```
+> **Note**: The `.background` state requires the APNs payload to include `content-available: 1`. Without this field, iOS will not wake your app in the background.
 
-#### Objective-C
+### Execution Order (What Runs First)
 
-```objc
-// Closure-based listener is Swift-only
-// Use Objective-C bridge methods if available
-```
+When a push arrives, execution depends on payload and app state:
 
-### 5. Notification Service Extension (Advanced Processing)
+1. If `mutable-content: 1` is present, `AppAmbitNotificationService` runs first in the extension process to modify content before display.
+2. App callbacks run in the app process when applicable:
+  - `.foreground` via `willPresent` when app is open.
+  - `.background` via `didReceiveRemoteNotification` when iOS wakes the app (`content-available: 1`).
+  - `.opened` via notification tap.
+3. `setNotificationListener` receives the final app-side state callback.
 
-For advanced features like image attachments or processing notifications when your app is not running, add a **UNNotificationServiceExtension** and inherit from `AppAmbitNotificationService`. This allows you to modify or enrich notifications before they are displayed to the user.
+In short: extension-first for content customization, listener for app behavior.
 
-#### Xcode Steps
+---
 
-1. **File > New > Target > Notification Service Extension**
-2. Add the `AppAmbitPushNotifications` package to the **extension target** in Xcode.
-3. Use the following class:
+## Customizing Notifications (Notification Service Extension)
+
+To modify a notification's appearance before it is displayed (e.g., add images, change title, decrypt content), use a **Notification Service Extension**.
+
+This extension complements `setNotificationListener`; it does not replace it.
+
+### When to Use
+
+- Attach images or media to the notification.
+- Modify the title or body dynamically.
+- Group notifications by thread or conversation.
+- Set custom interruption levels (iOS 15+).
+
+### Setup
+
+1. In Xcode: **File > New > Target > Notification Service Extension**
+2. Add the `AppAmbitPushNotifications` package to the **extension target**.
+3. Implement your service:
 
 ```swift
 import AppAmbitPushNotifications
 
 final class NotificationService: AppAmbitNotificationService {
-    // Override to customize or process notifications
-    override func handlePayload(_ notification: AppAmbitNotification, userInfo: [AnyHashable: Any]) {
-        // Access notification data
-        print("Processing: \(notification.title ?? "")")
+    
+    override func didReceive(
+        _ request: UNNotificationRequest,
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
+        guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            contentHandler(request.content)
+            return
+        }
+        
+        // Modify the notification before display
+        let data = content.userInfo["data"] as? [String: Any] ?? [:]
+        
+        if let customTitle = data["custom_title"] as? String {
+            content.title = customTitle
+        }
+        
+        let newRequest = UNNotificationRequest(
+            identifier: request.identifier,
+            content: content,
+            trigger: request.trigger
+        )
+        
+        // Delegate to parent for image download and final delivery
+        super.didReceive(newRequest, withContentHandler: contentHandler)
     }
 }
 ```
 
-> If your app is Objective-C, you can still add this extension in Swift.
+> **Important**: The APNs payload must include `mutable-content: 1` for the extension to be invoked by iOS.
 
-#### When to Use
-- To attach images (requires `mutable-content: 1` in payload).
-- To process or modify notifications before display, even when the app is closed or in the background.
-- For custom logic like analytics or data handling on notification arrival.
+---
 
-#### Required Payload Fields
-Your backend must include `mutable-content: 1` for the extension to run. For images, add an image URL key like `image_url`.
+## APNs Payload Reference
+
+### Standard Notification
+
+Shows a banner and triggers `.foreground` or `.opened` states:
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "New message",
+      "body": "You have a new update"
+    },
+    "sound": "default",
+    "badge": 1
+  }
+}
+```
+
+### Notification with Background Wake
+
+Shows a banner **and** wakes the app in the background (`.background` state):
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "New message",
+      "body": "You have a new update"
+    },
+    "content-available": 1
+  }
+}
+```
+
+### Full-Featured Notification
+
+Shows a banner, wakes the app, **and** triggers the Notification Service Extension for customization:
+
+```json
+{
+  "aps": {
+    "alert": {
+      "title": "New message",
+      "subtitle": "From John",
+      "body": "Hey, check this out!"
+    },
+    "content-available": 1,
+    "mutable-content": 1,
+    "sound": "default",
+    "badge": 3
+  },
+  "data": {
+    "image_url": "https://example.com/photo.jpg",
+    "deep_link": "/chat/123"
+  }
+}
+```
+
+### Payload Fields Summary
+
+| Field | Required | Purpose |
+|---|---|---|
+| `aps.alert` | Yes | Visible notification content (title, body, subtitle) |
+| `aps.content-available` | For `.background` state | Wakes the app to run code in background |
+| `aps.mutable-content` | For customization | Triggers NotificationServiceExtension |
+| `aps.sound` | No | Play sound on delivery (`"default"` or custom) |
+| `aps.badge` | No | App icon badge number |
+| `aps.category` | No | Action buttons (requires app-side registration) |
+| `aps.thread-id` | No | Notification grouping |
+
+---
 
 ## API Reference
 
-### Starting the SDK
+### Initialization
 
 ```swift
-PushNotifications.start()
+// Start the Push SDK (call before AppAmbit.start)
+PushNotifications.start(debugMode: false, autoRequestPermissions: false)
 ```
 
-Must be called after `AppAmbit.start()` completes. The SDK will automatically sync the device token with the backend if notifications are enabled.
+### Permissions
 
-### Managing Notifications
+```swift
+// Request system permission
+PushNotifications.requestNotificationPermission { granted in }
 
-#### Swift
+// Check if permission was granted
+PushNotifications.hasNotificationPermission() -> Bool
+```
+
+### Enable / Disable
 
 ```swift
 // Enable or disable notifications
 PushNotifications.setNotificationsEnabled(_ enabled: Bool)
 
-// Check if notifications are enabled
+// Check current state
 PushNotifications.isNotificationsEnabled() -> Bool
-
-// Request system permission
-PushNotifications.requestNotificationPermission(listener: ((Bool) -> Void)?)
 ```
 
-#### Objective-C
-
-```objc
-// Enable or disable notifications
-[PushNotifications setNotificationsEnabled:(BOOL)enabled];
-
-// Enable or disable notifications and receive sync result
-[PushNotifications setNotificationsEnabled:(BOOL)enabled completion:^(BOOL success) {}];
-
-// Check if notifications are enabled
-BOOL enabled = [PushNotifications isNotificationsEnabled];
-
-// Request system permission
-[PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {}];
-```
+### Listeners
 
 ```swift
-// Professional way to listen for both local and remote notifications
-PushNotifications.setNotificationCustomizer(_ listener: ((UNNotification) -> Void)?)
+// Unified notification listener (default and recommended)
+PushNotifications.setNotificationListener { userInfo, state in
+    // state: .foreground | .opened | .background
+}
+
+// Background-only listener with completion handler (optional, advanced)
+PushNotifications.setBackgroundNotificationListener { userInfo, completionHandler in
+    // Process data...
+    completionHandler(.newData)
+}
 ```
 
-The customizer receives the raw `UNNotification` object. For background processing (when the app is not active), use a Notification Service Extension.
-
-## Dashboard Form Fields Support (APNs Mapping)
-
-These fields are provided by your backend (dashboard/console). The SDK reads them from APNs payloads.
-
-**Targeting/Scheduling (Backend only)**
-- **Send To**, **Rate Limit**, **Send At**: handled by backend delivery, not by the iOS SDK.
-
-**Content & Behavior (APNs payload)**
-- **Title / Body** -> `aps.alert.title` / `aps.alert.body`
-- **Sound** -> `aps.sound` (e.g. `"default"` or custom filename)
-- **Badge Count** -> `aps.badge`
-- **Category** -> `aps.category` (requires app-side `UNNotificationCategory` registration)
-- **Thread ID** -> `aps.thread-id`
-- **Interruption Level** -> `aps.interruption-level` (iOS 15+)
-- **Custom Data Payload** -> any key outside `aps` (available in `AppAmbitNotification.data`)
-- **Image URL** -> requires `UNNotificationServiceExtension` and `mutable-content: 1`
-
-## Requirements for Advanced Fields
-
-- **Category**: the app must register matching `UNNotificationCategory` identifiers.
-- **Image URL**: the app must add a `UNNotificationServiceExtension` that downloads the image and attaches it to the notification. The backend must include `mutable-content: 1` and an agreed custom key (e.g. `image_url`) in the payload.
-- **Interruption Level**: only applies on iOS 15+.
-- **Background Processing**: For any custom processing when the app is not active, add a `UNNotificationServiceExtension` inheriting from `AppAmbitNotificationService`.
+---
 
 ## Architecture
 
-This SDK follows the same architecture as the Android version:
-
-- **PushNotifications** (public): The facade that exposes all functionality
-- **PushKernel** (internal): Decoupled core that handles APNs communication
-- **AppAmbitNotification**: Model that encapsulates notification data
-
-The kernel is completely invisible to the end user. All interactions go through `PushNotifications`.
-
-## How It Works
-
-1. **Token Management**: When the app registers for notifications, APNs provides a device token. This token is automatically sent to the AppAmbit backend via `ConsumerService.updateConsumer()`.
-
-2. **State Persistence**: The enabled/disabled state is stored in `UserDefaults`, so it persists across app launches.
-
-3. **Backend Sync**: Every time you call `setNotificationsEnabled()`, the SDK updates the backend with the current token and status.
-   When enabling, the backend update happens after APNs returns a token to avoid duplicate updates.
-
-4. **Notification Handling**: When a notification arrives, the SDK invokes the set handler (if any), allowing you to process typed data and optionally customize the notification before display. For background processing (when the app is not active), use a Notification Service Extension.
-
-## Requirements
-
-- iOS 12.0+
-- Swift 6.0+
-- AppAmbit Core SDK (must be initialized first)
-
-## Complete Example
-
-### Swift
-
-```swift
-import SwiftUI
-import AppAmbit
-import AppAmbitPushNotifications
-
-@main
-struct MyApp: App {
-    init() {
-        // 1. Start AppAmbit Core
-        AppAmbit.start(appKey: "<YOUR-APPKEY>") {
-            // 2. Start Push SDK
-            PushNotifications.start()
-            
-            // 3. (Optional) Set up notification handler
-            class MyHandler: PushNotifications.NotificationHandler {
-                func handleNotification(_ notification: AppAmbitNotification, content: UNMutableNotificationContent) {
-                    print("Received: \(notification.title ?? "")")
-                    content.badge = 1
-                }
-            }
-            PushNotifications.setNotificationHandler(MyHandler())
-            
-            // 4. Request permission and enable
-            PushNotifications.requestNotificationPermission { granted in
-                if granted {
-                    PushNotifications.setNotificationsEnabled(true)
-                }
-            }
-        }
-    }
-    
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-    }
-}
-
-// In your AppDelegate or SceneDelegate, add the delegate:
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        PushNotifications.handleNotificationInForeground(userInfo: notification.request.content.userInfo)
-        completionHandler([.alert, .sound])
-    }
-}
+```
+Push arrives at iOS
+    │
+    ├── NotificationServiceExtension (separate process)
+    │     → Runs BEFORE display (requires mutable-content: 1)
+    │     → Modify title, body, add images
+    │     → Runs even if app is force-quit
+    │
+    ├── didReceiveRemoteNotification (app process)
+    │     → Runs when app is woken in background
+    │     → Triggers .background state
+    │     → Requires content-available: 1
+    │
+    ├── willPresent (app process, foreground only)
+    │     → Triggers .foreground state
+    │
+    └── didReceive (app process, user interaction)
+          → Triggers .opened state
 ```
 
-### Objective-C
+All paths converge into a single `setNotificationListener` callback.
 
-```objc
-@import AppAmbit;
-@import AppAmbitPushNotifications;
+If both are configured, `AppAmbitNotificationService` handles pre-display customization first, then app-side events are delivered to `setNotificationListener` when the app process is involved.
 
-- (void)setupPush {
-    [AppAmbit start:@"your-key"];
-    [PushNotifications start];
-    [PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {
-        if (granted) {
-            [PushNotifications setNotificationsEnabled:YES];
-        }
-    }];
-}
-```
+---
 
 ## Differences from Android
-
-While the API is nearly identical, there are platform-specific differences:
 
 | Feature | Android | iOS |
 |---------|---------|-----|
 | Token type | FCM Token | APNs Device Token |
 | Permissions | POST_NOTIFICATIONS (Android 13+) | User Notifications authorization |
-| State storage | SharedPreferences | UserDefaults |
-| Notification handling | MessagingService (background) | UNUserNotificationCenterDelegate (foreground) + NotificationServiceExtension (background) |
+| Background wake | Always (via `onMessageReceived`) | Requires `content-available: 1` |
+| Pre-display modification | N/A | NotificationServiceExtension (`mutable-content: 1`) |
+| Notification states | Single callback | `.foreground` / `.opened` / `.background` |
 
 ## Support
 
-For questions or issues, refer to the example application in `Samples/AppAmbit.App.Swift/`. If you need to process notifications when your app is not running (e.g., for images or custom logic), check the Notification Service Extension section.
+For questions or issues, refer to the example application in `Samples/AppAmbit.App.Swift/`.

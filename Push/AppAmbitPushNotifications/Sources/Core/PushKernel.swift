@@ -1,0 +1,135 @@
+import Foundation
+import UserNotifications
+import UIKit
+
+/// Core engine for APNs handling.
+/// Decoupled from the public facade for platform bridging (e.g., .NET/MAUI).
+@objc(PushKernel)
+public class PushKernel: NSObject {
+    
+    private nonisolated(unsafe) static var currentToken: String?
+    private nonisolated(unsafe) static var isEnabled: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.enabled")
+    private nonisolated(unsafe) static var tokenListener: TokenListener?
+    private nonisolated(unsafe) static var lastKnownPermission: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.permission")
+    private nonisolated(unsafe) static var backgroundNotificationListener: (([AnyHashable: Any], @escaping (UIBackgroundFetchResult) -> Void) -> Void)?
+    private nonisolated(unsafe) static var notificationListener: (([AnyHashable: Any], PushNotificationState) -> Void)?
+
+    // MARK: - Protocols
+    
+    @objc public protocol TokenListener: AnyObject {
+        @objc func onNewToken(_ token: String)
+    }
+    
+    @objc public protocol PermissionListener: AnyObject {
+        @objc func onPermissionResult(_ granted: Bool)
+    }
+
+    // MARK: - Setup
+    
+    @objc public static func setupSwizzling() {
+        AppAmbitPushRegistration.setup()
+        PushLogger.log("SetupSwizzling called. Initial isEnabled: \(isEnabled)")
+
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = settings.authorizationStatus
+            let grantStatus = (status == .authorized || status == .provisional)
+            if lastKnownPermission != grantStatus {
+                lastKnownPermission = grantStatus
+                UserDefaults.standard.set(grantStatus, forKey: "com.appambit.push.permission")
+            }
+            if grantStatus && !isEnabled {
+                PushLogger.log("System permission detected. Enabling SDK state.")
+                setNotificationsEnabled(true)
+            }
+        }
+    }
+
+    @objc public static func setDebugMode(_ enabled: Bool) {
+        PushLogger.debugMode = enabled
+    }
+    
+    // MARK: - Token
+    
+    @objc public static func getCurrentToken() -> String? {
+        return currentToken
+    }
+    
+    @objc public static func setTokenListener(_ listener: TokenListener?) {
+        tokenListener = listener
+    }
+    
+    @objc public static func handleNewToken(_ token: String) {
+        guard token != currentToken else { return }
+        currentToken = token
+        PushLogger.log("New APNs token received: \(token)")
+        tokenListener?.onNewToken(token)
+    }
+
+    // MARK: - Notifications Enabled
+    
+    @objc public static func setNotificationsEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
+        UserDefaults.standard.synchronize()
+        PushLogger.log("Notifications enabled: \(enabled)")
+        if !enabled { currentToken = nil }
+    }
+    
+    @objc public static func isNotificationsEnabled() -> Bool {
+        return isEnabled
+    }
+
+    // MARK: - Permissions
+    
+    @objc public static func hasNotificationPermission() -> Bool {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            if status != lastKnownPermission {
+                lastKnownPermission = status
+                UserDefaults.standard.set(status, forKey: "com.appambit.push.permission")
+            }
+        }
+        return lastKnownPermission
+    }
+
+    @objc public static func requestNotificationPermission(listener: PermissionListener?) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                PushLogger.error("Permission request error: \(error.localizedDescription)")
+            }
+            PushLogger.log("Permission granted: \(granted)")
+            listener?.onPermissionResult(granted)
+            if granted {
+                setNotificationsEnabled(true)
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+    }
+
+    // MARK: - Listeners
+    
+    @objc public static func setBackgroundNotificationListener(_ listener: @escaping ([AnyHashable: Any], @escaping (UIBackgroundFetchResult) -> Void) -> Void) {
+        backgroundNotificationListener = listener
+    }
+    
+    @objc public static func setNotificationListener(_ listener: @escaping ([AnyHashable: Any], PushNotificationState) -> Void) {
+        notificationListener = listener
+    }
+
+    // MARK: - Internal Dispatch
+    
+    internal static func notifyBackgroundNotificationReceived(userInfo: [AnyHashable: Any], completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if let listener = backgroundNotificationListener {
+            listener(userInfo, completionHandler)
+        } else {
+            completionHandler(.noData)
+        }
+    }
+    
+    internal static func notifyNotificationReceived(userInfo: [AnyHashable: Any], state: PushNotificationState) {
+        PushLogger.log("Notification dispatched -> state: \(state == .foreground ? "foreground" : state == .opened ? "opened" : "background")")
+        notificationListener?(userInfo, state)
+    }
+}

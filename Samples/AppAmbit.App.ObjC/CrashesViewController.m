@@ -29,11 +29,10 @@
     [self buildUI];
     [self updateNotificationButtonState];
     
-    // Professional way to listen for notifications in Objective-C
-    [PushNotifications setNotificationCustomizer:^(UNNotification * _Nonnull notification) {
-        NSString *title = notification.request.content.title;
-        NSString *body = notification.request.content.body;
-        NSLog(@"[Professional Listener ObjC]: Received notification -> %@: %@", title, body);
+    // Professional way to listen for silent pushes in Objective-C
+    [PushNotifications setBackgroundNotificationListener:^(NSDictionary * _Nonnull userInfo, void (^ _Nonnull completionHandler)(UIBackgroundFetchResult)) {
+        NSLog(@"[Professional Listener ObjC]: Received silent push -> %@", userInfo);
+        completionHandler(UIBackgroundFetchResultNewData);
     }];
 }
 

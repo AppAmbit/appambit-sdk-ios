@@ -33,12 +33,10 @@ struct CrashesView: View {
                     .padding(.horizontal)
                     .onAppear {
                         updateNotificationButtonState()
-                        
-                        // Professional way to listen for notifications
-                        PushNotifications.setNotificationCustomizer { notification in
-                            let title = notification.request.content.title
-                            let body = notification.request.content.body
-                            PushLogger.log("Professional Listener: Received notification -> \(title): \(body)")
+                        // Suscribirse a las notificaciones silenciosas
+                        PushNotifications.setBackgroundNotificationListener { userInfo, completionHandler in
+                            PushLogger.log("Professional Listener: Received silent push -> \(userInfo)")
+                            completionHandler(.newData)
                         }
                     }
                     
