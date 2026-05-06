@@ -13,10 +13,10 @@ public class PushNotifications: NSObject {
     public static func start(debugMode: Bool = false, autoRequestPermissions: Bool = false) {
         PushLogger.debugMode = debugMode
         PushLogger.log("Starting Push SDK...")
-        
+
         AppAmbitPushRegistration.setup()
         PushKernel.setTokenListener(TokenListenerImpl())
-        
+
         if autoRequestPermissions {
             requestNotificationPermission(listener: nil)
         }
@@ -55,12 +55,6 @@ public class PushNotifications: NSObject {
         return PushKernel.hasNotificationPermission()
     }
 
-    @objc(setBackgroundNotificationListener:)
-    public static func setBackgroundNotificationListener(_ listener: @escaping ([AnyHashable: Any], @escaping (UIBackgroundFetchResult) -> Void) -> Void) {
-        PushLogger.log("Background notification listener registered.")
-        PushKernel.setBackgroundNotificationListener(listener)
-    }
-    
     @objc(setNotificationListener:)
     public static func setNotificationListener(_ listener: @escaping ([AnyHashable: Any], PushNotificationState) -> Void) {
         PushLogger.log("Notification listener registered.")

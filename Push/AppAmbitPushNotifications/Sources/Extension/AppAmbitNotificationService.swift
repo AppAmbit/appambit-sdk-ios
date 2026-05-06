@@ -9,15 +9,16 @@ open class AppAmbitNotificationService: UNNotificationServiceExtension {
                                    withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         self.contentHandler = contentHandler
         PushLogger.log("Service Extension triggered.")
-        
+
         guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
             contentHandler(request.content)
             return
         }
 
         bestAttemptContent = content
+
         let notification = AppAmbitNotification.from(userInfo: content.userInfo)
-        
+
         handlePayload(notification, userInfo: content.userInfo)
         attachImageIfNeeded(notification, content: content, contentHandler: contentHandler)
     }

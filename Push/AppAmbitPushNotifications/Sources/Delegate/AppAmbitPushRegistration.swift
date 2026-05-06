@@ -20,7 +20,7 @@ private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCe
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        
+
         let userInfo = notification.request.content.userInfo
         PushLogger.log("Notification received in foreground.")
         PushKernel.notifyNotificationReceived(userInfo: userInfo, state: .foreground)
@@ -31,7 +31,7 @@ private class AppAmbitNotificationCenterDelegate: NSObject, UNUserNotificationCe
             completionHandler([.alert, .sound, .badge])
         }
     }
-    
+
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                didReceive response: UNNotificationResponse,
                                withCompletionHandler completionHandler: @escaping () -> Void) {

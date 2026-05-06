@@ -75,13 +75,6 @@ import ObjectiveC
             swizzledSelector: #selector(AppDelegateSwizzler.swizzled_didFailToRegisterForRemoteNotifications(_:error:)),
             swizzlerClass: AppDelegateSwizzler.self
         )
-        
-        RobustSwizzler.swizzle(
-            targetClass: delegateClass,
-            originalSelector: #selector(UIApplicationDelegate.application(_:didReceiveRemoteNotification:fetchCompletionHandler:)),
-            swizzledSelector: #selector(AppDelegateSwizzler.swizzled_application(_:didReceiveRemoteNotification:fetchCompletionHandler:)),
-            swizzlerClass: AppDelegateSwizzler.self
-        )
     }
     
     @objc dynamic func swizzled_didRegisterForRemoteNotifications(_ application: UIApplication, deviceToken: Data) {
@@ -97,41 +90,10 @@ import ObjectiveC
     
     @objc dynamic func swizzled_didFailToRegisterForRemoteNotifications(_ application: UIApplication, error: Error) {
         PushLogger.error("Registration error: \(error.localizedDescription)")
-        
+
         let selector = #selector(AppDelegateSwizzler.swizzled_didFailToRegisterForRemoteNotifications(_:error:))
         if self.responds(to: selector) {
             self.perform(selector, with: application, with: error)
-        }
-    }
-    
-    @objc dynamic func swizzled_application(_ application: UIApplication,
-                                            didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-                                            fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        
-        PushLogger.log("Notification received in background.")
-        PushKernel.notifyNotificationReceived(userInfo: userInfo, state: .background)
-        
-        let selector = #selector(AppDelegateSwizzler.swizzled_application(_:didReceiveRemoteNotification:fetchCompletionHandler:))
-        let hasOriginalImplementation = self.responds(to: selector)
-        
-        let group = DispatchGroup()
-        var finalResult: UIBackgroundFetchResult = .newData
-        
-        group.enter()
-        PushKernel.notifyBackgroundNotificationReceived(userInfo: userInfo) { result in
-            finalResult = result
-            group.leave()
-        }
-        
-        if hasOriginalImplementation {
-            group.enter()
-            self.swizzled_application(application, didReceiveRemoteNotification: userInfo) { _ in
-                group.leave()
-            }
-        }
-        
-        group.notify(queue: .main) {
-            completionHandler(finalResult)
         }
     }
 }

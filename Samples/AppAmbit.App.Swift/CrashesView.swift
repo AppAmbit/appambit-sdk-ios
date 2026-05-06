@@ -33,11 +33,6 @@ struct CrashesView: View {
                     .padding(.horizontal)
                     .onAppear {
                         updateNotificationButtonState()
-                        // Suscribirse a las notificaciones silenciosas
-                        PushNotifications.setBackgroundNotificationListener { userInfo, completionHandler in
-                            PushLogger.log("Professional Listener: Received silent push -> \(userInfo)")
-                            completionHandler(.newData)
-                        }
                     }
                     
                     Button("Did the app crash during your last session?") {

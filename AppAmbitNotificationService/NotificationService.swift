@@ -13,13 +13,13 @@ final class NotificationService: AppAmbitNotificationService {
             return
         }
 
-        NSLog("[AppAmbitPushSDK] NotificationService: Processing notification -> %@", bestAttemptContent.title)
+        print("[AppAmbitPushSDK] NotificationService: Processing notification -> %@", bestAttemptContent.title)
 
         // Extract custom payload data.
         let userInfo = bestAttemptContent.userInfo
         let dataPayload = userInfo["data"] as? [AnyHashable: Any] ?? userInfo
 
-        bestAttemptContent.title += " Custom"
+        bestAttemptContent.title += " Customs"
         
         // Set category for quick actions (e.g., "Reply", "Delete").
         if let category = dataPayload["category_type"] as? String {

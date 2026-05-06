@@ -13,15 +13,13 @@ struct AppAmbitTestingApp: App {
         // TokenListenerImpl waits internally until AppAmbit.isInitialized() == true.
         PushNotifications.start(debugMode: true)
         
-        // Unified listener: handles foreground, opened, and background states.
+        // Unified listener: handles foreground and opened states.
         PushNotifications.setNotificationListener { userInfo, state in
             switch state {
             case .foreground:
                 print("[Foreground] Notification received while app is open: \(userInfo)")
             case .opened:
                 print("[Opened] User tapped the notification: \(userInfo)")
-            case .background:
-                print("[Background] Notification received in background: \(userInfo)")
             @unknown default:
                 break
             }

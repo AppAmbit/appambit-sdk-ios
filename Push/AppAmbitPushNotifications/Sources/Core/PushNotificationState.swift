@@ -6,6 +6,4 @@ import Foundation
     case foreground
     /// The user tapped the notification to open the app.
     case opened
-    /// The notification arrived while the app was in the background.
-    case background
 }

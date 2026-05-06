@@ -11,7 +11,6 @@ public class PushKernel: NSObject {
     private nonisolated(unsafe) static var isEnabled: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.enabled")
     private nonisolated(unsafe) static var tokenListener: TokenListener?
     private nonisolated(unsafe) static var lastKnownPermission: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.permission")
-    private nonisolated(unsafe) static var backgroundNotificationListener: (([AnyHashable: Any], @escaping (UIBackgroundFetchResult) -> Void) -> Void)?
     private nonisolated(unsafe) static var notificationListener: (([AnyHashable: Any], PushNotificationState) -> Void)?
 
     // MARK: - Protocols
@@ -109,27 +108,15 @@ public class PushKernel: NSObject {
     }
 
     // MARK: - Listeners
-    
-    @objc public static func setBackgroundNotificationListener(_ listener: @escaping ([AnyHashable: Any], @escaping (UIBackgroundFetchResult) -> Void) -> Void) {
-        backgroundNotificationListener = listener
-    }
-    
+
     @objc public static func setNotificationListener(_ listener: @escaping ([AnyHashable: Any], PushNotificationState) -> Void) {
         notificationListener = listener
     }
 
     // MARK: - Internal Dispatch
-    
-    internal static func notifyBackgroundNotificationReceived(userInfo: [AnyHashable: Any], completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        if let listener = backgroundNotificationListener {
-            listener(userInfo, completionHandler)
-        } else {
-            completionHandler(.noData)
-        }
-    }
-    
+
     internal static func notifyNotificationReceived(userInfo: [AnyHashable: Any], state: PushNotificationState) {
-        PushLogger.log("Notification dispatched -> state: \(state == .foreground ? "foreground" : state == .opened ? "opened" : "background")")
+        PushLogger.log("Notification dispatched -> state: \(state == .foreground ? "foreground" : "opened")")
         notificationListener?(userInfo, state)
     }
 }
