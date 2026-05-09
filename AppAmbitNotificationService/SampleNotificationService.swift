@@ -2,18 +2,18 @@ import Foundation
 import UserNotifications
 import AppAmbitPushNotifications
 
-final class NotificationService: AppAmbitNotificationService {
+final class SampleNotificationService: AppAmbitNotificationService {
     
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         
         // Copy original content to modify it before presenting to the user.
         guard let bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            NSLog("[AppAmbitPushSDK] NotificationService: Failed to create mutable content copy.")
+            NSLog("[AppAmbitPushSDK] SampleNotificationService: Failed to create mutable content copy.")
             contentHandler(request.content)
             return
         }
 
-        print("[AppAmbitPushSDK] NotificationService: Processing notification -> %@", bestAttemptContent.title)
+        print("[AppAmbitPushSDK] SampleNotificationService: Processing notification -> %@", bestAttemptContent.title)
 
         // Extract custom payload data.
         let userInfo = bestAttemptContent.userInfo
@@ -51,7 +51,7 @@ final class NotificationService: AppAmbitNotificationService {
             trigger: request.trigger
         )
         
-        NSLog("[AppAmbitPushSDK] NotificationService: Content modified, delegating to parent handler.")
+        NSLog("[AppAmbitPushSDK] SampleNotificationService: Content modified, delegating to parent handler.")
         super.didReceive(newRequest, withContentHandler: contentHandler)
     }
 }

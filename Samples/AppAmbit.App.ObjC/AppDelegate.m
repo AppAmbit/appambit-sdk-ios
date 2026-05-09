@@ -17,14 +17,16 @@
     [RemoteConfig enable];
     [AppAmbit start:@"<YOUR-APPKEY>"];
     [PushNotifications start];
-    
-    // Suscribirse a las notificaciones silenciosas (Data-only / content-available: 1)
-    [PushNotifications setBackgroundNotificationListener:^(NSDictionary * _Nonnull userInfo, void (^ _Nonnull completionHandler)(UIBackgroundFetchResult)) {
-        NSLog(@"¡Me despertaron en background! Data oculta: %@", userInfo);
-        
-        // Aquí se puede sincronizar datos o enviar analíticas...
-        // Al terminar, siempre debe llamar a completionHandler
-        completionHandler(UIBackgroundFetchResultNewData);
+
+    [PushNotifications setNotificationListener:^(NSDictionary * _Nonnull userInfo, PushNotificationState state) {
+        switch (state) {
+            case PushNotificationStateForeground:
+                NSLog(@"[Foreground] Notification received while app is open: %@", userInfo);
+                break;
+            case PushNotificationStateOpened:
+                NSLog(@"[Opened] User tapped the notification: %@", userInfo);
+                break;
+        }
     }];
 
     return YES;

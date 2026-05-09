@@ -28,12 +28,6 @@
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
     [self updateNotificationButtonState];
-    
-    // Professional way to listen for silent pushes in Objective-C
-    [PushNotifications setBackgroundNotificationListener:^(NSDictionary * _Nonnull userInfo, void (^ _Nonnull completionHandler)(UIBackgroundFetchResult)) {
-        NSLog(@"[Professional Listener ObjC]: Received silent push -> %@", userInfo);
-        completionHandler(UIBackgroundFetchResultNewData);
-    }];
 }
 
 - (void)buildUI {

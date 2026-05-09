@@ -3,7 +3,7 @@ import UserNotifications
 import UIKit
 
 /// Core engine for APNs handling.
-/// Decoupled from the public facade for platform bridging (e.g., .NET/MAUI).
+/// Decoupled from the public facade for platform bridging.
 @objc(PushKernel)
 public class PushKernel: NSObject {
     
@@ -71,7 +71,6 @@ public class PushKernel: NSObject {
         UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
         UserDefaults.standard.synchronize()
         PushLogger.log("Notifications enabled: \(enabled)")
-        if !enabled { currentToken = nil }
     }
     
     @objc public static func isNotificationsEnabled() -> Bool {

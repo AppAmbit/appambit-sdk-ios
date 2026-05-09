@@ -121,47 +121,77 @@ PushNotifications.requestNotificationPermission { granted in
 
 1. In Xcode: **File > New > Target > Notification Service Extension**
 2. Add `AppAmbitPushNotifications` to the **extension target** (not just the app target).
-3. Subclass `AppAmbitNotificationService`:
+3. Embed the extension in your app target: **App target > General > Frameworks, Libraries, and Embedded Content > +** and add the `.appex`.
+
+#### Swift extension — subclass `AppAmbitNotificationService`
 
 ```swift
 import AppAmbitPushNotifications
+import UserNotifications
 
-final class NotificationService: AppAmbitNotificationService {
+final class SampleNotificationService: AppAmbitNotificationService {
 
-    override func handlePayload(_ notification: AppAmbitNotification, userInfo: [AnyHashable: Any]) {
+    override func handlePayload(_ notification: AppAmbitNotification,
+                                content: UNMutableNotificationContent) {
         // Runs every time a notification arrives, regardless of app state.
-        // Use this to process data, log analytics, make network calls, etc.
-        // Note: this runs in a separate process — you can modify the notification banner
-        // (title, body, image) but you cannot access your app's screens or views.
+        // Use this to process data, log analytics, or mutate the displayed banner.
+        // Note: this runs in a separate process — you can modify the notification
+        // (title, body, image) but you cannot access your app's screens.
         print("Notification arrived: \(notification.title ?? "")")
+        content.title = "[\(content.title)]"
     }
 }
 ```
 
-You can also override `didReceive` to modify the notification content before display:
+You can also override `didReceive` for full control over the request lifecycle. Call
+`super.didReceive(...)` to keep image-attachment support and the `handlePayload` hook.
 
-```swift
-override func didReceive(
-    _ request: UNNotificationRequest,
-    withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
-) {
-    guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
-        contentHandler(request.content)
-        return
-    }
+#### Objective-C extension — use `AppAmbitNotificationProcessor`
 
-    content.title = "[\(content.title)]"
+Swift classes shipped from an SPM dynamic library cannot be subclassed from Objective-C
+(`objc_subclassing_restricted`). Instead, subclass `UNNotificationServiceExtension`
+directly and delegate the work to `AppAmbitNotificationProcessor`:
 
-    let newRequest = UNNotificationRequest(
-        identifier: request.identifier,
-        content: content,
-        trigger: request.trigger
-    )
+```objc
+#import <UserNotifications/UserNotifications.h>
+@import AppAmbitPushNotifications;
 
-    // Call super to keep image attachment support from the base class.
-    super.didReceive(newRequest, withContentHandler: contentHandler)
+@interface NotificationService : UNNotificationServiceExtension
+@end
+
+@interface NotificationService ()
+@property (nonatomic, copy) void (^contentHandler)(UNNotificationContent *);
+@property (nonatomic, strong) UNMutableNotificationContent *bestAttemptContent;
+@end
+
+@implementation NotificationService
+
+- (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
+                   withContentHandler:(void (^)(UNNotificationContent * _Nonnull))contentHandler {
+    self.contentHandler = contentHandler;
+    self.bestAttemptContent = [request.content mutableCopy];
+
+    [AppAmbitNotificationProcessor processRequest:request
+                                   contentHandler:contentHandler
+                                    handlePayload:^(AppAmbitNotification * _Nonnull notification,
+                                                    UNMutableNotificationContent * _Nonnull content) {
+        NSLog(@"Notification arrived: %@", notification.title);
+        content.title = [content.title stringByAppendingString:@" [Custom]"];
+    }];
 }
+
+- (void)serviceExtensionTimeWillExpire {
+    if (self.bestAttemptContent && self.contentHandler) {
+        self.contentHandler(self.bestAttemptContent);
+    }
+}
+
+@end
 ```
+
+`AppAmbitNotificationProcessor.process` parses the AppAmbit payload, invokes your
+`handlePayload` block (where you can mutate the content), attaches the notification
+image asynchronously, and finally calls `contentHandler` to deliver the banner.
 
 ---
 
@@ -259,11 +289,44 @@ PushNotifications.isNotificationsEnabled() -> Bool
 
 ### Listener
 
+Swift:
+
 ```swift
 PushNotifications.setNotificationListener { userInfo, state in
     // state: .foreground | .opened
 }
 ```
+
+Objective-C:
+
+```objc
+[PushNotifications setNotificationListener:^(NSDictionary * _Nonnull userInfo,
+                                              PushNotificationState state) {
+    switch (state) {
+        case PushNotificationStateForeground:
+            NSLog(@"Foreground: %@", userInfo);
+            break;
+        case PushNotificationStateOpened:
+            NSLog(@"Opened: %@", userInfo);
+            break;
+    }
+}];
+```
+
+### Notification Service Extension
+
+Swift subclasses extend `AppAmbitNotificationService` and override `handlePayload`:
+
+```swift
+override func handlePayload(_ notification: AppAmbitNotification,
+                            content: UNMutableNotificationContent) {
+    // Mutate `content` and/or run side effects
+}
+```
+
+Objective-C extensions call `AppAmbitNotificationProcessor.processRequest:contentHandler:handlePayload:`
+from `didReceiveNotificationRequest:withContentHandler:` (see the Notification Service
+Extension section above for the full template).
 
 ---
 

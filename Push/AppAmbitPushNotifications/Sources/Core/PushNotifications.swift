@@ -64,13 +64,21 @@ public class PushNotifications: NSObject {
 
 private class TokenListenerImpl: PushKernel.TokenListener {
     func onNewToken(_ token: String) {
+        sync(token: token, allowRetry: true)
+    }
+
+    private func sync(token: String, allowRetry: Bool) {
         guard AppAmbit.isInitialized() else {
-            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.onNewToken(token)
+            if allowRetry {
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.sync(token: token, allowRetry: false)
+                }
+            } else {
+                PushLogger.error("AppAmbit not initialized; dropping push token.")
             }
             return
         }
-        
+
         DispatchQueue.main.async {
             if PushKernel.isNotificationsEnabled() {
                 PushLogger.log("Syncing token with backend...")
