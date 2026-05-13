@@ -27,10 +27,7 @@ public final class AppAmbitNotification: NSObject {
         let subtitle = alert?["subtitle"] as? String
         let body = alert?["body"] as? String
 
-        let imageUrl = userInfo["image"] as? String ??
-                     userInfo["image_url"] as? String ??
-                     userInfo["imageUrl"] as? String ??
-                     alert?["launch-image"] as? String
+        let imageUrl = userInfo["image"] as? String
 
         return AppAmbitNotification(
             title: title,

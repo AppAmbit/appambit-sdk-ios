@@ -54,4 +54,14 @@ final class SampleNotificationService: AppAmbitNotificationService {
         NSLog("[AppAmbitPushSDK] SampleNotificationService: Content modified, delegating to parent handler.")
         super.didReceive(newRequest, withContentHandler: contentHandler)
     }
+
+    override func handlePayload(_ notification: AppAmbitNotification, content: UNMutableNotificationContent) {
+        NSLog("[AppAmbitPushSDK] SampleNotificationService: handlePayload — title: %@, body: %@",
+              notification.title ?? "", notification.body ?? "")
+    }
+
+    override func serviceExtensionTimeWillExpire() {
+        NSLog("[AppAmbitPushSDK] SampleNotificationService: Time limit reached — delivering best attempt content.")
+        super.serviceExtensionTimeWillExpire()
+    }
 }
