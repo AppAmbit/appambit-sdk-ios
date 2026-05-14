@@ -29,12 +29,15 @@ public final class AppAmbitNotification: NSObject {
 
         let imageUrl = userInfo["image"] as? String
 
+        var data = userInfo
+        data.removeValue(forKey: "image")
+
         return AppAmbitNotification(
             title: title,
             subtitle: subtitle,
             body: body,
             imageUrl: imageUrl,
-            data: userInfo
+            data: data
         )
     }
 }

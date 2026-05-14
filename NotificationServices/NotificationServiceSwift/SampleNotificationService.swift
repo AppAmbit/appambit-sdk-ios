@@ -12,7 +12,7 @@ final class SampleNotificationService: AppAmbitNotificationService {
             contentHandler(request.content)
             return
         }
-
+    
         print("[AppAmbitPushSDK] SampleNotificationService: Processing notification -> %@", bestAttemptContent.title)
 
         // Extract custom payload data.

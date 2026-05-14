@@ -125,26 +125,42 @@ PushNotifications.requestNotificationPermission { granted in
 
 #### Swift extension — subclass `AppAmbitNotificationService`
 
+`AppAmbitNotificationService` exposes three methods you can override. `didReceive` is
+the entry point — the same role as `didReceiveNotificationRequest:` in the Objective-C
+example below.
+
 ```swift
 import AppAmbitPushNotifications
 import UserNotifications
 
 final class SampleNotificationService: AppAmbitNotificationService {
 
+    // 1. Entry point — called as soon as the notification arrives.
+    //    Always call `super` to keep image-attachment support and the
+    //    `handlePayload` hook. Override only if you need to inspect or
+    //    rebuild the request before processing.
+    override func didReceive(_ request: UNNotificationRequest,
+                             withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+        super.didReceive(request, withContentHandler: contentHandler)
+    }
+
+    // 2. Mutate the banner before display. Invoked by the base class for every
+    //    notification, regardless of app state. Runs in a separate process —
+    //    you can change the title, body, or image, but you cannot access your
+    //    app's screens.
     override func handlePayload(_ notification: AppAmbitNotification,
                                 content: UNMutableNotificationContent) {
-        // Runs every time a notification arrives, regardless of app state.
-        // Use this to process data, log analytics, or mutate the displayed banner.
-        // Note: this runs in a separate process — you can modify the notification
-        // (title, body, image) but you cannot access your app's screens.
         print("Notification arrived: \(notification.title ?? "")")
         content.title = "[\(content.title)]"
     }
+
+    // 3. Called when the ~30 s processing budget is about to expire.
+    //    Call `super` to deliver the best attempt content.
+    override func serviceExtensionTimeWillExpire() {
+        super.serviceExtensionTimeWillExpire()
+    }
 }
 ```
-
-You can also override `didReceive` for full control over the request lifecycle. Call
-`super.didReceive(...)` to keep image-attachment support and the `handlePayload` hook.
 
 #### Objective-C extension — use `AppAmbitNotificationProcessor`
 
