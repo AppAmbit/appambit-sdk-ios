@@ -16,11 +16,21 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = '12.0'
   spec.swift_version  = '5.7'
 
-  spec.source_files = [
-    'Sources/**/*.swift',
-    'Push/AppAmbitPushNotifications/Sources/**/*.swift'
-  ]
-  
-  # Dependency on the core AppAmbit SDK
-  spec.dependency 'AppAmbitSdk'
+  spec.default_subspec = 'Core'
+
+  # Full SDK — for the host app. Includes Core/Delegate/Extension code and
+  # depends on the main AppAmbit SDK.
+  spec.subspec 'Core' do |c|
+    c.source_files = 'Sources/**/*.swift'
+    c.dependency 'AppAmbitSdk'
+  end
+
+  # Extension-only — for the Notification Service Extension target.
+  # Self-contained (no AppAmbitSdk / no Core dependency) and compiled with
+  # APPLICATION_EXTENSION_API_ONLY so it cannot accidentally reference APIs
+  # forbidden in app extensions.
+  spec.subspec 'Extension' do |e|
+    e.source_files = 'Sources/Extension/*.swift'
+    e.pod_target_xcconfig = { 'APPLICATION_EXTENSION_API_ONLY' => 'YES' }
+  end
 end
