@@ -194,7 +194,7 @@
 			exceptions = (
 				7928260A2FAEA6AD00766B64 /* Exceptions for "NotificationServiceObjC" folder in "NotificationServiceObjC" target */,
 			);
-			path = NotificationServiceObjC;
+			path = Samples/NotificationServiceObjC;
 			sourceTree = "<group>";
 		};
 		797B716A2F1050260032E3ED /* NotificationServiceSwift */ = {
@@ -202,7 +202,7 @@
 			exceptions = (
 				797B71752F1050260032E3ED /* Exceptions for "NotificationServiceSwift" folder in "NotificationServiceSwift" target */,
 			);
-			path = NotificationServiceSwift;
+			path = Samples/NotificationServiceSwift;
 			sourceTree = "<group>";
 		};
 		79BB8FE52EE7C61000E5FAB2 /* Samples */ = {
@@ -271,20 +271,12 @@
 			children = (
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				79E047D12EF504B9007952FD /* Push */,
-				79CAFE012FAEA6AD00766B64 /* NotificationServices */,
+				797B716A2F1050260032E3ED /* NotificationServiceSwift */,
+				792825FF2FAEA6AD00766B64 /* NotificationServiceObjC */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
 			);
-			sourceTree = "<group>";
-		};
-		79CAFE012FAEA6AD00766B64 /* NotificationServices */ = {
-			isa = PBXGroup;
-			children = (
-				797B716A2F1050260032E3ED /* NotificationServiceSwift */,
-				792825FF2FAEA6AD00766B64 /* NotificationServiceObjC */,
-			);
-			path = NotificationServices;
 			sourceTree = "<group>";
 		};
 		79260B8D2E139E23008BF6CB /* Products */ = {
@@ -755,7 +747,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U7UX6J27XV;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = NotificationServices/NotificationServiceObjC/Info.plist;
+				INFOPLIST_FILE = Samples/NotificationServiceObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceObjC;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
@@ -781,7 +773,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = NotificationServices/NotificationServiceObjC/Info.plist;
+				INFOPLIST_FILE = Samples/NotificationServiceObjC/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceObjC;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
@@ -878,7 +870,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U7UX6J27XV;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = NotificationServices/NotificationServiceSwift/Info.plist;
+				INFOPLIST_FILE = Samples/NotificationServiceSwift/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceSwift;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -907,7 +899,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U7UX6J27XV;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = NotificationServices/NotificationServiceSwift/Info.plist;
+				INFOPLIST_FILE = Samples/NotificationServiceSwift/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceSwift;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;

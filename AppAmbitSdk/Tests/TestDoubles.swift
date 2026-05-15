@@ -61,6 +61,7 @@ final class InMemoryStorage: StorageService {
     var sessionBatches: [SessionBatch] = []
     var breadcrumbs: [BreadcrumbEntity] = []
     var remoteConfigs: [String: RemoteConfigEntity] = [:]
+    var cmsData: [String: String] = [:]
     var deviceToken: String?
     var pushEnabled: Bool = false
 
@@ -254,6 +255,36 @@ final class InMemoryStorage: StorageService {
 
     func getConfig(key: String) throws -> RemoteConfigEntity? {
         queue.sync { remoteConfigs[key] }
+    }
+
+    func putCmsData(_ contentType: String, _ json: String) throws {
+        queue.sync { cmsData[contentType] = json }
+    }
+
+    func getCmsData(_ contentType: String) throws -> String? {
+        queue.sync { cmsData[contentType] }
+    }
+
+    func queryCmsData(
+        contentType: String,
+        whereClause: String?,
+        args: [String]?,
+        orderBy: String?,
+        limit: Int,
+        offset: Int
+    ) throws -> [String] {
+        queue.sync {
+            guard let json = cmsData[contentType] else { return [] }
+            return [json]
+        }
+    }
+
+    func deleteCmsData(_ contentType: String) throws {
+        queue.sync { cmsData.removeValue(forKey: contentType) }
+    }
+
+    func deleteAllCmsData() throws {
+        queue.sync { cmsData.removeAll() }
     }
 }
 

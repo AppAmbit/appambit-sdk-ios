@@ -13,7 +13,7 @@ public enum PushNotificationAttachments {
 
         let task = URLSession.shared.downloadTask(with: url) { tempUrl, _, error in
             guard let tempUrl, error == nil else {
-                PushLogger.error("Download failed: \(error?.localizedDescription ?? "Invalid URL")")
+                NSLog("[AppAmbitPushSDK] Download failed: %@", error?.localizedDescription ?? "Invalid URL")
                 completion(nil)
                 return
             }
@@ -32,7 +32,7 @@ public enum PushNotificationAttachments {
                 )
                 completion(attachment)
             } catch {
-                PushLogger.error("Attachment failed: \(error.localizedDescription)")
+                NSLog("[AppAmbitPushSDK] Attachment failed: %@", error.localizedDescription)
                 completion(nil)
             }
         }
