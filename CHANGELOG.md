@@ -1,3 +1,16 @@
+## Version 1.0.0
+
+### AppAmbit Push Notifications
+
+* **[Breaking Change]** Standardized push notification payload structure: The APNs data is now mapped into a unified cross-platform schema. The payload passed to notification listeners now features top-level fields and nested platform-specific `ios` sub-objects, replacing the previous flat format.
+
+* **[Breaking Change]** Updated listener payload mappings to align with the new core SDK architectures.
+
+* **[Feature]** Added `AppAmbitNotificationService` base class for Swift extensions, introducing new methods for pre-display processing:
+  * `didReceive(_:withContentHandler:)`
+  * `handlePayload(_:content:)`
+  * `serviceExtensionTimeWillExpire()`
+
 ## Version 0.5.0
 
 ### AppAmbit
