@@ -12,6 +12,9 @@ public class PushKernel: NSObject {
     private nonisolated(unsafe) static var tokenListener: TokenListener?
     private nonisolated(unsafe) static var lastKnownPermission: Bool = UserDefaults.standard.bool(forKey: "com.appambit.push.permission")
     private nonisolated(unsafe) static var notificationListener: (([AnyHashable: Any], PushNotificationState) -> Void)?
+    /// Notifications that arrived (typically as cold-start taps) before any
+    /// listener was registered. Replayed when `setNotificationListener` runs.
+    private nonisolated(unsafe) static var pendingNotifications: [(userInfo: [AnyHashable: Any], state: PushNotificationState)] = []
 
     // MARK: - Protocols
     
@@ -110,12 +113,24 @@ public class PushKernel: NSObject {
 
     @objc public static func setNotificationListener(_ listener: @escaping ([AnyHashable: Any], PushNotificationState) -> Void) {
         notificationListener = listener
+        // Drain any notifications that arrived before the listener was set
+        // (typically a cold-start tap that fired the UN delegate while the
+        // Flutter engine / Dart isolate was still bootstrapping).
+        let drained = pendingNotifications
+        pendingNotifications = []
+        for item in drained {
+            listener(item.userInfo, item.state)
+        }
     }
 
     // MARK: - Internal Dispatch
 
     internal static func notifyNotificationReceived(userInfo: [AnyHashable: Any], state: PushNotificationState) {
         PushLogger.log("Notification dispatched -> state: \(state == .foreground ? "foreground" : "opened")")
-        notificationListener?(userInfo, state)
+        if let listener = notificationListener {
+            listener(userInfo, state)
+        } else {
+            pendingNotifications.append((userInfo, state))
+        }
     }
 }
