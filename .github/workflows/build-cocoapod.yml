@@ -14,6 +14,7 @@ jobs:
     env:
       PODSPEC: AppAmbitSdk/AppAmbitSdk.podspec
       PODSPEC_PUSH: Push/AppAmbitPushNotifications/AppAmbitPushNotifications.podspec
+      PODSPEC_EXTENSION: Push/AppAmbitPushNotifications/AppAmbitPushNotificationsExtension.podspec
 
     steps:
       - name: Checkout
@@ -120,6 +121,18 @@ jobs:
             -x "Push/AppAmbitPushNotifications/.git/*" "Push/AppAmbitPushNotifications/build/*" "Push/AppAmbitPushNotifications/.DS_Store" "Push/AppAmbitPushNotifications/**/__MACOSX/*"
           ls -lh "$ZIP_PUSH"
 
+      - name: Build Push Notifications Extension zip
+        if: steps.check_tag.outputs.skip == 'false'
+        shell: bash
+        run: |
+          set -e
+          VER="${{ steps.ver.outputs.full }}"
+          ZIP_EXT="AppAmbitPushNotificationsExtension-${VER}.zip"
+          rm -f "$ZIP_EXT"
+          zip -r "$ZIP_EXT" Push/AppAmbitPushNotifications \
+            -x "Push/AppAmbitPushNotifications/.git/*" "Push/AppAmbitPushNotifications/build/*" "Push/AppAmbitPushNotifications/.DS_Store" "Push/AppAmbitPushNotifications/**/__MACOSX/*"
+          ls -lh "$ZIP_EXT"
+
       - name: pod lib lint (build the pod)
         if: steps.check_tag.outputs.skip == 'false'
         run: |
@@ -132,6 +145,12 @@ jobs:
           set -e
           pod lib lint ${{ env.PODSPEC_PUSH }} --platforms=ios --fail-fast --verbose --allow-warnings --include-podspecs='${{ env.PODSPEC }}'
 
+      - name: pod lib lint Push Extension (build the push extension pod)
+        if: steps.check_tag.outputs.skip == 'false'
+        run: |
+          set -e
+          pod lib lint ${{ env.PODSPEC_EXTENSION }} --platforms=ios --fail-fast --verbose --allow-warnings
+
       - name: Create GitHub Release (CHANGELOG notes)
         if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
@@ -143,6 +162,7 @@ jobs:
           files: |
             AppAmbitSdk-${{ steps.ver.outputs.full }}.zip
             AppAmbitPushNotifications-${{ steps.ver.outputs.full }}.zip
+            AppAmbitPushNotificationsExtension-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
         if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main')
@@ -153,4 +173,5 @@ jobs:
           [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
           pod trunk me || true
           pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
+          pod trunk push ${{ env.PODSPEC_EXTENSION }} --allow-warnings --verbose
           pod trunk push ${{ env.PODSPEC_PUSH }} --allow-warnings --verbose
