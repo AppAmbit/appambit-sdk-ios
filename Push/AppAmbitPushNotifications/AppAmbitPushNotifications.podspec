@@ -20,6 +20,9 @@ Pod::Spec.new do |spec|
   # Not extension-safe — references UIApplication and other APIs forbidden
   # in Notification Service Extensions. For NSE targets use the
   # `AppAmbitPushNotificationsExtension` pod instead.
-  spec.source_files = 'Sources/**/*.swift'
+  spec.source_files = [
+    'Sources/**/*.swift',
+    'Push/AppAmbitPushNotifications/Sources/**/*.swift'
+  ]
   spec.dependency 'AppAmbitSdk'
 end
