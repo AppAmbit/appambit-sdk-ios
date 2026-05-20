@@ -1,46 +1,46 @@
 import UserNotifications
 
-/// Base class for the Notification Service Extension.
-/// Handles background processing of notifications (e.g., downloading images) before they are displayed.
+/// Base class for the AppAmbit Notification Service Extension.
+///
+/// Subclass this from your NSE target to enable rich notifications. The base
+/// class downloads any image referenced by the push payload (`image` key) and
+/// attaches it to the notification before delivery.
+///
+/// Override `handlePayload(_:content:)` to mutate notification content
+/// (title, body, badge, threadIdentifier, etc.) before delivery.
 open class AppAmbitNotificationService: UNNotificationServiceExtension {
+    private static let tag = "[AppAmbitPushSDK]"
+
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
 
     open override func didReceive(_ request: UNNotificationRequest,
-                                   withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+                                  withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         self.contentHandler = contentHandler
-        PushLogger.log("Notification Service Extension triggered.")
-        
-        guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            PushLogger.error("Failed to create mutable copy of notification content.")
+        self.bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
+
+        guard let content = bestAttemptContent else {
             contentHandler(request.content)
             return
         }
 
-        bestAttemptContent = content
         let notification = AppAmbitNotification.from(userInfo: content.userInfo)
-        
-        if let imageUrl = notification.imageUrl {
-            PushLogger.log("Notification image URL found: \(imageUrl)")
-        }
-        
-        handlePayload(notification, userInfo: content.userInfo)
+        handlePayload(notification, content: content)
         attachImageIfNeeded(notification, content: content, contentHandler: contentHandler)
     }
 
     open override func serviceExtensionTimeWillExpire() {
-        // Time is up, display whatever we have processed so far
         if let bestAttemptContent {
             contentHandler?(bestAttemptContent)
         }
     }
 
-    /// Override this method to perform custom payload inspection or modification.
-    open func handlePayload(_ notification: AppAmbitNotification, userInfo: [AnyHashable: Any]) {
-        // Subclasses can implement custom logic here
+    /// Hook for subclasses to mutate `content` before delivery. Default: no-op.
+    open func handlePayload(_ notification: AppAmbitNotification,
+                            content: UNMutableNotificationContent) {
+        // Subclasses can mutate content here before delivery.
     }
 
-    /// Downloads and attaches the notification image if a URL is present.
     private func attachImageIfNeeded(_ notification: AppAmbitNotification,
                                      content: UNMutableNotificationContent,
                                      contentHandler: @escaping (UNNotificationContent) -> Void) {

@@ -17,8 +17,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "797B71682F1050260032E3ED"
-               BuildableName = "AppAmbitNotificationService.appex"
-               BlueprintName = "AppAmbitNotificationService"
+               BuildableName = "NotificationServiceSwift.appex"
+               BlueprintName = "NotificationServiceSwift"
                ReferencedContainer = "container:AppAmbit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>

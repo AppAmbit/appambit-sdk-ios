@@ -28,13 +28,6 @@
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     [self buildUI];
     [self updateNotificationButtonState];
-    
-    // Professional way to listen for notifications in Objective-C
-    [PushNotifications setNotificationCustomizer:^(UNNotification * _Nonnull notification) {
-        NSString *title = notification.request.content.title;
-        NSString *body = notification.request.content.body;
-        NSLog(@"[Professional Listener ObjC]: Received notification -> %@: %@", title, body);
-    }];
 }
 
 - (void)buildUI {

@@ -2,15 +2,12 @@ import UIKit
 import ObjectiveC
 
 /// Core engine for "Zero-Config" registration.
-/// Uses method swizzling to automatically capture APNs tokens without manual AppDelegate modification.
 @objc class AppDelegateSwizzler: NSObject {
     
-    // Concurrency Safety: explicitly marked unsafe to silence Swift 6 warnings
-    // while maintaining legacy locking behavior.
     private nonisolated(unsafe) static var hasSwizzled = false
-    private nonisolated(unsafe) static let lock = NSLock()
+    private nonisolated(unsafe) static var swizzledClasses = Set<String>()
+    private nonisolated(unsafe) static let lock = NSRecursiveLock()
     
-    /// Entry point to safely activate AppDelegate swizzling.
     @objc static func swizzleAppDelegateMethods() {
         lock.lock()
         defer { lock.unlock() }
@@ -18,9 +15,8 @@ import ObjectiveC
         guard !hasSwizzled else { return }
         hasSwizzled = true
         
-        PushLogger.log("Activating robust swizzling...")
+        PushLogger.log("Activating swizzling...")
         
-        // 1. Swizzle UIApplication's delegate setter to detect when an AppDelegate is assigned
         RobustSwizzler.swizzle(
             targetClass: UIApplication.self,
             originalSelector: #selector(setter: UIApplication.delegate),
@@ -28,37 +24,44 @@ import ObjectiveC
             swizzlerClass: AppDelegateSwizzler.self
         )
         
-        // 2. If an AppDelegate already exists, swizzle it immediately
         if let appDelegate = UIApplication.shared.delegate {
-            PushLogger.log("Existing AppDelegate found: \(type(of: appDelegate))")
             swizzleMethods(for: appDelegate)
+        } else {
+            NotificationCenter.default.addObserver(forName: UIApplication.didFinishLaunchingNotification, object: nil, queue: .main) { _ in
+                if let finalDelegate = UIApplication.shared.delegate {
+                    swizzleMethods(for: finalDelegate)
+                }
+            }
         }
         
-        // 3. Register for remote notifications on the main thread
         DispatchQueue.main.async {
             UIApplication.shared.registerForRemoteNotifications()
         }
     }
     
-    /// Intercepts delegation assignment to the UIApplication.
     @objc func swizzled_setDelegate(_ delegate: UIApplicationDelegate?) {
         if let delegate = delegate {
-            PushLogger.log("Delegate intercepted: \(type(of: delegate))")
             AppDelegateSwizzler.swizzleMethods(for: delegate)
         }
         
-        // Call the original implementation
         let selector = #selector(AppDelegateSwizzler.swizzled_setDelegate(_:))
         if self.responds(to: selector) {
             self.perform(selector, with: delegate)
         }
     }
     
-    /// Swizzles specific push notification methods on the delegate class.
     fileprivate static func swizzleMethods(for delegate: UIApplicationDelegate) {
         let delegateClass: AnyClass = object_getClass(delegate)!
+        let className = String(describing: delegateClass)
         
-        // Swizzle for successful token registration
+        lock.lock()
+        if swizzledClasses.contains(className) {
+            lock.unlock()
+            return
+        }
+        swizzledClasses.insert(className)
+        lock.unlock()
+        
         RobustSwizzler.swizzle(
             targetClass: delegateClass,
             originalSelector: #selector(UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)),
@@ -66,7 +69,6 @@ import ObjectiveC
             swizzlerClass: AppDelegateSwizzler.self
         )
         
-        // Swizzle for failed token registration
         RobustSwizzler.swizzle(
             targetClass: delegateClass,
             originalSelector: #selector(UIApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:)),
@@ -75,24 +77,20 @@ import ObjectiveC
         )
     }
     
-    /// Swizzled implementation of didRegisterForRemoteNotifications.
     @objc dynamic func swizzled_didRegisterForRemoteNotifications(_ application: UIApplication, deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-        PushLogger.log("APNs Token Captured: \(tokenString)")
+        PushLogger.log("New APNs token received: \(tokenString)")
         PushKernel.handleNewToken(tokenString)
         
-        // Forward to original implementation if it exists
         let selector = #selector(AppDelegateSwizzler.swizzled_didRegisterForRemoteNotifications(_:deviceToken:))
         if self.responds(to: selector) {
             self.perform(selector, with: application, with: deviceToken)
         }
     }
     
-    /// Swizzled implementation of didFailToRegisterForRemoteNotifications.
     @objc dynamic func swizzled_didFailToRegisterForRemoteNotifications(_ application: UIApplication, error: Error) {
-        PushLogger.error("Registration error intercepted: \(error.localizedDescription)")
-        
-        // Forward to original implementation if it exists
+        PushLogger.error("Registration error: \(error.localizedDescription)")
+
         let selector = #selector(AppDelegateSwizzler.swizzled_didFailToRegisterForRemoteNotifications(_:error:))
         if self.responds(to: selector) {
             self.perform(selector, with: application, with: error)
@@ -100,12 +98,11 @@ import ObjectiveC
     }
 }
 
-/// Utility for safely swapping method implementations between classes.
 private class RobustSwizzler {
     static func swizzle(targetClass: AnyClass, originalSelector: Selector, swizzledSelector: Selector, swizzlerClass: AnyClass) {
         
         guard let swizzledMethod = class_getInstanceMethod(swizzlerClass, swizzledSelector) else {
-            PushLogger.error("Error: \(swizzledSelector) not found in \(swizzlerClass)")
+            PushLogger.error("Method \(swizzledSelector) not found.")
             return
         }
         
@@ -113,17 +110,14 @@ private class RobustSwizzler {
         let typeEncoding = method_getTypeEncoding(swizzledMethod)
         
         if let originalMethod = class_getInstanceMethod(targetClass, originalSelector) {
-            // Original exists, exchange implementations after adding our method to the target class
             class_addMethod(targetClass, swizzledSelector, implementation, typeEncoding)
-            
             if let newMethod = class_getInstanceMethod(targetClass, swizzledSelector) {
                 method_exchangeImplementations(originalMethod, newMethod)
-                PushLogger.log("Successfully swizzled \(originalSelector) in \(targetClass)")
+                PushLogger.log("Swizzled \(originalSelector)")
             }
         } else {
-            // Original missing, add our implementation as the primary method
             class_addMethod(targetClass, originalSelector, implementation, typeEncoding)
-            PushLogger.log("Injected \(originalSelector) into \(targetClass) (original was missing)")
+            PushLogger.log("Injected \(originalSelector)")
         }
     }
 }

@@ -18,6 +18,17 @@
     [AppAmbit start:@"<YOUR-APPKEY>"];
     [PushNotifications start];
 
+    [PushNotifications setNotificationListener:^(NSDictionary * _Nonnull userInfo, PushNotificationState state) {
+        switch (state) {
+            case PushNotificationStateForeground:
+                NSLog(@"[Foreground] Notification received while app is open: %@", userInfo);
+                break;
+            case PushNotificationStateOpened:
+                NSLog(@"[Opened] User tapped the notification: %@", userInfo);
+                break;
+        }
+    }];
+
     return YES;
 }
 
