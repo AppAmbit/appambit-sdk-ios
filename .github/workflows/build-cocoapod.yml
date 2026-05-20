@@ -165,13 +165,11 @@ jobs:
             AppAmbitPushNotificationsExtension-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
-        if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main')
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
           set -e
           [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
           pod trunk me || true
-          pod trunk push ${{ env.PODSPEC }} --allow-warnings --verbose
           pod trunk push ${{ env.PODSPEC_EXTENSION }} --allow-warnings --verbose
           pod trunk push ${{ env.PODSPEC_PUSH }} --allow-warnings --verbose
