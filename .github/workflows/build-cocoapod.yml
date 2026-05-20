@@ -171,5 +171,4 @@ jobs:
           set -e
           [ -n "$COCOAPODS_TRUNK_TOKEN" ] || (echo "Missing COCOAPODS_TRUNK_TOKEN" && exit 1)
           pod trunk me || true
-          pod trunk push ${{ env.PODSPEC_EXTENSION }} --allow-warnings --verbose
           pod trunk push ${{ env.PODSPEC_PUSH }} --allow-warnings --verbose
