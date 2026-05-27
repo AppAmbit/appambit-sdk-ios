@@ -117,6 +117,8 @@ public final class ConsumerService: @unchecked Sendable {
         pushEnabled: Bool?,
         completion: (@Sendable (Bool) -> Void)?
     ) {
+        let shouldForceSync = deviceToken == nil && pushEnabled == nil
+
         // 1. Get current state from Storage (Database)
         // Values currently stored on disk (last known state)
         let storedToken = (try? storageService.getDeviceToken()) ?? ""
@@ -137,7 +139,7 @@ public final class ConsumerService: @unchecked Sendable {
         
         // 3. Deduplication: Check if State Changed
         // Compare Target (New) vs Stored (Old)
-        if targetToken == storedToken && targetEnabled == storedEnabled {
+        if !shouldForceSync && targetToken == storedToken && targetEnabled == storedEnabled {
             debugPrint("Consumer state (Token/Enabled) matches DB. Skipping update.")
             DispatchQueue.main.async { completion?(true) }
             return
