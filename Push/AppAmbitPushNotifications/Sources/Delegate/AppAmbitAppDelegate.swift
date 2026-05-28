@@ -5,10 +5,12 @@ import UserNotifications
 open class AppAmbitAppDelegate: NSObject, UIApplicationDelegate {
 
     @objc dynamic open func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // Swizzler intercepts this call
+        let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
+        PushLogger.log("AppDelegate received APNs token directly: \(tokenString)")
+        PushKernel.handleNewToken(tokenString)
     }
 
     @objc dynamic open func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // Swizzler intercepts this call
+        PushLogger.error("AppDelegate registration failure: \(error.localizedDescription)")
     }
 }

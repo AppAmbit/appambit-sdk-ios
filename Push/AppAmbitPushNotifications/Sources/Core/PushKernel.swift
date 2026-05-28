@@ -61,7 +61,7 @@ public class PushKernel: NSObject {
     }
     
     @objc public static func handleNewToken(_ token: String) {
-        guard token != currentToken else { return }
+        if token == currentToken { return }
         currentToken = token
         PushLogger.log("New APNs token received: \(token)")
         tokenListener?.onNewToken(token)
@@ -71,6 +71,7 @@ public class PushKernel: NSObject {
     
     @objc public static func setNotificationsEnabled(_ enabled: Bool) {
         isEnabled = enabled
+
         UserDefaults.standard.set(enabled, forKey: "com.appambit.push.enabled")
         UserDefaults.standard.synchronize()
         PushLogger.log("Notifications enabled: \(enabled)")
