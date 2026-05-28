@@ -4,14 +4,17 @@ import Foundation
 /// Handles local ID generation and synchronization with registration endpoints.
 public final class ConsumerService: @unchecked Sendable {
     public static let shared = ConsumerService(
+        apiService: ServiceContainer.shared.apiService,
         appInfoService: ServiceContainer.shared.appInfoService,
         storageService: ServiceContainer.shared.storageService
     )
 
+    private let apiService: ApiService
     private let appInfoService: AppInfoService
     private let storageService: StorageService
 
-    private init(appInfoService: AppInfoService, storageService: StorageService) {
+    init(apiService: ApiService, appInfoService: AppInfoService, storageService: StorageService) {
+        self.apiService = apiService
         self.appInfoService = appInfoService
         self.storageService = storageService
     }
@@ -66,12 +69,12 @@ public final class ConsumerService: @unchecked Sendable {
             guard let self = self else { return }
             let endpoint = self.buildRegisterEndpoint()
 
-            ServiceContainer.shared.apiService.executeRequest(
+            self.apiService.executeRequest(
                 endpoint,
                 responseType: TokenResponse.self
             ) { result in
                 if let token = result.data?.token {
-                    ServiceContainer.shared.apiService.setToken(token)
+                    self.apiService.setToken(token)
                 }
 
                 if let consumerId = result.data?.consumerId {
@@ -110,8 +113,6 @@ public final class ConsumerService: @unchecked Sendable {
     }
     
     /// Updates the consumer state on the backend with an optional completion callback.
-    /// Updates the consumer state on the backend with an optional completion callback.
-    /// Updates the consumer state on the backend with an optional completion callback.
     public func updateConsumer(
         deviceToken: String?,
         pushEnabled: Bool?,
@@ -119,34 +120,24 @@ public final class ConsumerService: @unchecked Sendable {
     ) {
         let shouldForceSync = deviceToken == nil && pushEnabled == nil
 
-        // 1. Get current state from Storage (Database)
-        // Values currently stored on disk (last known state)
         let storedToken = (try? storageService.getDeviceToken()) ?? ""
-        let storedEnabled = (try? storageService.getPushEnabled()) ?? true
-        
-        // 2. Resolve target state (Effectively what we want to save/send)
-        // If pushEnabled is explicit, use it; otherwise fallback to stored.
+        let storedEnabled = (try? storageService.getPushEnabled()) ?? false
+
         let targetEnabled = pushEnabled ?? storedEnabled
-        
-        // If deviceToken is explicit, use it; otherwise fallback to stored.
-        // BUT: If notifications are disabled (targetEnabled == false), token must be empty.
+
         var targetToken = deviceToken ?? storedToken
         if !targetEnabled {
             targetToken = ""
         } else if let newToken = deviceToken {
             targetToken = newToken
         }
-        
-        // 3. Deduplication: Check if State Changed
-        // Compare Target (New) vs Stored (Old)
+
         if !shouldForceSync && targetToken == storedToken && targetEnabled == storedEnabled {
             debugPrint("Consumer state (Token/Enabled) matches DB. Skipping update.")
             DispatchQueue.main.async { completion?(true) }
             return
         }
-        
-        // 4. Update Storage with New State
-        // Only point where we write to DB
+
         do {
             try storageService.putPushEnabled(targetEnabled)
             try storageService.putDeviceToken(targetToken)
@@ -155,17 +146,23 @@ public final class ConsumerService: @unchecked Sendable {
             DispatchQueue.main.async { completion?(false) }
             return
         }
-        
-        // 5. Send Network Request
+
+        // Never send enabled=true without a device token.
+        // Keep local state and wait for APNs registration callback.
+        if targetEnabled && targetToken.isEmpty {
+            debugPrint("Skipping consumer update: push is enabled but device token is missing.")
+            DispatchQueue.main.async { completion?(false) }
+            return
+        }
+
         guard let consumerId = try? storageService.getConsumerId(), !consumerId.isEmpty else {
             debugPrint("Cannot update consumer, consumerId is missing.")
             DispatchQueue.main.async { completion?(false) }
             return
         }
-        
-        // Only send token payload if valid
+
         let tokenPayload = targetToken.isEmpty ? nil : targetToken
-        
+
         let request = UpdateConsumer(
             deviceToken: tokenPayload,
             pushEnabled: targetEnabled
@@ -174,7 +171,7 @@ public final class ConsumerService: @unchecked Sendable {
         
         Queues.state.async { [weak self] in
             guard let self = self else { return }
-            ServiceContainer.shared.apiService.executeRequest(
+            self.apiService.executeRequest(
                 endpoint,
                 responseType: VoidResponse.self
             ) { result in

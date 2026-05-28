@@ -192,6 +192,8 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
                 let afterTokenReady: @Sendable () -> Void = {
                     guard SessionManager.isSessionActive else { return }
 
+                    ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
+
                     RemoteConfig.fetchAndStoreConfig { _ in
                         SessionManager.sendEndSessionFromDatabase { _ in
                             SessionManager.sendStartSessionIfExist { _ in
@@ -307,8 +309,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
 
             do {
                 ConsumerService.shared.updateAppKeyIfNeeded(self.appKey)
-                ConsumerService.shared.updateConsumer(deviceToken: nil, pushEnabled: nil)
-                
+
                 if let consumerId = try ServiceContainer.shared.storageService.getConsumerId(),
                    !consumerId.isEmpty {
                     ServiceContainer.shared.apiService.getNewToken { errorType in

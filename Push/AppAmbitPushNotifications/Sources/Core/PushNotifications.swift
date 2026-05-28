@@ -31,8 +31,20 @@ public class PushNotifications: NSObject {
     public static func setNotificationsEnabled(_ enabled: Bool) {
         PushLogger.log("Setting notifications enabled to: \(enabled)")
         PushKernel.setNotificationsEnabled(enabled)
+
+        if enabled {
+            DispatchQueue.main.async {
+                PushLogger.log("Requesting APNs registration (enable)")
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
         
         let token = PushKernel.getCurrentToken()
+        if enabled && (token == nil || token?.isEmpty == true) {
+            PushLogger.log("Waiting for APNs device token before syncing enabled state.")
+            return
+        }
+
         ConsumerService.shared.updateConsumer(deviceToken: token, pushEnabled: enabled)
     }
     
