@@ -30,7 +30,7 @@ struct AppSecretsConfiguration {
             \(Column.userId.name) TEXT,
             \(Column.userEmail.name) TEXT,
             \(Column.deviceToken.name) TEXT,
-            \(Column.pushEnabled.name) INTEGER DEFAULT 1
+            \(Column.pushEnabled.name) INTEGER DEFAULT 0
         );
         """
     }

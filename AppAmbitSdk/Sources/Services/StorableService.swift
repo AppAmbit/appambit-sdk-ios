@@ -91,7 +91,7 @@ final class StorableService: StorageService {
     }
     func getPushEnabled() throws -> Bool { 
         guard let value = try getSecretField(AppSecretsConfiguration.Column.pushEnabled.name) else { 
-            return true // Default to true if not set
+            return false
         }
         return value == "1"
     }

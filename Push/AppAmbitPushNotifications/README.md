@@ -268,7 +268,7 @@ Triggers `AppAmbitNotificationService` before display. Also fires `.foreground` 
 
 | Field | Purpose |
 |---|---|
-| `aps.alert` | Visible notification content (title, body, subtitle) |
+| `aps.alert` | Visible notification content (title and body) |
 | `aps.mutable-content` | Triggers `AppAmbitNotificationService` (required for the extension to run) |
 | `aps.sound` | Play sound on delivery (`"default"` or custom filename) |
 | `aps.badge` | App icon badge number |

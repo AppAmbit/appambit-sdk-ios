@@ -45,7 +45,7 @@ open class AppAmbitNotificationService: UNNotificationServiceExtension {
                                      content: UNMutableNotificationContent,
                                      contentHandler: @escaping (UNNotificationContent) -> Void) {
         guard let imageUrl = notification.imageUrl, !imageUrl.isEmpty else {
-            contentHandler(content)
+               contentHandler(content)
             return
         }
 
