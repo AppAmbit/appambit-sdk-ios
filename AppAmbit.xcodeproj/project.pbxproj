@@ -129,14 +129,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7928260A2FAEA6AD00766B64 /* Exceptions for "Samples/NotificationServiceObjC" folder in "NotificationServiceObjC" target */ = {
+		7928260A2FAEA6AD00766B64 /* Exceptions for "NotificationServiceObjC" folder in "NotificationServiceObjC" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 792825FD2FAEA6AD00766B64 /* NotificationServiceObjC */;
 		};
-		797B71752F1050260032E3ED /* Exceptions for "Samples/NotificationServiceSwift" folder in "NotificationServiceSwift" target */ = {
+		797B71752F1050260032E3ED /* Exceptions for "NotificationServiceSwift" folder in "NotificationServiceSwift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -146,7 +146,6 @@
 		79BB902C2EE7C61600E5FAB2 /* Exceptions for "Samples" folder in "AppAmbit.App.Swift" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				AppAmbit.App.ObjC/Info.plist,
 				AppAmbit.App.Swift/AnalyticsView.swift,
 				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
 				AppAmbit.App.Swift/Assets.xcassets,
@@ -184,26 +183,24 @@
 				AppAmbit.App.Swift/Utils/CrashStore.swift,
 				AppAmbit.App.Swift/Utils/ExceptionModel.swift,
 				AppAmbit.App.Swift/Utils/NetworkMonitor.swift,
-				NotificationServiceObjC/Info.plist,
-				NotificationServiceSwift/Info.plist,
 			);
 			target = 79712D1B2E7CD50D00B99DB6 /* AppAmbit.App.ObjC */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		792825FF2FAEA6AD00766B64 /* Samples/NotificationServiceObjC */ = {
+		792825FF2FAEA6AD00766B64 /* NotificationServiceObjC */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7928260A2FAEA6AD00766B64 /* Exceptions for "Samples/NotificationServiceObjC" folder in "NotificationServiceObjC" target */,
+				7928260A2FAEA6AD00766B64 /* Exceptions for "NotificationServiceObjC" folder in "NotificationServiceObjC" target */,
 			);
 			path = Samples/NotificationServiceObjC;
 			sourceTree = "<group>";
 		};
-		797B716A2F1050260032E3ED /* Samples/NotificationServiceSwift */ = {
+		797B716A2F1050260032E3ED /* NotificationServiceSwift */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				797B71752F1050260032E3ED /* Exceptions for "Samples/NotificationServiceSwift" folder in "NotificationServiceSwift" target */,
+				797B71752F1050260032E3ED /* Exceptions for "NotificationServiceSwift" folder in "NotificationServiceSwift" target */,
 			);
 			path = Samples/NotificationServiceSwift;
 			sourceTree = "<group>";
@@ -274,8 +271,8 @@
 			children = (
 				79BB8FE52EE7C61000E5FAB2 /* Samples */,
 				79E047D12EF504B9007952FD /* Push */,
-				797B716A2F1050260032E3ED /* Samples/NotificationServiceSwift */,
-				792825FF2FAEA6AD00766B64 /* Samples/NotificationServiceObjC */,
+				797B716A2F1050260032E3ED /* NotificationServiceSwift */,
+				792825FF2FAEA6AD00766B64 /* NotificationServiceObjC */,
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
@@ -334,7 +331,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				792825FF2FAEA6AD00766B64 /* Samples/NotificationServiceObjC */,
+				792825FF2FAEA6AD00766B64 /* NotificationServiceObjC */,
 			);
 			name = NotificationServiceObjC;
 			packageProductDependencies = (
@@ -388,7 +385,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				797B716A2F1050260032E3ED /* Samples/NotificationServiceSwift */,
+				797B716A2F1050260032E3ED /* NotificationServiceSwift */,
 			);
 			name = NotificationServiceSwift;
 			packageProductDependencies = (
@@ -765,7 +762,6 @@
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -792,7 +788,6 @@
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -828,7 +823,6 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -864,7 +858,6 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
