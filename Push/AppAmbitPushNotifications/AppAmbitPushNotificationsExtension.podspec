@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = "AppAmbitPushNotificationsExtension"
-  spec.version      = "1.0.0"
+  spec.version      = "1.0.1"
   spec.summary      = "Extension-safe slice of AppAmbitPushNotifications for iOS Notification Service Extensions."
 
   spec.description  = <<-DESC
@@ -21,6 +21,9 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = '12.0'
   spec.swift_version  = '5.7'
 
-  spec.source_files = 'Sources/Extension/*.swift'
+  spec.source_files = [
+    'Sources/Extension/*.swift',
+    'Push/AppAmbitPushNotifications/Sources/Extension/*.swift'
+  ]
   spec.pod_target_xcconfig = { 'APPLICATION_EXTENSION_API_ONLY' => 'YES' }
 end

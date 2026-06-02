@@ -56,7 +56,7 @@ final class DataStore {
         
         // Check and add pushEnabled column if it doesn't exist
         if !columnExists(table: "secrets", column: "pushEnabled") {
-            try? exec("ALTER TABLE secrets ADD COLUMN pushEnabled INTEGER DEFAULT 1")
+            try? exec("ALTER TABLE secrets ADD COLUMN pushEnabled INTEGER DEFAULT 0")
         }
     }
     

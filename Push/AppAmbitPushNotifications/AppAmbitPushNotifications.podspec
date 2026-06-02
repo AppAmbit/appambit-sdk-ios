@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = "AppAmbitPushNotifications"
-  spec.version      = "1.0.0"
+  spec.version      = "1.0.1"
   spec.summary      = "Push Notifications SDK for iOS to send push notifications via AppAmbit platform."
 
   spec.description  = <<-DESC
@@ -20,6 +20,9 @@ Pod::Spec.new do |spec|
   # Not extension-safe — references UIApplication and other APIs forbidden
   # in Notification Service Extensions. For NSE targets use the
   # `AppAmbitPushNotificationsExtension` pod instead.
-  spec.source_files = 'Sources/**/*.swift'
+  spec.source_files = [
+    'Sources/**/*.swift',
+    'Push/AppAmbitPushNotifications/Sources/**/*.swift'
+  ]
   spec.dependency 'AppAmbitSdk'
 end

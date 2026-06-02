@@ -1,3 +1,15 @@
+## Version 1.0.1
+
+### AppAmbit
+
+* **[Fix]** Fixed consumer sync being skipped on app start and network reconnect due to incorrect deduplication: `updateConsumer` called with no explicit token/push-enabled now always forces a backend sync regardless of stored state.
+
+* **[Fix]** Corrected push-enabled default value read from storage (`false` instead of `true`) to accurately reflect the initial disabled state.
+
+* **[Refactor]** `ConsumerService` now holds its own `ApiService` reference (injected at init) instead of accessing `ServiceContainer.shared.apiService` directly, enabling proper unit testing.
+
+___
+
 ## Version 1.0.0
 
 ### AppAmbit Push Notifications

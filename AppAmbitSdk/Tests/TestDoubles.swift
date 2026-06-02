@@ -6,6 +6,7 @@ final class StubApiService: ApiService {
     private let queue = DispatchQueue(label: "com.appambit.tests.api")
     private var stubbedResults: [String: Any] = [:]
     private var calls: [String: Int] = [:]
+    private var lastEndpoints: [String: Any] = [:]
 
     var token: String?
 
@@ -17,6 +18,7 @@ final class StubApiService: ApiService {
         let key = String(describing: type(of: endpoint))
         queue.sync {
             calls[key, default: 0] += 1
+            lastEndpoints[key] = endpoint
         }
 
         if let result = stubbedResults[key] as? ApiResult<T> {
@@ -42,6 +44,10 @@ final class StubApiService: ApiService {
 
     func callCount(for endpointType: Endpoint.Type) -> Int {
         queue.sync { calls[String(describing: endpointType), default: 0] }
+    }
+
+    func lastEndpoint<T>(for endpointType: T.Type) -> T? {
+        queue.sync { lastEndpoints[String(describing: endpointType)] as? T }
     }
 }
 
@@ -289,7 +295,7 @@ final class InMemoryStorage: StorageService {
 }
 
 struct StubAppInfoService: AppInfoService {
-    var appVersion: String? = "1.0.0"
+    var appVersion: String? = "1.0.1"
     var build: String? = "1"
     var platform: String? = "iOS"
     var os: String? = "iOS 17"
