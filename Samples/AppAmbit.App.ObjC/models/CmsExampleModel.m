@@ -37,7 +37,7 @@
         } else {
             _category = nil;
         }
-        _featuredImage = [self safeObject:dict[@"featured_image"]];
+        _featuredImage = [self safeObject:dict[@"featured_image_url"]];
         
         id authorObj = [self safeObject:dict[@"author"]];
         if ([authorObj isKindOfClass:[NSDictionary class]]) {
