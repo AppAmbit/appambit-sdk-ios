@@ -6,6 +6,7 @@ struct CmsView: View {
     @State private var isLoading = false
     @State private var selectedFilter = "All Posts"
     @State private var searchText = ""
+    @State private var currentRequestId = UUID()
 
     let filters = [
         "All Posts",
@@ -89,6 +90,8 @@ struct CmsView: View {
 
     private func loadPosts() {
         isLoading = true
+        let myId = UUID()
+        currentRequestId = myId
         let query = Cms.content("blog_extended", modelType: CmsExampleModel.self)
 
         switch selectedFilter {
@@ -116,20 +119,24 @@ struct CmsView: View {
 
         query.getList { results in
             DispatchQueue.main.async {
+                guard self.currentRequestId == myId else { return }
                 self.posts = results
                 self.isLoading = false
             }
         }
     }
-    
+
     private func searchPosts() {
         guard !searchText.isEmpty else { return }
         isLoading = true
+        let myId = UUID()
+        currentRequestId = myId
         let query = Cms.content("blog_extended", modelType: CmsExampleModel.self)
         _ = query.search(searchText)
-        
+
         query.getList { results in
             DispatchQueue.main.async {
+                guard self.currentRequestId == myId else { return }
                 self.posts = results
                 self.isLoading = false
             }

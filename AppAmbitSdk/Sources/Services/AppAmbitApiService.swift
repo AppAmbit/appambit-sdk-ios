@@ -435,7 +435,10 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             .replacingOccurrences(of: "%5B", with: "[", options: .caseInsensitive)
             .replacingOccurrences(of: "%5D", with: "]", options: .caseInsensitive)
 
-        let appKey = (try? ServiceContainer.shared.storageService.getAppId()) ?? ""
+        guard let appKey = try? ServiceContainer.shared.storageService.getAppId(), !appKey.isEmpty else {
+            completion(.fail(.unauthorized, message: "SDK not yet initialized — X-App-Key unavailable"))
+            return
+        }
 
         let tlsOptions = NWProtocolTLS.Options()
         sec_protocol_options_add_tls_application_protocol(tlsOptions.securityProtocolOptions, "http/1.1")

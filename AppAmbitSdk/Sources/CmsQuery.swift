@@ -74,11 +74,16 @@ public final class CmsQuery<T: Decodable>: ICmsQuery, @unchecked Sendable {
         queryParams.append(("per_page", "\(perPage)")); return self
     }
 
-    public func getList(completion: @escaping @Sendable ([T]) -> Void) {
+    public func getList(completion: @escaping @Sendable ([T]) -> Void, onError: (@Sendable (Error) -> Void)? = nil) {
         let endpoint = CmsEndpoint(contentType: contentType, queryItems: queryParams, isSearch: isSearch)
         Cms.apiService.executeRequest(endpoint, responseType: [String: JSONValue].self) { result in
             guard let responseDict = result.data else {
-                debugPrint("Cms [fetch error]: \(String(describing: result.errorType))")
+                let err = NSError(
+                    domain: "CmsQuery",
+                    code: 0,
+                    userInfo: [NSLocalizedDescriptionKey: "Fetch failed: \(result.errorType.rawValue)"]
+                )
+                onError?(err)
                 completion([])
                 return
             }

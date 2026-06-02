@@ -17,5 +17,11 @@ public protocol ICmsQuery<T> {
     func orderByDescending(_ field: String) -> Self
     func getPage(_ page: Int) -> Self
     func getPerPage(_ perPage: Int) -> Self
-    func getList(completion: @escaping @Sendable ([T]) -> Void)
+    func getList(completion: @escaping @Sendable ([T]) -> Void, onError: (@Sendable (Error) -> Void)?)
+}
+
+public extension ICmsQuery {
+    func getList(completion: @escaping @Sendable ([T]) -> Void) {
+        getList(completion: completion, onError: nil)
+    }
 }
