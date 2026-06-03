@@ -23,7 +23,9 @@ Pod::Spec.new do |spec|
 
   spec.source_files = [
     'Sources/Extension/*.swift',
-    'Push/AppAmbitPushNotifications/Sources/Extension/*.swift'
+    'Sources/Core/PushLogger.swift',
+    'Push/AppAmbitPushNotifications/Sources/Extension/*.swift',
+    'Push/AppAmbitPushNotifications/Sources/Core/PushLogger.swift'
   ]
   spec.pod_target_xcconfig = { 'APPLICATION_EXTENSION_API_ONLY' => 'YES' }
 end
