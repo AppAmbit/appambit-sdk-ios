@@ -1,4 +1,6 @@
 import Foundation
+import Network
+import Security
 
 final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
@@ -55,6 +57,13 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 return
             }
 
+            // CMS GET requests use raw HTTP/1.1 to preserve literal brackets in filter params.
+            // Foundation's URL always encodes [ ] as %5B %5D; the CMS server requires literal brackets.
+            if let cmsEndpoint = endpoint as? CmsEndpoint, endpoint.method == .get {
+                self.executeCmsRawRequest(cmsEndpoint, responseType: responseType, completion: completion)
+                return
+            }
+
             guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
                 completion(.fail(.unknown, message: "Invalid URL"))
                 return
@@ -62,6 +71,12 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
             var request = URLRequest(url: url)
             request.httpMethod = endpoint.method.stringValue
+
+            #if DEBUG
+            if endpoint is CmsEndpoint {
+                AppAmbitLogger.log(message: "CMS REQUEST URL: \(url.absoluteString)")
+            }
+            #endif
 
             self.configureHeaders(for: &request, endpoint: endpoint)
 
@@ -402,5 +417,142 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         let prefix = "boundary="
         guard let range = contentType.range(of: prefix) else { return nil }
         return String(contentType[range.upperBound...])
+    }
+
+    // MARK: - CMS raw HTTP/1.1 (bypasses Foundation URL encoding so brackets stay literal)
+
+    private func executeCmsRawRequest<T: Decodable>(
+        _ endpoint: CmsEndpoint,
+        responseType: T.Type,
+        completion: @escaping @Sendable (ApiResult<T>) -> Void
+    ) {
+        guard let cmsURL = URL(string: endpoint.baseUrl), let host = cmsURL.host else {
+            completion(.fail(.unknown, message: "Invalid CMS base URL"))
+            return
+        }
+        let basePath = cmsURL.path
+        let rawPath = (basePath + endpoint.url)
+            .replacingOccurrences(of: "%5B", with: "[", options: .caseInsensitive)
+            .replacingOccurrences(of: "%5D", with: "]", options: .caseInsensitive)
+
+        guard let appKey = try? ServiceContainer.shared.storageService.getAppId(), !appKey.isEmpty else {
+            completion(.fail(.unauthorized, message: "SDK not yet initialized — X-App-Key unavailable"))
+            return
+        }
+
+        let tlsOptions = NWProtocolTLS.Options()
+        sec_protocol_options_add_tls_application_protocol(tlsOptions.securityProtocolOptions, "http/1.1")
+
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: 443, using: NWParameters(tls: tlsOptions))
+
+        connection.stateUpdateHandler = { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+                self.sendCmsRawHTTP(connection: connection, host: host, path: rawPath,
+                                    appKey: appKey, responseType: responseType, completion: completion)
+            case .failed(let error):
+                connection.cancel()
+                Queues.netDecode.async { completion(.fail(.networkUnavailable, message: error.localizedDescription)) }
+            default:
+                break
+            }
+        }
+        connection.start(queue: Queues.netDecode)
+    }
+
+    private func sendCmsRawHTTP<T: Decodable>(
+        connection: NWConnection,
+        host: String,
+        path: String,
+        appKey: String,
+        responseType: T.Type,
+        completion: @escaping @Sendable (ApiResult<T>) -> Void
+    ) {
+        let req = "GET \(path) HTTP/1.1\r\nHost: \(host)\r\nX-App-Key: \(appKey)\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
+        #if DEBUG
+        AppAmbitLogger.log(message: "CMS REQUEST URL: https://\(host)\(path)")
+        #endif
+        connection.send(content: req.data(using: .utf8), completion: .contentProcessed({ _ in }))
+        readCmsRawResponse(connection: connection, buffer: Data()) { [weak self] result in
+            connection.cancel()
+            switch result {
+            case .success(let data):
+                self?.parseCmsRawResponse(data: data, responseType: responseType, completion: completion)
+            case .failure(let err):
+                completion(.fail(.networkUnavailable, message: err.localizedDescription))
+            }
+        }
+    }
+
+    private func readCmsRawResponse(
+        connection: NWConnection,
+        buffer: Data,
+        completion: @escaping (Result<Data, NWError>) -> Void
+    ) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] chunk, _, isComplete, error in
+            if let error { completion(.failure(error)); return }
+            var data = buffer
+            if let chunk { data.append(chunk) }
+            if isComplete {
+                completion(.success(data))
+            } else {
+                self?.readCmsRawResponse(connection: connection, buffer: data, completion: completion)
+            }
+        }
+    }
+
+    private func parseCmsRawResponse<T: Decodable>(
+        data: Data,
+        responseType: T.Type,
+        completion: @escaping @Sendable (ApiResult<T>) -> Void
+    ) {
+        let sep = Data("\r\n\r\n".utf8)
+        guard let sepRange = data.range(of: sep),
+              let headerStr = String(data: data[..<sepRange.lowerBound], encoding: .utf8) else {
+            completion(.fail(.unknown, message: "Malformed HTTP response"))
+            return
+        }
+        let statusCode = Int(headerStr.components(separatedBy: "\r\n")
+            .first?.components(separatedBy: " ").dropFirst().first ?? "0") ?? 0
+        var body = Data(data[sepRange.upperBound...])
+        if headerStr.lowercased().contains("transfer-encoding: chunked") {
+            body = decodeCmsChunkedBody(body)
+        }
+        #if DEBUG
+        AppAmbitLogger.log(message: "HTTP RESPONSE CODE: \(statusCode)")
+        if let s = String(data: body, encoding: .utf8) { print("HTTP RESPONSE BODY:\n\(s)") }
+        #endif
+        switch statusCode {
+        case 401:
+            completion(.fail(.unauthorized, message: "Unauthorized"))
+        case 200..<300:
+            do {
+                completion(.success(try JSONDecoder().decode(responseType, from: body)))
+            } catch {
+                completion(.fail(.unknown, message: "Decode: \(error.localizedDescription)"))
+            }
+        default:
+            completion(.fail(.unknown, message: "HTTP \(statusCode)"))
+        }
+    }
+
+    private func decodeCmsChunkedBody(_ data: Data) -> Data {
+        var result = Data()
+        var cursor = data.startIndex
+        let crlf = Data("\r\n".utf8)
+        while cursor < data.endIndex,
+              let nl = data.range(of: crlf, in: cursor..<data.endIndex),
+              let size = Int(String(data: data[cursor..<nl.lowerBound], encoding: .utf8)?
+                  .trimmingCharacters(in: .whitespaces) ?? "", radix: 16), size > 0 {
+            cursor = nl.upperBound
+            let end = data.index(cursor, offsetBy: size, limitedBy: data.endIndex) ?? data.endIndex
+            result.append(data[cursor..<end])
+            cursor = end
+            if cursor < data.endIndex, data[cursor...].starts(with: crlf) {
+                cursor = data.index(cursor, offsetBy: 2)
+            }
+        }
+        return result
     }
 }

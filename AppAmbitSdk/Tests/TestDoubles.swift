@@ -67,7 +67,6 @@ final class InMemoryStorage: StorageService {
     var sessionBatches: [SessionBatch] = []
     var breadcrumbs: [BreadcrumbEntity] = []
     var remoteConfigs: [String: RemoteConfigEntity] = [:]
-    var cmsData: [String: String] = [:]
     var deviceToken: String?
     var pushEnabled: Bool = false
 
@@ -263,39 +262,10 @@ final class InMemoryStorage: StorageService {
         queue.sync { remoteConfigs[key] }
     }
 
-    func putCmsData(_ contentType: String, _ json: String) throws {
-        queue.sync { cmsData[contentType] = json }
-    }
-
-    func getCmsData(_ contentType: String) throws -> String? {
-        queue.sync { cmsData[contentType] }
-    }
-
-    func queryCmsData(
-        contentType: String,
-        whereClause: String?,
-        args: [String]?,
-        orderBy: String?,
-        limit: Int,
-        offset: Int
-    ) throws -> [String] {
-        queue.sync {
-            guard let json = cmsData[contentType] else { return [] }
-            return [json]
-        }
-    }
-
-    func deleteCmsData(_ contentType: String) throws {
-        queue.sync { cmsData.removeValue(forKey: contentType) }
-    }
-
-    func deleteAllCmsData() throws {
-        queue.sync { cmsData.removeAll() }
-    }
 }
 
 struct StubAppInfoService: AppInfoService {
-    var appVersion: String? = "1.0.1"
+    var appVersion: String? = "1.0.2"
     var build: String? = "1"
     var platform: String? = "iOS"
     var os: String? = "iOS 17"

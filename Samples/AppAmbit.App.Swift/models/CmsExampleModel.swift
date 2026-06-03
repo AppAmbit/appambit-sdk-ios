@@ -3,7 +3,18 @@ import AppAmbit
 
 struct AuthorRelation: Decodable {
     let author: String?
-    
+
+    init(from decoder: Decoder) throws {
+        if let single = try? decoder.singleValueContainer(), let str = try? single.decode(String.self) {
+            author = str
+        } else {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            author = try container.decodeIfPresent(String.self, forKey: .author)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case author }
+
     var displayString: String {
         return author ?? "Unknown Author"
     }
@@ -26,7 +37,7 @@ struct CmsExampleModel: Decodable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, body, category, author
-        case featuredImage = "featured_image"
+        case featuredImage = "featured_image_url"
         
         case viewsCount = "views_count"
         case isPublished = "is_published"
