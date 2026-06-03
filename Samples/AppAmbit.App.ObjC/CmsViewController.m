@@ -12,6 +12,7 @@
 @property (nonatomic, strong) UILabel *categoryBadgeLabel;
 @property (nonatomic, strong) UILabel *eventDateLabel;
 @property (nonatomic, strong) UILabel *metaDataLabel;
+@property (nonatomic, strong, nullable) NSURLSessionDataTask *imageTask;
 - (void)configureWithPost:(CmsExampleModel *)post;
 @end
 
@@ -23,6 +24,13 @@
         [self setupViews];
     }
     return self;
+}
+
+- (void)prepareForReuse {
+    [super prepareForReuse];
+    [_imageTask cancel];
+    _imageTask = nil;
+    _featuredImageView.image = nil;
 }
 
 - (void)setupViews {
@@ -192,8 +200,8 @@
     if (hasImage) {
         NSURL *url = [NSURL URLWithString:post.featuredImage];
         if (url) {
-            [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-                if (data) {
+            self.imageTask = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                if (data && !error) {
                     UIImage *img = [UIImage imageWithData:data];
                     if (img) {
                         dispatch_async(dispatch_get_main_queue(), ^{
@@ -201,7 +209,8 @@
                         });
                     }
                 }
-            }] resume];
+            }];
+            [self.imageTask resume];
         }
     }
 }
@@ -216,6 +225,7 @@
     UIActivityIndicatorView *_pview;
     UIButton *_filterBtn;
     UITextField *_searchField;
+    NSInteger _requestToken;
 }
 @end
 
@@ -385,9 +395,10 @@
 
 - (void)loadPosts {
     [_pview startAnimating];
-    
+    NSInteger myToken = ++_requestToken;
+
     CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
-    
+
     if ([_selectedFilter isEqualToString:@"Title = T20"]) [query equals:@"title" value:@"T20"];
     else if ([_selectedFilter isEqualToString:@"Title ≠ T20"]) [query notEquals:@"title" value:@"T20"];
     else if ([_selectedFilter isEqualToString:@"Is Published = true"]) [query equals:@"is_published" value:@"true"];
@@ -407,19 +418,11 @@
     else if ([_selectedFilter isEqualToString:@"Sort Views ↓"]) [query orderByDescending:@"views_count"];
     else if ([_selectedFilter isEqualToString:@"Page 1 (2 per page)"]) { [query getPage:1]; [query getPerPage:2]; }
     else if ([_selectedFilter isEqualToString:@"Page 2 (2 per page)"]) { [query getPage:2]; [query getPerPage:2]; }
-    
+
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
+        if (myToken != self->_requestToken) { return; }
         NSMutableArray *postObjs = [NSMutableArray new];
-        
-        NSArray *actualItems = items;
-        if ([items isKindOfClass:[NSDictionary class]]) {
-            NSDictionary *dict = (NSDictionary *)items;
-            if ([dict[@"data"] isKindOfClass:[NSArray class]]) {
-                actualItems = dict[@"data"];
-            }
-        }
-        
-        for (NSDictionary *d in actualItems) {
+        for (NSDictionary *d in items) {
             [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -432,21 +435,14 @@
 
 - (void)searchPosts {
     [_pview startAnimating];
+    NSInteger myToken = ++_requestToken;
     CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
     [query search:_searchText];
-    
+
     [query getListWithCompletion:^(NSArray * _Nonnull items) {
+        if (myToken != self->_requestToken) { return; }
         NSMutableArray *postObjs = [NSMutableArray new];
-        
-        NSArray *actualItems = items;
-        if ([items isKindOfClass:[NSDictionary class]]) {
-            NSDictionary *dict = (NSDictionary *)items;
-            if ([dict[@"data"] isKindOfClass:[NSArray class]]) {
-                actualItems = dict[@"data"];
-            }
-        }
-        
-        for (NSDictionary *d in actualItems) {
+        for (NSDictionary *d in items) {
             [postObjs addObject:[[CmsExampleModel alloc] initWithDictionary:d]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{

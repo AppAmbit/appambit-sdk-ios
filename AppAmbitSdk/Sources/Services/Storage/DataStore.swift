@@ -42,12 +42,17 @@ final class DataStore {
         try exec(EventEntityConfiguration.createTable)
         try exec(BreadcrumbEntityConfiguration.createTable)
         try exec(RemoteConfigEntityConfiguration.createTable)
-        try exec(CmsCacheConfiguration.createTable)
         
-        // Migrate existing secrets table to add push notification columns if they don't exist
         migrateSecretsTable()
+        migrateCmsCache()
     }
-    
+
+    private func migrateCmsCache() {
+        if tableExists("cms_cache") {
+            try? exec("DROP TABLE cms_cache")
+        }
+    }
+
     private func migrateSecretsTable() {
         // Check and add deviceToken column if it doesn't exist
         if !columnExists(table: "secrets", column: "deviceToken") {
@@ -60,6 +65,14 @@ final class DataStore {
         }
     }
     
+    private func tableExists(_ table: String) -> Bool {
+        let query = "SELECT name FROM sqlite_master WHERE type='table' AND name='\(table)'"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(statement) }
+        return sqlite3_step(statement) == SQLITE_ROW
+    }
+
     private func columnExists(table: String, column: String) -> Bool {
         let query = "PRAGMA table_info(\(table))"
         var statement: OpaquePointer?
