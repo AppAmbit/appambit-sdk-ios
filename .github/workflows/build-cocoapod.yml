@@ -165,7 +165,6 @@ jobs:
             AppAmbitPushNotificationsExtension-${{ steps.ver.outputs.full }}.zip
 
       - name: Publish to CocoaPods
-        if: steps.check_tag.outputs.skip == 'false' && (github.ref_name == 'main')
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
