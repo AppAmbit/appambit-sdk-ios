@@ -265,7 +265,7 @@ final class InMemoryStorage: StorageService {
 }
 
 struct StubAppInfoService: AppInfoService {
-    var appVersion: String? = "1.0.1"
+    var appVersion: String? = "1.0.2"
     var build: String? = "1"
     var platform: String? = "iOS"
     var os: String? = "iOS 17"
