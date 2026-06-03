@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = "AppAmbitPushNotifications"
-  spec.version      = "1.0.1"
+  spec.version      = "1.0.2"
   spec.summary      = "Push Notifications SDK for iOS to send push notifications via AppAmbit platform."
 
   spec.description  = <<-DESC
