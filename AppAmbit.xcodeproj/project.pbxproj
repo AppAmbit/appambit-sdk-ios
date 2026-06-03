@@ -999,6 +999,7 @@
 		};
 		7928260B2FAEAB8C00766B64 /* AppAmbitPushNotifications */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 79E047D82EF50C00007952FD /* XCLocalSwiftPackageReference "Push/AppAmbitPushNotifications" */;
 			productName = AppAmbitPushNotifications;
 		};
 		79C6A7CA2E7D34AE001EDDD2 /* AppAmbit */ = {
