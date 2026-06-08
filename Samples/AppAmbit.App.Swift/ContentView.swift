@@ -30,6 +30,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("CMS", systemImage: "doc.richtext")
                 }
+
+            DatabaseView()
+                .tabItem {
+                    Label("Database", systemImage: "cylinder.split.1x2")
+                }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)

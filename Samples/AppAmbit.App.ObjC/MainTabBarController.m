@@ -3,6 +3,7 @@
 #import "AnalyticsViewController.h"
 #import "RemoteConfigViewController.h"
 #import "CmsViewController.h"
+#import "DatabaseViewController.h"
 
 @implementation MainTabBarController
 
@@ -37,7 +38,14 @@
                                                      tag:3];
     UINavigationController *navCms = [[UINavigationController alloc] initWithRootViewController:cms];
 
-    self.viewControllers = @[navCrashes, navAnalytics, navRemoteConfig, navCms];
+    DatabaseViewController *database = [DatabaseViewController new];
+    database.title = @"Database";
+    database.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Database"
+                                                        image:[UIImage systemImageNamed:@"cylinder.split.1x2"]
+                                                          tag:4];
+    UINavigationController *navDatabase = [[UINavigationController alloc] initWithRootViewController:database];
+
+    self.viewControllers = @[navCrashes, navAnalytics, navRemoteConfig, navCms, navDatabase];
 }
 
 @end

@@ -177,7 +177,7 @@ public final class AppAmbit: NSObject, @unchecked Sendable {
         Crashes.initialize(apiService: apiService, storageService: storageService)
         Logging.initialize(apiService: apiService, storageService: storageService)
         Cms.initialize(apiService: apiService)
-
+        AppAmbitDb.initialize(dbService: ServiceContainer.shared.dbService)
 
         self.reachability = reachabilityService
 
