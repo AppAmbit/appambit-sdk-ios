@@ -5,7 +5,7 @@ private let allowedOperators: Set<String> = [
 ]
 
 @objcMembers
-public final class DbQueryBuilder: NSObject, @unchecked Sendable {
+public final class DbQueryBuilder: NSObject {
 
     private let table: String
     private let dbService: DbService?
@@ -17,6 +17,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     private var ascending: Bool            = true
     private var limitValue: Int            = -1
     private var offsetValue: Int           = -1
+    private var deferredError: Error?
 
     init(table: String, dbService: DbService?) {
         self.table     = table
@@ -44,7 +45,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     public func `where`(_ column: String, op: String, value: Any?) -> DbQueryBuilder {
         let upOp = op.uppercased()
         guard allowedOperators.contains(upOp) else {
-            debugPrint("AppAmbitDb: operator not allowed: \(op)")
+            deferredError = DbError.invalidOperator(op)
             return self
         }
         whereConditions.append(quoted(column) + " \(upOp) ?")
@@ -54,6 +55,10 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
 
     @discardableResult
     public func whereIn(_ column: String, values: [Any]) -> DbQueryBuilder {
+        guard !values.isEmpty else {
+            deferredError = DbError.emptyInValues(column)
+            return self
+        }
         let placeholders = Array(repeating: "?", count: values.count).joined(separator: ", ")
         whereConditions.append(quoted(column) + " IN (\(placeholders))")
         whereParams.append(contentsOf: values)
@@ -95,6 +100,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     }
 
     public func count(completion: @escaping @Sendable (Int, Error?) -> Void) {
+        if let err = deferredError { completion(0, err); return }
         guard let svc = dbService else { completion(0, DbError.notInitialized); return }
         var sql = "SELECT COUNT(*) FROM \(quoted(table))"
         if !whereConditions.isEmpty { sql += " WHERE \(joinedConditions())" }
@@ -113,8 +119,9 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     }
 
     public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+        if let err = deferredError { completion(nil, err); return }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
-        let cols   = Array(data.keys)
+        let cols   = data.keys.sorted()
         let vals   = cols.map { data[$0]! }
         let placeholders = Array(repeating: "?", count: cols.count).joined(separator: ", ")
         let colList      = cols.map { quoted($0) }.joined(separator: ", ")
@@ -123,6 +130,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     }
 
     public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+        if let err = deferredError { completion(nil, err); return }
         guard !whereConditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
         let cols   = Array(data.keys)
@@ -133,6 +141,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     }
 
     public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+        if let err = deferredError { completion(nil, err); return }
         guard !whereConditions.isEmpty else { completion(nil, DbError.deleteRequiresWhere); return }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
         let sql = "DELETE FROM \(quoted(table)) WHERE \(joinedConditions())"
@@ -142,6 +151,7 @@ public final class DbQueryBuilder: NSObject, @unchecked Sendable {
     // MARK: - Internal
 
     func fetchResult(overrideLimit: Int, completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+        if let err = deferredError { completion(nil, err); return }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
         let sql = buildSelectSQL(overrideLimit: overrideLimit)
         svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in

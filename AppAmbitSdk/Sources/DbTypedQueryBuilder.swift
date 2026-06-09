@@ -2,7 +2,7 @@ import Foundation
 
 /// Swift-only typed query builder. T must be Decodable.
 /// Use CodingKeys on T to map column names to Swift property names.
-public final class TypedDbQueryBuilder<T: Decodable>: @unchecked Sendable {
+public final class TypedDbQueryBuilder<T: Decodable> {
 
     private let inner: DbQueryBuilder
 

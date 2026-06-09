@@ -39,11 +39,11 @@ extension DbResult {
     /// Decodes rows into T using JSONDecoder. T must be Decodable.
     /// Use CodingKeys on T to map column names to property names.
     public func mapTo<T: Decodable>(_ type: T.Type) -> [T] {
-        toMaps().compactMap { dict in
+        let decoder = JSONDecoder()
+        return toMaps().compactMap { dict in
             guard JSONSerialization.isValidJSONObject(dict),
-                  let data = try? JSONSerialization.data(withJSONObject: dict),
-                  let obj  = try? JSONDecoder().decode(T.self, from: data) else { return nil }
-            return obj
+                  let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+            return try? decoder.decode(T.self, from: data)
         }
     }
 }

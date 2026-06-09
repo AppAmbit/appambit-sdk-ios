@@ -18,7 +18,9 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
 
     private static func ensureService() -> DbService? {
         guard let svc = service else {
+            #if DEBUG
             debugPrint("AppAmbitDb: SDK not initialized. Call AppAmbit.start() first.")
+            #endif
             return nil
         }
         return svc
@@ -31,7 +33,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
         _ sql: String,
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
     ) {
-        guard let svc = ensureService() else { return }
+        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
         svc.query(sql: sql, params: nil, completion: completion)
     }
 
@@ -41,7 +43,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
         params: [Any],
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
     ) {
-        guard let svc = ensureService() else { return }
+        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
         svc.query(sql: sql, params: params, completion: completion)
     }
 
@@ -52,7 +54,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
     ) {
-        guard let svc = ensureService() else { return }
+        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
         svc.batch(statements: statements, transaction: false, completion: completion)
     }
 
@@ -62,7 +64,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
     ) {
-        guard let svc = ensureService() else { return }
+        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
         svc.batch(statements: statements, transaction: true) { results, error in
             if let error = error {
                 completion(nil, error)
