@@ -29,6 +29,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
     // MARK: - Raw SQL
 
     /// Execute a single SQL statement with no parameters.
+    /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
     public static func execute(
         _ sql: String,
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
@@ -38,6 +39,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
     }
 
     /// Execute a single SQL statement with positional parameters. Use ? placeholders.
+    /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
     public static func execute(
         _ sql: String,
         params: [Any],
@@ -50,6 +52,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
     // MARK: - Batch
 
     /// Execute multiple statements in one API request.
+    /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
     public static func batch(
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
@@ -60,6 +63,7 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
 
     /// Execute multiple statements in one API request wrapped in a transaction.
     /// If any statement returns an error the entire batch is aborted.
+    /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
     public static func batchInTransaction(
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void

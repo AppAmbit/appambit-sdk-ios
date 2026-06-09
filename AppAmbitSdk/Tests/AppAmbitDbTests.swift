@@ -5,6 +5,8 @@ private final class Box<T>: @unchecked Sendable {
     var value: T?
 }
 
+private struct EmptyModel: Decodable {}
+
 final class AppAmbitDbTests: XCTestCase {
 
     private var api: StubApiService!
@@ -262,6 +264,76 @@ final class AppAmbitDbTests: XCTestCase {
         XCTAssertEqual(stmt.params?.count, 1)
     }
 
+    // MARK: - SQL Builder (M-5)
+
+    func testBuildSQL_SelectAll_ProducesStarFromTable() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertEqual(sql, #"SELECT * FROM "users""#)
+    }
+
+    func testBuildSQL_SelectColumns_ListsQuotedColumns() {
+        let builder = DbQueryBuilder(table: "tasks", dbService: nil)
+        _ = builder.select(["id", "title"])
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#""id", "title""#))
+    }
+
+    func testBuildSQL_WhereCondition_AppendsWhereClause() {
+        let builder = DbQueryBuilder(table: "tasks", dbService: nil)
+        _ = builder.`where`("status", value: "open")
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"WHERE "status" = ?"#))
+    }
+
+    func testBuildSQL_OrderByAsc_NoDescKeyword() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        _ = builder.orderBy("created_at")
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"ORDER BY "created_at""#))
+        XCTAssertFalse(sql.contains("DESC"))
+    }
+
+    func testBuildSQL_OrderByDesc_ContainsDescKeyword() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        _ = builder.orderByDesc("created_at")
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"ORDER BY "created_at" DESC"#))
+    }
+
+    func testBuildSQL_LimitAndOffset_AppendedCorrectly() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        _ = builder.limit(10).offset(20)
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains("LIMIT 10"))
+        XCTAssertTrue(sql.contains("OFFSET 20"))
+    }
+
+    func testBuildSQL_OverrideLimit_TakesPrecedenceOverSet() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        _ = builder.limit(50)
+        let sql = builder.buildSelectSQL(overrideLimit: 1)
+        XCTAssertTrue(sql.contains("LIMIT 1"))
+        XCTAssertFalse(sql.contains("LIMIT 50"))
+    }
+
+    func testBuildSQL_WhereIn_ProducesInClause() {
+        let builder = DbQueryBuilder(table: "items", dbService: nil)
+        _ = builder.whereIn("id", values: [1, 2, 3])
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"WHERE "id" IN (?, ?, ?)"#))
+    }
+
+    func testBuildSQL_InvalidOperator_DeferredErrorNotInSQL() {
+        let builder = DbQueryBuilder(table: "users", dbService: nil)
+        _ = builder.`where`("age", op: "DROP TABLE--", value: 0)
+        let box = Box<Error?>()
+        waitAsync { done in
+            builder.fetchResult(overrideLimit: -1) { _, error in box.value = error; done() }
+        }
+        XCTAssertNotNil(box.value)
+    }
+
     // MARK: - TypedDbQueryBuilder
 
     func testTypedBuilder_Get_DecodesModel() {
@@ -275,6 +347,86 @@ final class AppAmbitDbTests: XCTestCase {
 
         XCTAssertEqual(box.value?.count, 1)
         XCTAssertEqual(box.value?.first?.title, "Write tests")
+    }
+
+    func testTypedBuilder_First_DecodesFirstRow() {
+        struct Task: Decodable { let id: Int; let title: String }
+        stubQuery(columns: ["id", "title"], rows: [[7, "Deploy"]], rowsRead: 1, rowsWritten: 0)
+
+        let box = Box<Task>()
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: Task.self).first { result, _ in box.value = result; done() }
+        }
+
+        XCTAssertEqual(box.value?.id, 7)
+        XCTAssertEqual(box.value?.title, "Deploy")
+    }
+
+    func testTypedBuilder_Count_ReturnsParsedInteger() {
+        stubQuery(columns: ["COUNT(*)"], rows: [[3]], rowsRead: 1, rowsWritten: 0)
+
+        let box = Box<Int>()
+        box.value = -1
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self).count { n, _ in box.value = n; done() }
+        }
+
+        XCTAssertEqual(box.value, 3)
+    }
+
+    func testTypedBuilder_Insert_CallsEndpoint() {
+        stubQuery(columns: [], rows: [], rowsRead: 0, rowsWritten: 1)
+
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self)
+                .insert(["title": "New Task", "done": false]) { _, _ in done() }
+        }
+
+        XCTAssertEqual(api.callCount(for: DbQueryEndpoint.self), 1)
+    }
+
+    func testTypedBuilder_UpdateWithWhere_CallsEndpoint() {
+        stubQuery(columns: [], rows: [], rowsRead: 0, rowsWritten: 1)
+
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self)
+                .`where`("id", value: 1)
+                .update(["title": "Updated"]) { _, _ in done() }
+        }
+
+        XCTAssertEqual(api.callCount(for: DbQueryEndpoint.self), 1)
+    }
+
+    func testTypedBuilder_UpdateWithoutWhere_ReturnsError() {
+        let box = Box<Error>()
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self)
+                .update(["title": "Oops"]) { _, error in box.value = error; done() }
+        }
+
+        XCTAssertNotNil(box.value)
+    }
+
+    func testTypedBuilder_DeleteWithWhere_CallsEndpoint() {
+        stubQuery(columns: [], rows: [], rowsRead: 0, rowsWritten: 1)
+
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self)
+                .`where`("id", value: 5)
+                .delete { _, _ in done() }
+        }
+
+        XCTAssertEqual(api.callCount(for: DbQueryEndpoint.self), 1)
+    }
+
+    func testTypedBuilder_DeleteWithoutWhere_ReturnsError() {
+        let box = Box<Error>()
+        waitAsync { done in
+            AppAmbitDb.from("tasks", as: EmptyModel.self)
+                .delete { _, error in box.value = error; done() }
+        }
+
+        XCTAssertNotNil(box.value)
     }
 
     // MARK: - Helpers

@@ -26,6 +26,8 @@
 @property (nonatomic, strong) UILabel *rowCountLabel;
 @property (nonatomic, strong) NSArray<DemoItem *> *demos;
 @property (nonatomic, assign) NSInteger selectedIndex;
+@property (nonatomic, strong) NSLayoutConstraint *gridWidthConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *tableScrollHeightConstraint;
 @end
 
 @implementation DatabaseViewController
@@ -508,6 +510,7 @@
 
 - (void)buildResultTable:(NSArray<NSString *> *)columns rows:(NSArray<NSArray *> *)rows {
     dispatch_async(dispatch_get_main_queue(), ^{
+        self.progressView.hidden = YES;
         for (UIView *v in self.resultGrid.arrangedSubviews) {
             [self.resultGrid removeArrangedSubview:v];
             [v removeFromSuperview];
@@ -562,9 +565,13 @@
         self.rowCountLabel.text = n == 1 ? @"1 row" : [NSString stringWithFormat:@"%ld rows", (long)n];
 
         CGFloat gridW = MAX(self.tableScroll.bounds.size.width, columns.count * 140.0);
-        [self.resultGrid.widthAnchor constraintEqualToConstant:gridW].active = YES;
+        self.gridWidthConstraint.active = NO;
+        self.gridWidthConstraint = [self.resultGrid.widthAnchor constraintEqualToConstant:gridW];
+        self.gridWidthConstraint.active = YES;
         CGFloat gridH = MIN(n * 40.0 + 44.0, 320.0);
-        [self.tableScroll.heightAnchor constraintEqualToConstant:gridH].active = YES;
+        self.tableScrollHeightConstraint.active = NO;
+        self.tableScrollHeightConstraint = [self.tableScroll.heightAnchor constraintEqualToConstant:gridH];
+        self.tableScrollHeightConstraint.active = YES;
 
         self.tableCard.hidden = NO;
     });

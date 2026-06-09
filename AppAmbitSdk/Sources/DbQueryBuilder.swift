@@ -4,6 +4,20 @@ private let allowedOperators: Set<String> = [
     "=", "!=", "<>", ">", ">=", "<", "<=", "LIKE", "NOT LIKE", "IS", "IS NOT"
 ]
 
+/// Compile-time contract shared by `DbQueryBuilder` and `TypedDbQueryBuilder`.
+/// Adding a method here forces both builders to implement it, preventing silent divergence.
+public protocol DbQueryConfiguring {
+    associatedtype Builder
+    @discardableResult func select(_ columns: [String]) -> Builder
+    @discardableResult func `where`(_ column: String, value: Any?) -> Builder
+    @discardableResult func `where`(_ column: String, op: String, value: Any?) -> Builder
+    @discardableResult func whereIn(_ column: String, values: [Any]) -> Builder
+    @discardableResult func orderBy(_ column: String) -> Builder
+    @discardableResult func orderByDesc(_ column: String) -> Builder
+    @discardableResult func limit(_ n: Int) -> Builder
+    @discardableResult func offset(_ n: Int) -> Builder
+}
+
 @objcMembers
 public final class DbQueryBuilder: NSObject {
 
@@ -133,7 +147,7 @@ public final class DbQueryBuilder: NSObject {
         if let err = deferredError { completion(nil, err); return }
         guard !whereConditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
-        let cols   = Array(data.keys)
+        let cols   = data.keys.sorted()
         let setClause = cols.map { quoted($0) + " = ?" }.joined(separator: ", ")
         let setParams = cols.map { data[$0]! }
         let sql = "UPDATE \(quoted(table)) SET \(setClause) WHERE \(joinedConditions())"
@@ -156,13 +170,13 @@ public final class DbQueryBuilder: NSObject {
         let sql = buildSelectSQL(overrideLimit: overrideLimit)
         svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
             if let error = error { completion(nil, error); return }
-            guard let result = result else { completion(nil, nil); return }
+            guard let result = result else { completion(nil, DbError.noResult); return }
             if result.hasError { completion(nil, DbError.statementFailed(result.error ?? "")); return }
             completion(result, nil)
         }
     }
 
-    private func buildSelectSQL(overrideLimit: Int) -> String {
+    func buildSelectSQL(overrideLimit: Int) -> String {
         var sql = "SELECT "
         if selectedColumns.isEmpty {
             sql += "*"
@@ -187,4 +201,8 @@ public final class DbQueryBuilder: NSObject {
     private func quoted(_ name: String) -> String {
         "\"\(name.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
+}
+
+extension DbQueryBuilder: DbQueryConfiguring {
+    public typealias Builder = DbQueryBuilder
 }

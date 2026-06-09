@@ -20,26 +20,34 @@ public enum DbError: Error, LocalizedError {
         case .emptyInValues(let col):   return "whereIn called with empty values array for column: \(col)"
         }
     }
+
+    var nsCode: Int {
+        switch self {
+        case .notInitialized:      return 1001
+        case .noResult:            return 1002
+        case .statementFailed:     return 1003
+        case .invalidOperator:     return 1004
+        case .updateRequiresWhere: return 1005
+        case .deleteRequiresWhere: return 1006
+        case .emptyInValues:       return 1007
+        }
+    }
+}
+
+extension DbError: CustomNSError {
+    public static var errorDomain: String { "com.appambit.db" }
+    public var errorCode: Int { nsCode }
+    public var errorUserInfo: [String: Any] {
+        [NSLocalizedDescriptionKey: errorDescription ?? ""]
+    }
 }
 
 public extension DbError {
     var nsError: NSError {
         NSError(
-            domain: "com.appambit.db",
+            domain: DbError.errorDomain,
             code: nsCode,
             userInfo: [NSLocalizedDescriptionKey: errorDescription ?? ""]
         )
-    }
-
-    private var nsCode: Int {
-        switch self {
-        case .notInitialized:    return 1001
-        case .noResult:          return 1002
-        case .statementFailed:   return 1003
-        case .invalidOperator:   return 1004
-        case .updateRequiresWhere: return 1005
-        case .deleteRequiresWhere: return 1006
-        case .emptyInValues:     return 1007
-        }
     }
 }
