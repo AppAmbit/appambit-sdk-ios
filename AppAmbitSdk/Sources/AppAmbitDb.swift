@@ -30,46 +30,66 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
 
     /// Execute a single SQL statement with no parameters.
     /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
+    @discardableResult
     public static func execute(
         _ sql: String,
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
-    ) {
-        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
-        svc.query(sql: sql, params: nil, completion: completion)
+    ) -> DbCancellationToken {
+        guard let svc = ensureService() else {
+            completion(nil, DbError.notInitialized)
+            return DbCancellationToken()
+        }
+        return svc.query(sql: sql, params: nil, completion: completion)
     }
 
     /// Execute a single SQL statement with positional parameters. Use ? placeholders.
     /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
+    @discardableResult
     public static func execute(
         _ sql: String,
         params: [Any],
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
-    ) {
-        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
-        svc.query(sql: sql, params: params, completion: completion)
+    ) -> DbCancellationToken {
+        guard let svc = ensureService() else {
+            completion(nil, DbError.notInitialized)
+            return DbCancellationToken()
+        }
+        return svc.query(sql: sql, params: params, completion: completion)
     }
 
     // MARK: - Batch
 
     /// Execute multiple statements in one API request.
     /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
+    @discardableResult
     public static func batch(
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
-    ) {
-        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
-        svc.batch(statements: statements, transaction: false, completion: completion)
+    ) -> DbCancellationToken {
+        guard let svc = ensureService() else {
+            completion(nil, DbError.notInitialized)
+            return DbCancellationToken()
+        }
+        return svc.batch(statements: statements, transaction: false, completion: completion)
     }
 
     /// Execute multiple statements in one API request wrapped in a transaction.
     /// If any statement returns an error the entire batch is aborted.
     /// - Note: The completion closure is called on a background thread. Dispatch to the main queue before any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
+    @discardableResult
     public static func batchInTransaction(
         _ statements: [DbStatement],
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
-    ) {
-        guard let svc = ensureService() else { completion(nil, DbError.notInitialized); return }
-        svc.batch(statements: statements, transaction: true) { results, error in
+    ) -> DbCancellationToken {
+        guard let svc = ensureService() else {
+            completion(nil, DbError.notInitialized)
+            return DbCancellationToken()
+        }
+        return svc.batch(statements: statements, transaction: true) { results, error in
             if let error = error {
                 completion(nil, error)
                 return

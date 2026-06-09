@@ -53,7 +53,8 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
 
     // MARK: - Terminal ops
 
-    public func get(completion: @escaping @Sendable ([T]?, Error?) -> Void) {
+    @discardableResult
+    public func get(completion: @escaping @Sendable ([T]?, Error?) -> Void) -> DbCancellationToken {
         inner.fetchResult(overrideLimit: -1) { result, error in
             if let error = error { completion(nil, error); return }
             guard let result = result else { completion([], nil); return }
@@ -61,7 +62,8 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
         }
     }
 
-    public func first(completion: @escaping @Sendable (T?, Error?) -> Void) {
+    @discardableResult
+    public func first(completion: @escaping @Sendable (T?, Error?) -> Void) -> DbCancellationToken {
         inner.fetchResult(overrideLimit: 1) { result, error in
             if let error = error { completion(nil, error); return }
             guard let result = result else { completion(nil, nil); return }
@@ -69,19 +71,23 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
         }
     }
 
-    public func count(completion: @escaping @Sendable (Int, Error?) -> Void) {
+    @discardableResult
+    public func count(completion: @escaping @Sendable (Int, Error?) -> Void) -> DbCancellationToken {
         inner.count(completion: completion)
     }
 
-    public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+    @discardableResult
+    public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
         inner.insert(data, completion: completion)
     }
 
-    public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+    @discardableResult
+    public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
         inner.update(data, completion: completion)
     }
 
-    public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
+    @discardableResult
+    public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
         inner.delete(completion: completion)
     }
 }

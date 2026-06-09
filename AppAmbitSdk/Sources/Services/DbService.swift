@@ -8,16 +8,19 @@ final class DbService: @unchecked Sendable {
         self.apiService = apiService
     }
 
+    @discardableResult
     func query(
         sql: String,
         params: [Any]?,
         completion: @escaping @Sendable (DbResult?, Error?) -> Void
-    ) {
+    ) -> DbCancellationToken {
+        let token = DbCancellationToken()
         apiService.executeRequest(
             DbQueryEndpoint(sql: sql, params: params),
             responseType: DbApiResponse.self
         ) { result in
             Queues.netDecode.async {
+                guard !token.isCancelled else { return }
                 if result.errorType != .none {
                     completion(nil, result.errorType)
                     return
@@ -29,18 +32,22 @@ final class DbService: @unchecked Sendable {
                 completion(response.first, nil)
             }
         }
+        return token
     }
 
+    @discardableResult
     func batch(
         statements: [DbStatement],
         transaction: Bool,
         completion: @escaping @Sendable ([DbResult]?, Error?) -> Void
-    ) {
+    ) -> DbCancellationToken {
+        let token = DbCancellationToken()
         apiService.executeRequest(
             DbBatchEndpoint(statements: statements, transaction: transaction),
             responseType: DbApiResponse.self
         ) { result in
             Queues.netDecode.async {
+                guard !token.isCancelled else { return }
                 if result.errorType != .none {
                     completion(nil, result.errorType)
                     return
@@ -52,5 +59,6 @@ final class DbService: @unchecked Sendable {
                 completion(response.toDbResults(), nil)
             }
         }
+        return token
     }
 }

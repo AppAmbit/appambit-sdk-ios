@@ -101,24 +101,27 @@ public final class DbQueryBuilder: NSObject {
 
     // MARK: - Terminal Operations
 
-    public func get(completion: @escaping @Sendable ([[String: Any]]?, Error?) -> Void) {
+    @discardableResult
+    public func get(completion: @escaping @Sendable ([[String: Any]]?, Error?) -> Void) -> DbCancellationToken {
         fetchResult(overrideLimit: -1) { result, error in
             completion(result?.toMaps(), error)
         }
     }
 
-    public func first(completion: @escaping @Sendable ([String: Any]?, Error?) -> Void) {
+    @discardableResult
+    public func first(completion: @escaping @Sendable ([String: Any]?, Error?) -> Void) -> DbCancellationToken {
         fetchResult(overrideLimit: 1) { result, error in
             completion(result?.toMaps().first, error)
         }
     }
 
-    public func count(completion: @escaping @Sendable (Int, Error?) -> Void) {
-        if let err = deferredError { completion(0, err); return }
-        guard let svc = dbService else { completion(0, DbError.notInitialized); return }
+    @discardableResult
+    public func count(completion: @escaping @Sendable (Int, Error?) -> Void) -> DbCancellationToken {
+        if let err = deferredError { completion(0, err); return DbCancellationToken() }
+        guard let svc = dbService else { completion(0, DbError.notInitialized); return DbCancellationToken() }
         var sql = "SELECT COUNT(*) FROM \(quoted(table))"
         if !whereConditions.isEmpty { sql += " WHERE \(joinedConditions())" }
-        svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
+        return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
             if let error = error { completion(0, error); return }
             guard let result = result else { completion(0, nil); return }
             if result.hasError { completion(0, DbError.statementFailed(result.error ?? "")); return }
@@ -132,43 +135,47 @@ public final class DbQueryBuilder: NSObject {
         }
     }
 
-    public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
-        if let err = deferredError { completion(nil, err); return }
-        guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
+    @discardableResult
+    public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
+        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let cols   = data.keys.sorted()
         let vals   = cols.map { data[$0]! }
         let placeholders = Array(repeating: "?", count: cols.count).joined(separator: ", ")
         let colList      = cols.map { quoted($0) }.joined(separator: ", ")
         let sql = "INSERT INTO \(quoted(table)) (\(colList)) VALUES (\(placeholders))"
-        svc.query(sql: sql, params: vals, completion: completion)
+        return svc.query(sql: sql, params: vals, completion: completion)
     }
 
-    public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
-        if let err = deferredError { completion(nil, err); return }
-        guard !whereConditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return }
-        guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
+    @discardableResult
+    public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
+        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        guard !whereConditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return DbCancellationToken() }
+        guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let cols   = data.keys.sorted()
         let setClause = cols.map { quoted($0) + " = ?" }.joined(separator: ", ")
         let setParams = cols.map { data[$0]! }
         let sql = "UPDATE \(quoted(table)) SET \(setClause) WHERE \(joinedConditions())"
-        svc.query(sql: sql, params: setParams + whereParams, completion: completion)
+        return svc.query(sql: sql, params: setParams + whereParams, completion: completion)
     }
 
-    public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
-        if let err = deferredError { completion(nil, err); return }
-        guard !whereConditions.isEmpty else { completion(nil, DbError.deleteRequiresWhere); return }
-        guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
+    @discardableResult
+    public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
+        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        guard !whereConditions.isEmpty else { completion(nil, DbError.deleteRequiresWhere); return DbCancellationToken() }
+        guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let sql = "DELETE FROM \(quoted(table)) WHERE \(joinedConditions())"
-        svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams, completion: completion)
+        return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams, completion: completion)
     }
 
     // MARK: - Internal
 
-    func fetchResult(overrideLimit: Int, completion: @escaping @Sendable (DbResult?, Error?) -> Void) {
-        if let err = deferredError { completion(nil, err); return }
-        guard let svc = dbService else { completion(nil, DbError.notInitialized); return }
+    @discardableResult
+    func fetchResult(overrideLimit: Int, completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
+        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let sql = buildSelectSQL(overrideLimit: overrideLimit)
-        svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
+        return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
             if let error = error { completion(nil, error); return }
             guard let result = result else { completion(nil, DbError.noResult); return }
             if result.hasError { completion(nil, DbError.statementFailed(result.error ?? "")); return }

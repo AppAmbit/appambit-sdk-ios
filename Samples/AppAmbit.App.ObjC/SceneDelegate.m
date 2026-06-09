@@ -20,10 +20,7 @@ willConnectToSession:(UISceneSession *)session
     self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
     self.window.frame = windowScene.coordinateSpace.bounds;
     self.window.backgroundColor = [UIColor systemBackgroundColor];
-    UITabBarController *tabs = [MainTabBarController new];
-    if (@available(iOS 18.0, *)) {
-        tabs.mode = UITabBarControllerModeTabBar;
-    }
+    UIViewController *tabs = [MainTabBarController new];
     self.window.rootViewController = tabs;
     [self.window makeKeyAndVisible];
 }
