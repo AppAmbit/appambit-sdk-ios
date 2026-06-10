@@ -18,20 +18,40 @@ public protocol DbQueryConfiguring {
     @discardableResult func offset(_ n: Int) -> Builder
 }
 
+/// Terminal operations shared by both builders. Adding a terminal op to
+/// `DbQueryBuilder` and forgetting it on `TypedDbQueryBuilder` (or vice versa)
+/// now fails to compile. `get`/`first` are excluded because their return
+/// types differ between the two builders.
+public protocol DbWriteOperations {
+    @discardableResult func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken
+    @discardableResult func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken
+    @discardableResult func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken
+    @discardableResult func count(completion: @escaping @Sendable (Int, Error?) -> Void) -> DbCancellationToken
+}
+
+/// A single WHERE condition, joined to the others with AND.
+private struct DbCondition {
+    let sql: String
+    let params: [Any]
+}
+
+/// Mutable query configuration, held by `DbQueryBuilder` as value-type state.
+private struct DbQueryState {
+    var selectedColumns: [String] = []
+    var conditions: [DbCondition] = []
+    var orderByColumn: String?
+    var orderByAscending: Bool = true
+    var limitValue: Int = -1
+    var offsetValue: Int = -1
+    var deferredError: Error?
+}
+
 @objcMembers
 public final class DbQueryBuilder: NSObject {
 
     private let table: String
     private let dbService: DbService?
-
-    private var selectedColumns: [String]  = []
-    private var whereConditions: [String]  = []
-    private var whereParams: [Any]         = []
-    private var orderByColumn: String?     = nil
-    private var ascending: Bool            = true
-    private var limitValue: Int            = -1
-    private var offsetValue: Int           = -1
-    private var deferredError: Error?
+    private var state = DbQueryState()
 
     init(table: String, dbService: DbService?) {
         self.table     = table
@@ -42,16 +62,15 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     public func select(_ columns: [String]) -> DbQueryBuilder {
-        for col in columns where !selectedColumns.contains(col) {
-            selectedColumns.append(col)
+        for col in columns where !state.selectedColumns.contains(col) {
+            state.selectedColumns.append(col)
         }
         return self
     }
 
     @discardableResult
     public func `where`(_ column: String, value: Any?) -> DbQueryBuilder {
-        whereConditions.append(quoted(column) + " = ?")
-        whereParams.append(value ?? NSNull())
+        addCondition(quoted(column) + " = ?", params: [value ?? NSNull()])
         return self
     }
 
@@ -59,48 +78,50 @@ public final class DbQueryBuilder: NSObject {
     public func `where`(_ column: String, op: String, value: Any?) -> DbQueryBuilder {
         let upOp = op.uppercased()
         guard allowedOperators.contains(upOp) else {
-            deferredError = DbError.invalidOperator(op)
+            state.deferredError = DbError.invalidOperator(op)
             return self
         }
-        whereConditions.append(quoted(column) + " \(upOp) ?")
-        whereParams.append(value ?? NSNull())
+        addCondition(quoted(column) + " \(upOp) ?", params: [value ?? NSNull()])
         return self
     }
 
     @discardableResult
     public func whereIn(_ column: String, values: [Any]) -> DbQueryBuilder {
         guard !values.isEmpty else {
-            deferredError = DbError.emptyInValues(column)
+            state.deferredError = DbError.emptyInValues(column)
             return self
         }
         let placeholders = Array(repeating: "?", count: values.count).joined(separator: ", ")
-        whereConditions.append(quoted(column) + " IN (\(placeholders))")
-        whereParams.append(contentsOf: values)
+        addCondition(quoted(column) + " IN (\(placeholders))", params: values)
         return self
     }
 
     @discardableResult
     public func orderBy(_ column: String) -> DbQueryBuilder {
-        orderByColumn = column; ascending = true; return self
+        state.orderByColumn = column; state.orderByAscending = true; return self
     }
 
     @discardableResult
     public func orderByDesc(_ column: String) -> DbQueryBuilder {
-        orderByColumn = column; ascending = false; return self
+        state.orderByColumn = column; state.orderByAscending = false; return self
     }
 
     @discardableResult
     public func limit(_ n: Int) -> DbQueryBuilder {
-        limitValue = n; return self
+        state.limitValue = n; return self
     }
 
     @discardableResult
     public func offset(_ n: Int) -> DbQueryBuilder {
-        offsetValue = n; return self
+        state.offsetValue = n; return self
     }
 
     // MARK: - Terminal Operations
 
+    /// Executes the query and returns all matching rows as column-keyed dictionaries.
+    /// - Note: The completion closure is called on a background thread.
+    ///   Dispatch to the main queue before performing any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
     @discardableResult
     public func get(completion: @escaping @Sendable ([[String: Any]]?, Error?) -> Void) -> DbCancellationToken {
         fetchResult(overrideLimit: -1) { result, error in
@@ -108,6 +129,10 @@ public final class DbQueryBuilder: NSObject {
         }
     }
 
+    /// Returns the first matching row as a column-keyed dictionary.
+    /// - Note: The completion closure is called on a background thread.
+    ///   Dispatch to the main queue before performing any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
     @discardableResult
     public func first(completion: @escaping @Sendable ([String: Any]?, Error?) -> Void) -> DbCancellationToken {
         fetchResult(overrideLimit: 1) { result, error in
@@ -115,12 +140,16 @@ public final class DbQueryBuilder: NSObject {
         }
     }
 
+    /// Returns the count of rows matching the current WHERE conditions.
+    /// - Note: The completion closure is called on a background thread.
+    ///   Dispatch to the main queue before performing any UI updates.
+    /// - Returns: A token that can be used to cancel the completion callback.
     @discardableResult
     public func count(completion: @escaping @Sendable (Int, Error?) -> Void) -> DbCancellationToken {
-        if let err = deferredError { completion(0, err); return DbCancellationToken() }
+        if let err = state.deferredError { completion(0, err); return DbCancellationToken() }
         guard let svc = dbService else { completion(0, DbError.notInitialized); return DbCancellationToken() }
         var sql = "SELECT COUNT(*) FROM \(quoted(table))"
-        if !whereConditions.isEmpty { sql += " WHERE \(joinedConditions())" }
+        if !state.conditions.isEmpty { sql += " WHERE \(joinedConditions())" }
         return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
             if let error = error { completion(0, error); return }
             guard let result = result else { completion(0, nil); return }
@@ -137,7 +166,7 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     public func insert(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
-        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        if let err = state.deferredError { completion(nil, err); return DbCancellationToken() }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let cols   = data.keys.sorted()
         let vals   = cols.map { data[$0]! }
@@ -149,8 +178,8 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     public func update(_ data: [String: Any], completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
-        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
-        guard !whereConditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return DbCancellationToken() }
+        if let err = state.deferredError { completion(nil, err); return DbCancellationToken() }
+        guard !state.conditions.isEmpty else { completion(nil, DbError.updateRequiresWhere); return DbCancellationToken() }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let cols   = data.keys.sorted()
         let setClause = cols.map { quoted($0) + " = ?" }.joined(separator: ", ")
@@ -161,8 +190,8 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     public func delete(completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
-        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
-        guard !whereConditions.isEmpty else { completion(nil, DbError.deleteRequiresWhere); return DbCancellationToken() }
+        if let err = state.deferredError { completion(nil, err); return DbCancellationToken() }
+        guard !state.conditions.isEmpty else { completion(nil, DbError.deleteRequiresWhere); return DbCancellationToken() }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let sql = "DELETE FROM \(quoted(table)) WHERE \(joinedConditions())"
         return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams, completion: completion)
@@ -172,7 +201,7 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     func fetchResult(overrideLimit: Int, completion: @escaping @Sendable (DbResult?, Error?) -> Void) -> DbCancellationToken {
-        if let err = deferredError { completion(nil, err); return DbCancellationToken() }
+        if let err = state.deferredError { completion(nil, err); return DbCancellationToken() }
         guard let svc = dbService else { completion(nil, DbError.notInitialized); return DbCancellationToken() }
         let sql = buildSelectSQL(overrideLimit: overrideLimit)
         return svc.query(sql: sql, params: whereParams.isEmpty ? nil : whereParams) { result, error in
@@ -185,24 +214,32 @@ public final class DbQueryBuilder: NSObject {
 
     func buildSelectSQL(overrideLimit: Int) -> String {
         var sql = "SELECT "
-        if selectedColumns.isEmpty {
+        if state.selectedColumns.isEmpty {
             sql += "*"
         } else {
-            sql += selectedColumns.map { quoted($0) }.joined(separator: ", ")
+            sql += state.selectedColumns.map { quoted($0) }.joined(separator: ", ")
         }
         sql += " FROM \(quoted(table))"
-        if !whereConditions.isEmpty { sql += " WHERE \(joinedConditions())" }
-        if let col = orderByColumn {
-            sql += " ORDER BY \(quoted(col))" + (ascending ? "" : " DESC")
+        if !state.conditions.isEmpty { sql += " WHERE \(joinedConditions())" }
+        if let column = state.orderByColumn {
+            sql += " ORDER BY \(quoted(column))" + (state.orderByAscending ? "" : " DESC")
         }
-        let effective = overrideLimit > 0 ? overrideLimit : limitValue
+        let effective = overrideLimit > 0 ? overrideLimit : state.limitValue
         if effective > 0  { sql += " LIMIT \(effective)" }
-        if offsetValue > 0 { sql += " OFFSET \(offsetValue)" }
+        if state.offsetValue > 0 { sql += " OFFSET \(state.offsetValue)" }
         return sql
     }
 
+    private var whereParams: [Any] {
+        state.conditions.flatMap { $0.params }
+    }
+
+    private func addCondition(_ sql: String, params: [Any]) {
+        state.conditions.append(DbCondition(sql: sql, params: params))
+    }
+
     private func joinedConditions() -> String {
-        whereConditions.joined(separator: " AND ")
+        state.conditions.map { $0.sql }.joined(separator: " AND ")
     }
 
     private func quoted(_ name: String) -> String {
@@ -210,6 +247,6 @@ public final class DbQueryBuilder: NSObject {
     }
 }
 
-extension DbQueryBuilder: DbQueryConfiguring {
+extension DbQueryBuilder: DbQueryConfiguring, DbWriteOperations {
     public typealias Builder = DbQueryBuilder
 }

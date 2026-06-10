@@ -2,7 +2,7 @@ import Foundation
 
 /// Swift-only typed query builder. T must be Decodable.
 /// Use CodingKeys on T to map column names to Swift property names.
-public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
+public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring, DbWriteOperations {
     public typealias Builder = TypedDbQueryBuilder<T>
 
     private let inner: DbQueryBuilder
@@ -57,8 +57,7 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
     public func get(completion: @escaping @Sendable ([T]?, Error?) -> Void) -> DbCancellationToken {
         inner.fetchResult(overrideLimit: -1) { result, error in
             if let error = error { completion(nil, error); return }
-            guard let result = result else { completion([], nil); return }
-            completion(result.mapTo(T.self), nil)
+            completion(result!.mapTo(T.self), nil)
         }
     }
 
@@ -66,8 +65,7 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring {
     public func first(completion: @escaping @Sendable (T?, Error?) -> Void) -> DbCancellationToken {
         inner.fetchResult(overrideLimit: 1) { result, error in
             if let error = error { completion(nil, error); return }
-            guard let result = result else { completion(nil, nil); return }
-            completion(result.mapTo(T.self).first, nil)
+            completion(result!.mapTo(T.self).first, nil)
         }
     }
 

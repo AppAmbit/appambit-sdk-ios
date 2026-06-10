@@ -21,7 +21,7 @@ public enum DbError: Error, LocalizedError {
         }
     }
 
-    var nsCode: Int {
+    private var nsCode: Int {
         switch self {
         case .notInitialized:      return 1001
         case .noResult:            return 1002
@@ -39,15 +39,5 @@ extension DbError: CustomNSError {
     public var errorCode: Int { nsCode }
     public var errorUserInfo: [String: Any] {
         [NSLocalizedDescriptionKey: errorDescription ?? ""]
-    }
-}
-
-public extension DbError {
-    var nsError: NSError {
-        NSError(
-            domain: DbError.errorDomain,
-            code: nsCode,
-            userInfo: [NSLocalizedDescriptionKey: errorDescription ?? ""]
-        )
     }
 }

@@ -182,11 +182,11 @@ struct DatabaseView: View {
 
     private func demoBatch() {
         let stmts = [
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Buy coffee", 0, "low", "2026-06-10"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Review PR", 0, "high", "2026-06-05"]),
-            DbStatement.of("SELECT COUNT(*) AS total FROM tasks")
+            DbStatement(sql: "SELECT COUNT(*) AS total FROM tasks")
         ]
         AppAmbitDb.batch(stmts) { results, error in
             if let error = error { self.err("Batch error: \(error.localizedDescription)"); return }
@@ -200,9 +200,9 @@ struct DatabaseView: View {
 
     private func demoBatchInTransaction() {
         let stmts = [
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Team meeting", 0, "high", "2026-06-06"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Prepare agenda", 0, "medium", "2026-06-06"])
         ]
         AppAmbitDb.batchInTransaction(stmts) { results, error in
@@ -326,15 +326,15 @@ struct DatabaseView: View {
 
     private func demoInsertMany() {
         let stmts = [
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Write unit tests", 0, "high", "2026-06-07"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Update documentation", 0, "low", "2026-06-15"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Code review", 0, "medium", "2026-06-08"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Deploy to staging", 0, "high", "2026-06-09"]),
-            DbStatement.of("INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
+            DbStatement(sql: "INSERT INTO tasks (title, is_completed, priority, due_date) VALUES (?, ?, ?, ?)",
                            params: ["Monitor metrics", 0, "low", "2026-06-20"])
         ]
         AppAmbitDb.batchInTransaction(stmts) { results, error in

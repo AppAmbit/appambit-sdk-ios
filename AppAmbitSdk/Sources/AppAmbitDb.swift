@@ -105,6 +105,9 @@ public final class AppAmbitDb: NSObject, @unchecked Sendable {
     // MARK: - Fluent Builder (ObjC accessible, map-based)
 
     /// Start a fluent query builder for the given table. Results are returned as [[String: Any]].
+    ///
+    /// **Swift only:** for type-safe results decoded into a `Decodable` model, use
+    /// `AppAmbitDb.from(_:as:)` instead, e.g. `AppAmbitDb.from("tasks", as: Task.self)`.
     public static func from(_ table: String) -> DbQueryBuilder {
         guard let svc = ensureService() else {
             return DbQueryBuilder(table: table, dbService: nil)

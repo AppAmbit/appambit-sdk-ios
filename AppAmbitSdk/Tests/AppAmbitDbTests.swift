@@ -64,7 +64,7 @@ final class AppAmbitDbTests: XCTestCase {
         stubBatch(results: [makeResultData(rowsWritten: 1)])
 
         waitAsync { done in
-            AppAmbitDb.batch([DbStatement.of("INSERT INTO foo VALUES (1)")]) { _, _ in done() }
+            AppAmbitDb.batch([DbStatement(sql: "INSERT INTO foo VALUES (1)")]) { _, _ in done() }
         }
 
         XCTAssertEqual(api.callCount(for: DbBatchEndpoint.self), 1)
@@ -77,7 +77,7 @@ final class AppAmbitDbTests: XCTestCase {
 
         let box = Box<Error>()
         waitAsync { done in
-            AppAmbitDb.batchInTransaction([DbStatement.of("BAD SQL")]) { _, error in
+            AppAmbitDb.batchInTransaction([DbStatement(sql: "BAD SQL")]) { _, error in
                 box.value = error
                 done()
             }
@@ -253,14 +253,14 @@ final class AppAmbitDbTests: XCTestCase {
 
     // MARK: - DbStatement
 
-    func testDbStatement_OfNoParams_HasNilParams() {
-        let stmt = DbStatement.of("SELECT 1")
+    func testDbStatement_InitNoParams_HasNilParams() {
+        let stmt = DbStatement(sql: "SELECT 1")
         XCTAssertEqual(stmt.sql, "SELECT 1")
         XCTAssertNil(stmt.params)
     }
 
-    func testDbStatement_OfWithParams_HasParams() {
-        let stmt = DbStatement.of("SELECT ?", params: [99])
+    func testDbStatement_InitWithParams_HasParams() {
+        let stmt = DbStatement(sql: "SELECT ?", params: [99])
         XCTAssertEqual(stmt.params?.count, 1)
     }
 
@@ -300,6 +300,16 @@ final class AppAmbitDbTests: XCTestCase {
         let sql = builder.buildSelectSQL(overrideLimit: -1)
         XCTAssertTrue(sql.contains(#"ORDER BY "created_at" DESC"#))
     }
+
+    func testBuildSQL_OrderBy_LastCallWins() {
+        let builder = DbQueryBuilder(table: "tasks", dbService: nil)
+        _ = builder.orderByDesc("priority").orderBy("due_date")
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"ORDER BY "due_date""#))
+        XCTAssertFalse(sql.contains("priority"))
+        XCTAssertFalse(sql.contains("DESC"))
+    }
+
 
     func testBuildSQL_LimitAndOffset_AppendedCorrectly() {
         let builder = DbQueryBuilder(table: "users", dbService: nil)
