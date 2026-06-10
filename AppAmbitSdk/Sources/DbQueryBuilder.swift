@@ -11,6 +11,8 @@ public protocol DbQueryConfiguring {
     @discardableResult func select(_ columns: [String]) -> Builder
     @discardableResult func `where`(_ column: String, value: Any?) -> Builder
     @discardableResult func `where`(_ column: String, op: String, value: Any?) -> Builder
+    @discardableResult func orWhere(_ column: String, value: Any?) -> Builder
+    @discardableResult func orWhere(_ column: String, op: String, value: Any?) -> Builder
     @discardableResult func whereIn(_ column: String, values: [Any]) -> Builder
     @discardableResult func orderBy(_ column: String) -> Builder
     @discardableResult func orderByDesc(_ column: String) -> Builder
@@ -29,10 +31,17 @@ public protocol DbWriteOperations {
     @discardableResult func count(completion: @escaping @Sendable (Int, Error?) -> Void) -> DbCancellationToken
 }
 
-/// A single WHERE condition, joined to the others with AND.
+/// How a `DbCondition` joins to the condition before it.
+private enum DbConditionJoiner: String {
+    case and = "AND"
+    case or = "OR"
+}
+
+/// A single WHERE condition, joined to the previous one with AND/OR.
 private struct DbCondition {
     let sql: String
     let params: [Any]
+    let joiner: DbConditionJoiner
 }
 
 /// Mutable query configuration, held by `DbQueryBuilder` as value-type state.
@@ -70,18 +79,25 @@ public final class DbQueryBuilder: NSObject {
 
     @discardableResult
     public func `where`(_ column: String, value: Any?) -> DbQueryBuilder {
-        addCondition(quoted(column) + " = ?", params: [value ?? NSNull()])
+        addEqualityCondition(column, value: value, joiner: .and)
         return self
     }
 
     @discardableResult
     public func `where`(_ column: String, op: String, value: Any?) -> DbQueryBuilder {
-        let upOp = op.uppercased()
-        guard allowedOperators.contains(upOp) else {
-            state.deferredError = DbError.invalidOperator(op)
-            return self
-        }
-        addCondition(quoted(column) + " \(upOp) ?", params: [value ?? NSNull()])
+        addOperatorCondition(column, op: op, value: value, joiner: .and)
+        return self
+    }
+
+    @discardableResult
+    public func orWhere(_ column: String, value: Any?) -> DbQueryBuilder {
+        addEqualityCondition(column, value: value, joiner: .or)
+        return self
+    }
+
+    @discardableResult
+    public func orWhere(_ column: String, op: String, value: Any?) -> DbQueryBuilder {
+        addOperatorCondition(column, op: op, value: value, joiner: .or)
         return self
     }
 
@@ -92,7 +108,7 @@ public final class DbQueryBuilder: NSObject {
             return self
         }
         let placeholders = Array(repeating: "?", count: values.count).joined(separator: ", ")
-        addCondition(quoted(column) + " IN (\(placeholders))", params: values)
+        addCondition(quoted(column) + " IN (\(placeholders))", params: values, joiner: .and)
         return self
     }
 
@@ -234,12 +250,31 @@ public final class DbQueryBuilder: NSObject {
         state.conditions.flatMap { $0.params }
     }
 
-    private func addCondition(_ sql: String, params: [Any]) {
-        state.conditions.append(DbCondition(sql: sql, params: params))
+    private func addCondition(_ sql: String, params: [Any], joiner: DbConditionJoiner) {
+        state.conditions.append(DbCondition(sql: sql, params: params, joiner: joiner))
     }
 
+    private func addEqualityCondition(_ column: String, value: Any?, joiner: DbConditionJoiner) {
+        addCondition(quoted(column) + " = ?", params: [value ?? NSNull()], joiner: joiner)
+    }
+
+    private func addOperatorCondition(_ column: String, op: String, value: Any?, joiner: DbConditionJoiner) {
+        let upOp = op.uppercased()
+        guard allowedOperators.contains(upOp) else {
+            state.deferredError = DbError.invalidOperator(op)
+            return
+        }
+        addCondition(quoted(column) + " \(upOp) ?", params: [value ?? NSNull()], joiner: joiner)
+    }
+
+    /// Joins conditions in declaration order using each condition's own joiner
+    /// (e.g. `a = ? AND b = ? OR c = ?`). Standard SQL precedence applies (AND
+    /// binds tighter than OR) — group with separate builders/queries if you
+    /// need explicit parentheses.
     private func joinedConditions() -> String {
-        state.conditions.map { $0.sql }.joined(separator: " AND ")
+        state.conditions.enumerated().map { index, condition in
+            index == 0 ? condition.sql : "\(condition.joiner.rawValue) \(condition.sql)"
+        }.joined(separator: " ")
     }
 
     private func quoted(_ name: String) -> String {

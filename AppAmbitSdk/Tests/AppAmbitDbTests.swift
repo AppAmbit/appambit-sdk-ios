@@ -310,6 +310,20 @@ final class AppAmbitDbTests: XCTestCase {
         XCTAssertFalse(sql.contains("DESC"))
     }
 
+    func testBuildSQL_OrWhere_JoinsWithOr() {
+        let builder = DbQueryBuilder(table: "tasks", dbService: nil)
+        _ = builder.`where`("status", value: "open").orWhere("status", value: "pending")
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"WHERE "status" = ? OR "status" = ?"#))
+    }
+
+    func testBuildSQL_OrWhere_WithOperator() {
+        let builder = DbQueryBuilder(table: "tasks", dbService: nil)
+        _ = builder.`where`("status", value: "open").orWhere("priority", op: ">", value: 5)
+        let sql = builder.buildSelectSQL(overrideLimit: -1)
+        XCTAssertTrue(sql.contains(#"WHERE "status" = ? OR "priority" > ?"#))
+    }
+
 
     func testBuildSQL_LimitAndOffset_AppendedCorrectly() {
         let builder = DbQueryBuilder(table: "users", dbService: nil)

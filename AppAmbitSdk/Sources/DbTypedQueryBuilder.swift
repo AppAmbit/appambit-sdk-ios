@@ -27,6 +27,16 @@ public final class TypedDbQueryBuilder<T: Decodable>: DbQueryConfiguring, DbWrit
     }
 
     @discardableResult
+    public func orWhere(_ column: String, value: Any?) -> TypedDbQueryBuilder<T> {
+        inner.orWhere(column, value: value); return self
+    }
+
+    @discardableResult
+    public func orWhere(_ column: String, op: String, value: Any?) -> TypedDbQueryBuilder<T> {
+        inner.orWhere(column, op: op, value: value); return self
+    }
+
+    @discardableResult
     public func whereIn(_ column: String, values: [Any]) -> TypedDbQueryBuilder<T> {
         inner.whereIn(column, values: values); return self
     }
