@@ -84,14 +84,18 @@ final class ConsumerServiceTests: XCTestCase {
 
     private func waitForUpdate(deviceToken: String?, pushEnabled: Bool?) -> Bool {
         let expectation = expectation(description: "wait for consumer update")
-        var result = false
+        let box = ResultBox()
 
         service.updateConsumer(deviceToken: deviceToken, pushEnabled: pushEnabled) { success in
-            result = success
+            box.value = success
             expectation.fulfill()
         }
 
         wait(for: [expectation], timeout: 2)
-        return result
+        return box.value
     }
+}
+
+private final class ResultBox: @unchecked Sendable {
+    var value: Bool = false
 }

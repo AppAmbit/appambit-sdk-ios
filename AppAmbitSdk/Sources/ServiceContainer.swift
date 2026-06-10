@@ -5,6 +5,7 @@ final class ServiceContainer {
     let appInfoService: AppInfoService
     let storageService: StorageService
     let reachabilityService: ReachabilityService
+    let dbService: DbService
 
     private nonisolated(unsafe) static let _instance: ServiceContainer = {
         let dataStore: DataStore
@@ -30,11 +31,13 @@ final class ServiceContainer {
             fatalError("Failed to initialize ServiceContainer")
         }
 
+        let apiService = AppAmbitApiService(storageService: storageService)
         return ServiceContainer(
-            apiService: AppAmbitApiService(storageService: storageService),
+            apiService: apiService,
             appInfoService: AppAmbitInfoService(),
             storageService: storageService,
-            reachabilityService: reachabilityService
+            reachabilityService: reachabilityService,
+            dbService: DbService(apiService: apiService)
         )
     }()
 
@@ -53,11 +56,13 @@ final class ServiceContainer {
         apiService: ApiService,
         appInfoService: AppInfoService,
         storageService: StorageService,
-        reachabilityService: ReachabilityService
+        reachabilityService: ReachabilityService,
+        dbService: DbService
     ) {
         self.apiService = apiService
         self.appInfoService = appInfoService
         self.storageService = storageService
         self.reachabilityService = reachabilityService
+        self.dbService = dbService
     }
 }
