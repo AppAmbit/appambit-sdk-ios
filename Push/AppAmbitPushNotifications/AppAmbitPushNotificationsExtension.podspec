@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = "AppAmbitPushNotificationsExtension"
-  spec.version      = "1.0.2"
+  spec.version      = "1.1.0"
   spec.summary      = "Extension-safe slice of AppAmbitPushNotifications for iOS Notification Service Extensions."
 
   spec.description  = <<-DESC
