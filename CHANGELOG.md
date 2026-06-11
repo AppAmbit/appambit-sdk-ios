@@ -1,3 +1,11 @@
+## Version 1.1.0
+
+### AppAmbit
+
+* **[Feature]** Added Database SDK, running batched/transactional operations, and querying data with a fluent query builder.
+
+___
+
 ## Version 1.0.2
 
 ### AppAmbit
