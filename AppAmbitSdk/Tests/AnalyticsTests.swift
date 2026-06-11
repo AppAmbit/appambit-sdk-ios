@@ -119,7 +119,7 @@ final class AnalyticsTests: XCTestCase {
         }
         api.stub(SessionBatchEndpoint.self, result: ApiResult<[SessionBatch]>.success(serverSessions))
 
-        _ = waitAsyncError { cb in SessionManager.sendBatchSessions(completion: cb) }
+        _ = waitAsyncError(timeout: 5) { cb in SessionManager.sendBatchSessions(completion: cb) }
 
         XCTAssertTrue(storage.sessionBatches.isEmpty)
         XCTAssertEqual(storage.analyticsEvents.count, 250)
