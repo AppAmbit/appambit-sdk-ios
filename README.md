@@ -35,6 +35,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
+* Database – query, insert, update and delete remote data with a fluent builder
 * Create mutliple app profiles for staging and production
 * Small footprint, modern Swift API with full Objective-C support
 
@@ -175,6 +176,46 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
   NSInteger discount = [RemoteConfig getLong:@"discount"];
   double maxUpload = [RemoteConfig getDouble:@"max_upload"];
+  ```
+
+* **Database**: query, insert, update and delete rows in your AppAmbit database with a fluent builder.
+
+  ### Swift
+
+  ```swift
+  // Query rows
+  AppAmbitDb.from("users")
+    .where("status", value: "active")
+    .orderByDesc("created_at")
+    .limit(10)
+    .get { rows, error in
+      print(rows ?? [], error ?? "")
+    }
+
+  // Insert a row
+  AppAmbitDb.from("users")
+    .insert(["name": "Jane", "status": "active"]) { result, error in
+      print(result ?? "", error ?? "")
+    }
+
+  // Update requires at least one where()
+  AppAmbitDb.from("users")
+    .where("id", value: 1)
+    .update(["status": "inactive"]) { result, error in
+      print(result ?? "", error ?? "")
+    }
+  ```
+
+  ### Objective-C
+
+  ```objective-c
+  [[AppAmbitDb from:@"users"]
+    where:@"status" value:@"active"];
+
+  [[[AppAmbitDb from:@"users"] where:@"status" value:@"active"]
+    getWithCompletion:^(NSArray<NSDictionary<NSString *, id> *> * _Nullable rows, NSError * _Nullable error) {
+      NSLog(@"%@ %@", rows, error);
+    }];
   ```
 
 ---
