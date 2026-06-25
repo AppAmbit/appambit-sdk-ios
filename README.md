@@ -44,8 +44,8 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 ## Requirements
 
 * iOS 12.0 or newer
-* Xcode 15 or newer
-* Swift 5.7 or newer
+* Xcode 16 or newer
+* Swift 6.0 or newer
 
 ---
 

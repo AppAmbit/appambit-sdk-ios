@@ -15,6 +15,10 @@ let package = Package(
             name: "AppAmbitPushNotifications",
             targets: ["AppAmbitPushNotifications"]
         ),
+        .library(
+            name: "AppAmbitPushNotificationsExtension",
+            targets: ["AppAmbitPushNotificationsExtension"]
+        ),
     ],
     targets: [
         .target(
@@ -25,6 +29,10 @@ let package = Package(
             name: "AppAmbitPushNotifications",
             dependencies: ["AppAmbit"],
             path: "Push/AppAmbitPushNotifications/Sources"
+        ),
+        .target(
+            name: "AppAmbitPushNotificationsExtension",
+            path: "PushExtensionSources"
         ),
     ]
 )
