@@ -19,7 +19,7 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 
 ### Swift Package Manager
 
-> Requires **1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+> Requires **v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
 
 Push notifications ship as part of the main SDK package, so you add the same repository and pick the products you need.
 
@@ -32,7 +32,7 @@ Push notifications ship as part of the main SDK package, so you add the same rep
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `1.1.1`.
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.1`.
 4. Click **Add Package**, then attach each product to the target that needs it:
 
 | Product | Add to target | Import |

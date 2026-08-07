@@ -53,7 +53,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ### Swift Package Manager
 
-> Requires **1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+> Requires *v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
 
 #### In Xcode
 
@@ -64,7 +64,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `1.1.1`.
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.1`.
 4. Click **Add Package**, then attach each product to the target that needs it:
 
 | Product | Add to target | Import |
