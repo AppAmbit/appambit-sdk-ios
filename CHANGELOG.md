@@ -1,3 +1,11 @@
+## Version 1.1.1
+
+### AppAmbit
+
+* **[Fix]** Published a release tag that includes the root `Package.swift`, so the SDK can be resolved via Swift Package Manager. The `1.1.0` tag predated the manifest and failed with "the package manifest at '/Package.swift' cannot be accessed".
+
+___
+
 ## Version 1.1.0
 
 ### AppAmbit
