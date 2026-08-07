@@ -19,8 +19,54 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 
 ### Swift Package Manager
 
-* Add the repository URL in Xcode under **File → Add Packages…**
-* Select the latest version and attach it to your app target
+> Requires **1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+
+Push notifications ship as part of the main SDK package, so you add the same repository and pick the products you need.
+
+#### In Xcode
+
+1. Go to **File → Add Package Dependencies…**
+2. Paste the repository URL into the search field:
+
+   ```
+   https://github.com/AppAmbit/appambit-sdk-ios
+   ```
+
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `1.1.1`.
+4. Click **Add Package**, then attach each product to the target that needs it:
+
+| Product | Add to target | Import |
+|---|---|---|
+| `AppAmbit` | Your app | `import AppAmbit` |
+| `AppAmbitPushNotifications` | Your app, and your Notification Service Extension | `import AppAmbitPushNotifications` |
+| `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(alternative — see below)* | `import AppAmbitPushNotificationsExtension` |
+
+`AppAmbitPushNotifications` already contains everything a Notification Service Extension needs, so linking it to both targets works and is what the sample apps do.
+
+`AppAmbitPushNotificationsExtension` is an optional, extension-safe slice: it provides the same `AppAmbitNotificationService`, `AppAmbitNotificationProcessor`, `AppAmbitNotification` and `PushNotificationAttachments`, but depends only on Foundation and UserNotifications and does not pull in the main SDK. Use it if you prefer to keep app-only code out of the extension. If you do, import `AppAmbitPushNotificationsExtension` instead of `AppAmbitPushNotifications` in that target.
+
+#### In a `Package.swift`
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.1")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [
+            .product(name: "AppAmbit", package: "appambit-sdk-ios"),
+            .product(name: "AppAmbitPushNotifications", package: "appambit-sdk-ios")
+        ]
+    ),
+    .target(
+        name: "YourNotificationServiceExtension",
+        dependencies: [
+            .product(name: "AppAmbitPushNotificationsExtension", package: "appambit-sdk-ios")
+        ]
+    )
+]
+```
 
 ### CocoaPods
 
@@ -29,7 +75,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitPushNotifications'
 # or specify version
-pod 'AppAmbitPushNotifications', '~> 1.1.0'
+pod 'AppAmbitPushNotifications', '~> 1.1.1'
 ```
 
 Then run:
@@ -122,6 +168,10 @@ PushNotifications.requestNotificationPermission { granted in
 1. In Xcode: **File > New > Target > Notification Service Extension**
 2. Add `AppAmbitPushNotifications` to the **extension target** (not just the app target).
 3. Embed the extension in your app target: **App target > General > Frameworks, Libraries, and Embedded Content > +** and add the `.appex`.
+
+> Optionally, link `AppAmbitPushNotificationsExtension` to the extension instead — the
+> extension-safe slice described in [Install](#swift-package-manager). It exposes the same
+> types, so the examples below are unchanged apart from the module you import.
 
 #### Swift extension — subclass `AppAmbitNotificationService`
 

@@ -53,8 +53,43 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ### Swift Package Manager
 
-* Add the repository URL in Xcode under **File → Add Packages…**
-* Select the latest version and attach it to your app target
+> Requires **1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+
+#### In Xcode
+
+1. Go to **File → Add Package Dependencies…**
+2. Paste the repository URL into the search field:
+
+   ```
+   https://github.com/AppAmbit/appambit-sdk-ios
+   ```
+
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `1.1.1`.
+4. Click **Add Package**, then attach each product to the target that needs it:
+
+| Product | Add to target | Import |
+|---|---|---|
+| `AppAmbit` | Your app | `import AppAmbit` |
+| `AppAmbitPushNotifications` | Your app *(optional — only if you use push)* | `import AppAmbitPushNotifications` |
+| `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(optional)* | `import AppAmbitPushNotificationsExtension` |
+
+Most apps only need `AppAmbit`. See the [Push Notifications guide](Push/AppAmbitPushNotifications/README.md) for the other two.
+
+#### In a `Package.swift`
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.1")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [
+            .product(name: "AppAmbit", package: "appambit-sdk-ios")
+        ]
+    )
+]
+```
 
 ### CocoaPods
 
@@ -63,7 +98,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 1.1.0'
+pod 'AppAmbitSdk', '~> 1.1.1'
 ```
 
 Then run:
