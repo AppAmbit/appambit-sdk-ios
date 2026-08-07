@@ -53,7 +53,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ### Swift Package Manager
 
-> Requires *v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+> Requires *v1.1.1 or newer*. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
 
 #### In Xcode
 
