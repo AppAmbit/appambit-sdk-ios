@@ -19,9 +19,11 @@ Complete push notifications SDK for iOS that integrates seamlessly with the AppA
 
 ### Swift Package Manager
 
-> Requires **v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+> Requires **v1.1.2 or newer**. Earlier tags do not include the corrected SPM target separation.
 
-Push notifications ship as part of the main SDK package, so you add the same repository and pick the products you need.
+Push notifications ship as products in the main SDK package. Add the repository
+once, then attach the appropriate product to each Xcode target. Adding the
+repository does not automatically link every product to every target.
 
 #### In Xcode
 
@@ -32,24 +34,58 @@ Push notifications ship as part of the main SDK package, so you add the same rep
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.1`.
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.2`.
 4. Click **Add Package**, then attach each product to the target that needs it:
 
 | Product | Add to target | Import |
 |---|---|---|
 | `AppAmbit` | Your app | `import AppAmbit` |
-| `AppAmbitPushNotifications` | Your app, and your Notification Service Extension | `import AppAmbitPushNotifications` |
-| `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(alternative — see below)* | `import AppAmbitPushNotificationsExtension` |
+| `AppAmbitPushNotifications` | Your app | `import AppAmbitPushNotifications` |
+| `AppAmbitPushNotificationsExtension` | Your Notification Service Extension | `import AppAmbitPushNotificationsExtension` |
 
-`AppAmbitPushNotifications` already contains everything a Notification Service Extension needs, so linking it to both targets works and is what the sample apps do.
+#### Choose the product for each target
 
-`AppAmbitPushNotificationsExtension` is an optional, extension-safe slice: it provides the same `AppAmbitNotificationService`, `AppAmbitNotificationProcessor`, `AppAmbitNotification` and `PushNotificationAttachments`, but depends only on Foundation and UserNotifications and does not pull in the main SDK. Use it if you prefer to keep app-only code out of the extension. If you do, import `AppAmbitPushNotificationsExtension` instead of `AppAmbitPushNotifications` in that target.
+The full push product and the extension-safe product have different
+responsibilities:
+
+| Target | Product | Why |
+|---|---|---|
+| Main app | `AppAmbitPushNotifications` | Registers for push notifications, captures the APNs token, and handles app-side notification events. |
+| Notification Service Extension | `AppAmbitPushNotificationsExtension` | Processes and optionally modifies a notification before it is shown. It depends only on Foundation and UserNotifications. |
+
+For an app with a Notification Service Extension, the package setup looks like
+this:
+
+```swift
+// Main app target
+import AppAmbit
+import AppAmbitPushNotifications
+```
+
+```swift
+// NotificationService.swift in the extension target
+import AppAmbitPushNotificationsExtension
+import UserNotifications
+
+final class NotificationService: AppAmbitNotificationService {
+    override func didReceive(
+        _ request: UNNotificationRequest,
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
+        super.didReceive(request, withContentHandler: contentHandler)
+    }
+}
+```
+
+Do not link `AppAmbitPushNotificationsExtension` to the main app target, and do
+not link `AppAmbitPushNotifications` to the extension target. The full push
+product uses `UIApplication`, which is unavailable in app extensions.
 
 #### In a `Package.swift`
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.1")
+    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.2")
 ],
 targets: [
     .target(
@@ -70,12 +106,16 @@ targets: [
 
 ### CocoaPods
 
-Add this to your Podfile:
+Add the products to their corresponding targets in your Podfile:
 
 ```ruby
-pod 'AppAmbitPushNotifications'
-# or specify version
-pod 'AppAmbitPushNotifications', '~> 1.1.1'
+target 'MyApp' do
+  pod 'AppAmbitPushNotifications', '~> 1.1.2'
+end
+
+target 'NotificationServiceExtension' do
+  pod 'AppAmbitPushNotificationsExtension', '~> 1.1.2'
+end
 ```
 
 Then run:
@@ -166,12 +206,13 @@ PushNotifications.requestNotificationPermission { granted in
 ### Setup
 
 1. In Xcode: **File > New > Target > Notification Service Extension**
-2. Add `AppAmbitPushNotifications` to the **extension target** (not just the app target).
+2. Add `AppAmbitPushNotificationsExtension` to the **extension target**:
+   * **Swift Package Manager**: select the `AppAmbitPushNotificationsExtension` product for this target
+   * **CocoaPods**: add `pod 'AppAmbitPushNotificationsExtension'` inside this target's Podfile block
 3. Embed the extension in your app target: **App target > General > Frameworks, Libraries, and Embedded Content > +** and add the `.appex`.
 
-> Optionally, link `AppAmbitPushNotificationsExtension` to the extension instead — the
-> extension-safe slice described in [Install](#swift-package-manager). It exposes the same
-> types, so the examples below are unchanged apart from the module you import.
+> Do not link `AppAmbitPushNotifications` into the extension target: it uses `UIApplication`,
+> which is unavailable in app extensions.
 
 #### Swift extension — subclass `AppAmbitNotificationService`
 
@@ -180,7 +221,7 @@ the entry point — the same role as `didReceiveNotificationRequest:` in the Obj
 example below.
 
 ```swift
-import AppAmbitPushNotifications
+import AppAmbitPushNotificationsExtension
 import UserNotifications
 
 final class SampleNotificationService: AppAmbitNotificationService {
@@ -220,7 +261,7 @@ directly and delegate the work to `AppAmbitNotificationProcessor`:
 
 ```objc
 #import <UserNotifications/UserNotifications.h>
-@import AppAmbitPushNotifications;
+@import AppAmbitPushNotificationsExtension;
 
 @interface NotificationService : UNNotificationServiceExtension
 @end

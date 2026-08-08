@@ -53,7 +53,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ### Swift Package Manager
 
-> Requires **v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+> Requires **v1.1.2 or newer**. Earlier tags do not include the corrected SPM target separation.
 
 #### In Xcode
 
@@ -64,7 +64,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.1`.
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.2`.
 4. Click **Add Package**, then attach each product to the target that needs it:
 
 | Product | Add to target | Import |
@@ -73,13 +73,46 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 | `AppAmbitPushNotifications` | Your app *(optional — only if you use push)* | `import AppAmbitPushNotifications` |
 | `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(optional)* | `import AppAmbitPushNotificationsExtension` |
 
+#### Product assignment by target
+
+Add the package repository once to the Xcode project. Products are then linked to
+each target separately:
+
+| Xcode target | Products to add | Imports used in that target |
+|---|---|---|
+| Main app | `AppAmbit` and, if needed, `AppAmbitPushNotifications` | `AppAmbit`, `AppAmbitPushNotifications` |
+| Notification Service Extension | `AppAmbitPushNotificationsExtension` | `AppAmbitPushNotificationsExtension` |
+
+For example, an app that uses push notifications and a Notification Service
+Extension has these imports in different targets:
+
+```swift
+// Main app target
+import AppAmbit
+import AppAmbitPushNotifications
+```
+
+```swift
+// NotificationService.swift in the extension target
+import AppAmbitPushNotificationsExtension
+import UserNotifications
+```
+
+Do not add `AppAmbitPushNotificationsExtension` to the main app target, and do
+not add `AppAmbitPushNotifications` to the extension target. The full push
+product uses app-only APIs such as `UIApplication`; the extension product is the
+App-Extension-safe implementation.
+
+If the app has no Notification Service Extension, do not add the extension
+product. If the app does not use push notifications, only add `AppAmbit`.
+
 Most apps only need `AppAmbit`. See the [Push Notifications guide](Push/AppAmbitPushNotifications/README.md) for the other two.
 
 #### In a `Package.swift`
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.1")
+    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.2")
 ],
 targets: [
     .target(
@@ -98,7 +131,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 1.1.1'
+pod 'AppAmbitSdk', '~> 1.1.2'
 ```
 
 Then run:
