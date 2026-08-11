@@ -1,119 +1,130 @@
-# AppAmbit Push Notifications SDK for iOS
+<p align="center">
+  <strong>AppAmbit Push Notifications for iOS</strong><br>
+  Push delivery, app-side events, and optional Notification Service Extension processing.
+</p>
 
-Complete push notifications SDK for iOS that integrates seamlessly with the AppAmbit Core SDK ecosystem.
+This README is organized as a guided setup. Choose **one** installation method,
+then decide whether your app needs an NSE.
 
-## Features
+## Contents
 
-- **Notification Service Extension base class**: Intercept every notification before display — foreground, background, and killed — using `AppAmbitNotificationService`.
-- **App-side listener**: React to notifications in the main app via `setNotificationListener` with `.foreground` and `.opened` states.
-- **Zero-Config Setup**: Automatic APNs token capture via method swizzling.
-- **Thread-safe**: Compatible with Swift 6 Concurrency.
+1. [Quick start](#quick-start)
+2. [Install the SDK](#1-install-the-sdk)
+   - [Swift Package Manager](#option-1-swift-package-manager)
+   - [CocoaPods](#option-2-cocoapods)
+3. [Configure the main app](#2-configure-the-main-app)
+4. [Listen inside the app](#3-listen-inside-the-app)
+5. [Add an NSE](#4-add-a-notification-service-extension-optional)
+6. [Troubleshooting](#troubleshooting)
+
+## Quick start
+
+### Choose what you need
+
+| Goal | What to install | Where to continue |
+|---|---|---|
+| Push notifications only | Core SDK plus the main push product | Stop after section 3 |
+| Push notifications plus pre-display processing | Core SDK, main push product, and NSE product/pod | Continue to section 4 |
+
+### Choose one installation method
+
+- **Swift Package Manager**: follow [Option 1](#option-1-swift-package-manager).
+- **CocoaPods**: follow [Option 2](#option-2-cocoapods).
+
+> **Important:** Do not install SPM and CocoaPods in the same target.
+
+If you only use the AppAmbit core SDK, you do not need this push package or an
+NSE. The `Undefined symbol` error described later applies only to the SPM NSE
+product when it is not linked to the NSE target.
 
 ## Requirements
 
-* iOS 12.0 or newer
-* Xcode 15 or newer
-* Swift 5.7 or newer
+- iOS 12.0 or newer
+- Xcode 16 or newer
+- Swift 6.0 or newer
+- AppAmbit SDK `1.1.2` or newer
 
-## Install
+The `1.1.2` release keeps the main push product and the NSE product separate.
 
-### Swift Package Manager
+## 1. Install the SDK
 
-> Requires **v1.1.1 or newer**. Earlier tags do not ship a package manifest and cannot be resolved by SPM.
+### Option 1: Swift Package Manager
 
-Push notifications ship as part of the main SDK package, so you add the same repository and pick the products you need.
+#### Push notifications in the main app
 
-#### In Xcode
+Use this path when you need permission, APNs registration, foreground
+notifications, or notification tap events. You do **not** need an NSE.
 
-1. Go to **File → Add Package Dependencies…**
-2. Paste the repository URL into the search field:
+1. In Xcode, select **File > Add Package Dependencies...**.
+2. Enter:
 
-   ```
+   ```text
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.1`.
-4. Click **Add Package**, then attach each product to the target that needs it:
+3. Select **Up to Next Major Version** starting at `1.1.2`.
+4. Add the package to the project.
+5. When Xcode asks which products belong to the **main app target**, select:
 
-| Product | Add to target | Import |
-|---|---|---|
-| `AppAmbit` | Your app | `import AppAmbit` |
-| `AppAmbitPushNotifications` | Your app, and your Notification Service Extension | `import AppAmbitPushNotifications` |
-| `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(alternative — see below)* | `import AppAmbitPushNotificationsExtension` |
+   - `AppAmbit`
+   - `AppAmbitPushNotifications`
 
-`AppAmbitPushNotifications` already contains everything a Notification Service Extension needs, so linking it to both targets works and is what the sample apps do.
+> **Push only:** Do not create an NSE and do not add
+> `AppAmbitPushNotificationsExtension`. Continue with [section 2](#2-configure-the-main-app).
 
-`AppAmbitPushNotificationsExtension` is an optional, extension-safe slice: it provides the same `AppAmbitNotificationService`, `AppAmbitNotificationProcessor`, `AppAmbitNotification` and `PushNotificationAttachments`, but depends only on Foundation and UserNotifications and does not pull in the main SDK. Use it if you prefer to keep app-only code out of the extension. If you do, import `AppAmbitPushNotificationsExtension` instead of `AppAmbitPushNotifications` in that target.
+#### If the app will also use an NSE
 
-#### In a `Package.swift`
+Complete the same main app setup above. Do not add the extension product yet.
+Add it in [section 4](#4-add-a-notification-service-extension-optional), after
+the NSE target exists.
 
-```swift
-dependencies: [
-    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.1")
-],
-targets: [
-    .target(
-        name: "YourApp",
-        dependencies: [
-            .product(name: "AppAmbit", package: "appambit-sdk-ios"),
-            .product(name: "AppAmbitPushNotifications", package: "appambit-sdk-ios")
-        ]
-    ),
-    .target(
-        name: "YourNotificationServiceExtension",
-        dependencies: [
-            .product(name: "AppAmbitPushNotificationsExtension", package: "appambit-sdk-ios")
-        ]
-    )
-]
-```
+### Option 2: CocoaPods
 
-### CocoaPods
+Use this option instead of SPM. Do not add the SDK through **Package
+Dependencies** when using CocoaPods.
 
-Add this to your Podfile:
+#### Push notifications in the main app
+
+Add the pods to the **main app target** in your `Podfile`:
 
 ```ruby
-pod 'AppAmbitPushNotifications'
-# or specify version
-pod 'AppAmbitPushNotifications', '~> 1.1.1'
+target 'MyApp' do
+  pod 'AppAmbitSdk', '~> 1.1.2'
+  pod 'AppAmbitPushNotifications', '~> 1.1.2'
+end
 ```
 
-Then run:
+Run:
 
 ```bash
 pod install
 ```
 
-Open the generated `.xcworkspace` project.
+Open the generated `.xcworkspace`, not the `.xcodeproj`. Continue with [section
+2](#2-configure-the-main-app).
 
-*(If you get an error like "Unable to find a specification for `AppAmbitPushNotifications`": run `pod repo update`, then `pod install`.)*
+#### If the app will also use an NSE
 
----
+Keep the main app block above. Add the extension pod in [section
+4](#4-add-a-notification-service-extension-optional), after the NSE target
+exists.
 
-## The two components
+## 2. Configure the main app
 
-This SDK has two independent pieces that work together:
+Complete this section after choosing SPM or CocoaPods. The app code is the same
+for both installation methods.
 
-| Component | Process | When it runs | What it can do |
-|---|---|---|---|
-| `AppAmbitNotificationService` | Extension (separate) | Before notification is shown — always, regardless of app state | Modify content, download images, process payload |
-| `setNotificationListener` | Main app | While app is open (foreground) or when user taps | Update UI, navigate to screens |
+### 2.1 Enable the capability
 
-They serve different purposes and are not redundant. Use `AppAmbitNotificationService` for processing; use `setNotificationListener` for UI reactions and navigation.
+1. Select the **main app target**.
+2. Open **Signing & Capabilities**.
+3. Add **Push Notifications**.
 
----
+### 2.2 Initialize the SDK
 
-## Setup
+#### SwiftUI
 
-### 1. Enable Capabilities in Xcode
-
-Select your **app target** → **Signing & Capabilities** → **+ Capability** and add:
-
-- **Push Notifications**
-
-### 2. Configure AppDelegate
-
-For SwiftUI apps, use the provided `AppAmbitAppDelegate` adaptor:
+Use `AppAmbitAppDelegate` so the push SDK can receive the APNs token:
 
 ```swift
 import SwiftUI
@@ -137,112 +148,332 @@ struct MyApp: App {
 }
 ```
 
-For UIKit apps, your AppDelegate works automatically — the SDK swizzles the necessary delegate calls.
+#### UIKit
 
-### 3. Request Permission
+Keep your existing app delegate and start both SDKs during app launch:
+
+```swift
+import UIKit
+import AppAmbit
+import AppAmbitPushNotifications
+
+func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+) -> Bool {
+    PushNotifications.start()
+    AppAmbit.start(appKey: "<YOUR-APPKEY>")
+    return true
+}
+```
+
+The push SDK observes APNs registration callbacks. You do not need to replace
+your existing `AppDelegate` methods.
+
+<details>
+<summary>Objective-C app setup</summary>
+
+```objc
+#import "AppDelegate.h"
+@import AppAmbit;
+@import AppAmbitPushNotifications;
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application
+    didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    [AppAmbit start:@"<YOUR-APPKEY>"];
+    [PushNotifications start];
+    return YES;
+}
+
+@end
+```
+
+</details>
+
+### 2.3 Ask for permission
+
+Ask for permission when your app is ready to show the system prompt:
 
 ```swift
 PushNotifications.requestNotificationPermission { granted in
-    if granted {
-        PushNotifications.setNotificationsEnabled(true)
+    guard granted else { return }
+    PushNotifications.setNotificationsEnabled(true)
+}
+```
+
+<details>
+<summary>Objective-C permission request</summary>
+
+```objc
+[PushNotifications requestNotificationPermissionWithListener:^(BOOL granted) {
+    if (granted) {
+        [PushNotifications setNotificationsEnabled:YES];
+    }
+}];
+```
+
+</details>
+
+`setNotificationsEnabled(true)` registers the app for remote notifications and
+synchronizes the enabled state with AppAmbit.
+
+## 3. Listen inside the app
+
+Use this listener for events that happen in the **main app process**:
+
+```swift
+PushNotifications.setNotificationListener { userInfo, state in
+    switch state {
+    case .foreground:
+        // The app was open when the notification arrived.
+        print("Received notification: \(userInfo)")
+
+    case .opened:
+        // The user tapped the notification.
+        print("Opened notification: \(userInfo)")
+
+    @unknown default:
+        break
     }
 }
 ```
 
----
+| State | When it fires | Typical use |
+|---|---|---|
+| `.foreground` | The app is open when the notification arrives | Show an in-app banner or update the UI |
+| `.opened` | The user taps the notification | Navigate to the relevant screen |
 
-## Notification Service Extension
+<details>
+<summary>Objective-C notification listener</summary>
 
-`AppAmbitNotificationService` is a base class for `UNNotificationServiceExtension`. It runs in a **separate process** before the notification is displayed, regardless of whether the app is in the foreground, background, or force-killed.
+```objc
+[PushNotifications setNotificationListener:^(NSDictionary *userInfo,
+                                              PushNotificationState state) {
+    switch (state) {
+        case PushNotificationStateForeground:
+            NSLog(@"[Foreground] Notification received while app is open: %@", userInfo);
+            break;
+        case PushNotificationStateOpened:
+            NSLog(@"[Opened] User tapped the notification: %@", userInfo);
+            break;
+    }
+}];
+```
 
-**Requires `mutable-content: 1` in the APNs payload.**
+</details>
 
-### When to use it
+> **Stop here if you only need app-side push behavior.** Do not create an NSE.
 
-- Process the notification payload as soon as it arrives (analytics, data sync).
-- Modify the title, body, or add a media attachment before display.
-- Handle notifications reliably regardless of app state.
+## 4. Add a Notification Service Extension (optional)
 
-### Setup
+Create an NSE only when you need to modify a notification before display,
+download an image, or process a payload while the app is not running.
 
-1. In Xcode: **File > New > Target > Notification Service Extension**
-2. Add `AppAmbitPushNotifications` to the **extension target** (not just the app target).
-3. Embed the extension in your app target: **App target > General > Frameworks, Libraries, and Embedded Content > +** and add the `.appex`.
+An NSE runs in a separate process. It cannot access your app's screens,
+navigation, or `UIApplication`.
 
-> Optionally, link `AppAmbitPushNotificationsExtension` to the extension instead — the
-> extension-safe slice described in [Install](#swift-package-manager). It exposes the same
-> types, so the examples below are unchanged apart from the module you import.
+### 4.1 Create the NSE target
 
-#### Swift extension — subclass `AppAmbitNotificationService`
+1. In Xcode, select **File > New > Target...**.
+2. Choose **Notification Service Extension**.
+3. Give the target a name, for example `NotificationServiceExtension`.
+4. Keep the generated `NotificationService.swift` file in that target.
 
-`AppAmbitNotificationService` exposes three methods you can override. `didReceive` is
-the entry point — the same role as `didReceiveNotificationRequest:` in the Objective-C
-example below.
+### 4.2 Add the dependency to the NSE target
+
+Add the dependency only after the NSE target exists.
+
+#### If you chose Swift Package Manager
+
+1. Select the new `NotificationServiceExtension` target.
+2. Open **General > Frameworks, Libraries, and Embedded Content**.
+3. Click **+** and add `AppAmbitPushNotificationsExtension`.
+4. Open **Build Phases > Link Binary With Libraries**.
+5. Confirm that `AppAmbitPushNotificationsExtension` is listed there.
+
+> **Important:** This is the extension product. Do not add
+> `AppAmbitPushNotifications` to the NSE. That product uses app-only APIs such
+> as `UIApplication`.
+
+> **SPM linker error:** If the NSE imports the module but this product is not
+> linked to the NSE target, Xcode can show `Undefined symbol` errors for
+> `AppAmbitNotificationService` or `AppAmbitNotification.title`. The main app
+> can still build normally because this problem belongs only to the separate
+> NSE target.
+
+#### If you chose CocoaPods
+
+Add this block to the same `Podfile`:
+
+```ruby
+target 'NotificationServiceExtension' do
+  pod 'AppAmbitPushNotificationsExtension', '~> 1.1.2'
+end
+```
+
+The extension pod belongs inside the extension target block. It must not be
+inside the main app target block.
+
+Run CocoaPods again:
+
+```bash
+pod install
+```
+
+Open the generated `.xcworkspace`, not the `.xcodeproj`.
+
+### 4.3 Verify that the NSE is embedded
+
+Xcode normally embeds the new `.appex` automatically. Verify it under:
+
+**Main app target > Build Phases > Embed App Extensions**
+
+Add the extension there only if it is missing.
+
+### 4.4 Implement the Swift NSE
+
+Use the extension module in `NotificationService.swift`:
 
 ```swift
-import AppAmbitPushNotifications
 import UserNotifications
+import AppAmbitPushNotificationsExtension
+```
+
+> Choose **one** of the following Swift examples. Do not paste both classes into
+> the same `NotificationService.swift` file.
+
+#### Simple example: customize the content
+
+Use this version when you only need to change the title, body, badge, or another
+field before the notification is displayed. This is the recommended starting
+point.
+
+```swift
+final class NotificationService: AppAmbitNotificationService {
+    override func handlePayload(
+        _ notification: AppAmbitNotification,
+        content: UNMutableNotificationContent
+    ) {
+        content.title = "[AppAmbit] \(content.title)"
+    }
+}
+```
+
+The base class keeps the notification lifecycle, image attachments, and final
+`contentHandler` call. In most projects, `handlePayload` is the only method you
+need to override.
+
+#### Complete example: use all three lifecycle methods
+
+Use this version when you need to inspect or rebuild the request, customize the
+parsed payload, and handle the extension timeout explicitly.
+
+```swift
+import Foundation
+import UserNotifications
+import AppAmbitPushNotificationsExtension
 
 final class SampleNotificationService: AppAmbitNotificationService {
 
-    // 1. Entry point — called as soon as the notification arrives.
-    //    Always call `super` to keep image-attachment support and the
-    //    `handlePayload` hook. Override only if you need to inspect or
-    //    rebuild the request before processing.
-    override func didReceive(_ request: UNNotificationRequest,
-                             withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        super.didReceive(request, withContentHandler: contentHandler)
+    // Entry point. Use this when the original request must be inspected or
+    // rebuilt before the AppAmbit base class processes it.
+    override func didReceive(
+        _ request: UNNotificationRequest,
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
+        guard let bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            contentHandler(request.content)
+            return
+        }
+
+        let dataPayload = bestAttemptContent.userInfo["data"]
+            as? [AnyHashable: Any] ?? bestAttemptContent.userInfo
+
+        bestAttemptContent.title += " Custom"
+
+        if let category = dataPayload["category_type"] as? String {
+            bestAttemptContent.categoryIdentifier = category
+        }
+
+        if let threadId = dataPayload["chat_id"] as? String {
+            bestAttemptContent.threadIdentifier = threadId
+        }
+
+        let updatedRequest = UNNotificationRequest(
+            identifier: request.identifier,
+            content: bestAttemptContent,
+            trigger: request.trigger
+        )
+
+        super.didReceive(updatedRequest, withContentHandler: contentHandler)
     }
 
-    // 2. Mutate the banner before display. Invoked by the base class for every
-    //    notification, regardless of app state. Runs in a separate process —
-    //    you can change the title, body, or image, but you cannot access your
-    //    app's screens.
-    override func handlePayload(_ notification: AppAmbitNotification,
-                                content: UNMutableNotificationContent) {
-        print("Notification arrived: \(notification.title ?? "")")
-        content.title = "[\(content.title)]"
+    // Main customization hook. It receives the parsed AppAmbit notification
+    // and the mutable content that will be displayed.
+    override func handlePayload(
+        _ notification: AppAmbitNotification,
+        content: UNMutableNotificationContent
+    ) {
+        NSLog("Notification title: %@, body: %@",
+              notification.title ?? "",
+              notification.body ?? "")
     }
 
-    // 3. Called when the ~30 s processing budget is about to expire.
-    //    Call `super` to deliver the best attempt content.
+    // Fallback when iOS is about to stop the extension, normally after about
+    // 30 seconds. Always call super to deliver the best available content.
     override func serviceExtensionTimeWillExpire() {
         super.serviceExtensionTimeWillExpire()
     }
 }
 ```
 
-#### Objective-C extension — use `AppAmbitNotificationProcessor`
+The three methods have different jobs:
 
-Swift classes shipped from an SPM dynamic library cannot be subclassed from Objective-C
-(`objc_subclassing_restricted`). Instead, subclass `UNNotificationServiceExtension`
-directly and delegate the work to `AppAmbitNotificationProcessor`:
+- `didReceive`: first entry point; use it only when the original request needs custom processing before calling `super`.
+- `handlePayload`: normal customization hook; use it to change the notification content or inspect `AppAmbitNotification`.
+- `serviceExtensionTimeWillExpire`: last chance to deliver content before iOS stops the extension.
+
+The parsed notification exposes:
+
+```swift
+notification.title
+notification.body
+notification.imageUrl
+notification.data
+```
+
+### 4.5 Implement the Objective-C NSE
+
+Objective-C uses `AppAmbitNotificationProcessor` instead of subclassing the
+Swift `AppAmbitNotificationService`. The processor manages the equivalent
+notification lifecycle for an Objective-C NSE.
+
+Objective-C extensions should subclass `UNNotificationServiceExtension` and use
+`AppAmbitNotificationProcessor`:
 
 ```objc
 #import <UserNotifications/UserNotifications.h>
-@import AppAmbitPushNotifications;
+@import AppAmbitPushNotificationsExtension;
 
 @interface NotificationService : UNNotificationServiceExtension
-@end
-
-@interface NotificationService ()
-@property (nonatomic, copy) void (^contentHandler)(UNNotificationContent *);
+@property (nonatomic, copy) void (^contentHandler)(UNNotificationContent *contentToDeliver);
 @property (nonatomic, strong) UNMutableNotificationContent *bestAttemptContent;
 @end
 
 @implementation NotificationService
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
-                   withContentHandler:(void (^)(UNNotificationContent * _Nonnull))contentHandler {
+                    withContentHandler:(void (^)(UNNotificationContent *contentToDeliver))contentHandler {
     self.contentHandler = contentHandler;
     self.bestAttemptContent = [request.content mutableCopy];
 
     [AppAmbitNotificationProcessor processRequest:request
-                                   contentHandler:contentHandler
-                                    handlePayload:^(AppAmbitNotification * _Nonnull notification,
-                                                    UNMutableNotificationContent * _Nonnull content) {
-        NSLog(@"Notification arrived: %@", notification.title);
-        content.title = [content.title stringByAppendingString:@" [Custom]"];
+                                    contentHandler:contentHandler
+                                     handlePayload:^(AppAmbitNotification *notification,
+                                                     UNMutableNotificationContent *content) {
+        content.title = [content.title stringByAppendingString:@" [AppAmbit]"];
     }];
 }
 
@@ -255,51 +486,12 @@ directly and delegate the work to `AppAmbitNotificationProcessor`:
 @end
 ```
 
-`AppAmbitNotificationProcessor.process` parses the AppAmbit payload, invokes your
-`handlePayload` block (where you can mutate the content), attaches the notification
-image asynchronously, and finally calls `contentHandler` to deliver the banner.
+Do not import `AppAmbitPushNotifications` in the NSE. Use
+`AppAmbitPushNotificationsExtension`.
 
----
+### 4.6 Send a payload that the NSE can process
 
-## App-side Listener (`setNotificationListener`)
-
-Use `setNotificationListener` to react to notifications inside the main app. It fires in two states:
-
-```swift
-PushNotifications.setNotificationListener { userInfo, state in
-    switch state {
-    case .foreground:
-        // App was open when the notification arrived.
-        // Use this to show an in-app banner or update the UI.
-        print("Received in foreground")
-
-    case .opened:
-        // User tapped the notification.
-        // Use this to navigate to the relevant screen.
-        print("User tapped notification")
-
-    @unknown default:
-        break
-    }
-}
-```
-
-### Notification States
-
-| State | When it fires | Typical use case |
-|---|---|---|
-| `.foreground` | App is open when push arrives | Show in-app banner, update UI |
-| `.opened` | User taps the notification banner | Navigate to relevant screen |
-
-> Background processing belongs in `AppAmbitNotificationService.handlePayload`, not in this listener.
-
----
-
-## APNs Payload Reference
-
-### Standard notification
-
-Triggers `AppAmbitNotificationService` before display. Also fires `.foreground` or `.opened` in `setNotificationListener` depending on app state.
+The payload must contain `mutable-content: 1` inside `aps` for the NSE to run:
 
 ```json
 {
@@ -310,120 +502,91 @@ Triggers `AppAmbitNotificationService` before display. Also fires `.foreground` 
     },
     "mutable-content": 1,
     "sound": "default"
-  }
+  },
+  "image": "https://example.com/image.jpg"
 }
 ```
 
-### Payload Fields
+The `image` field is optional. When present, the NSE downloads it and attaches
+it to the notification.
 
-| Field | Purpose |
-|---|---|
-| `aps.alert` | Visible notification content (title and body) |
-| `aps.mutable-content` | Triggers `AppAmbitNotificationService` (required for the extension to run) |
-| `aps.sound` | Play sound on delivery (`"default"` or custom filename) |
-| `aps.badge` | App icon badge number |
-| `aps.category` | Action buttons (requires app-side registration) |
-| `aps.thread-id` | Notification grouping |
+## Target assignment
 
----
+The final setup is always:
 
-## API Reference
+```text
+Main app target:
+  AppAmbit
+  AppAmbitPushNotifications
 
-### Initialization
-
-```swift
-// Minimal
-PushNotifications.start()
-
-// With debug logging
-PushNotifications.start(debugMode: true)
+Notification Service Extension target:
+  AppAmbitPushNotificationsExtension
 ```
 
-### Permissions
-
-```swift
-PushNotifications.requestNotificationPermission { granted in }
-PushNotifications.hasNotificationPermission() -> Bool
-```
-
-### Enable / Disable
-
-```swift
-PushNotifications.setNotificationsEnabled(_ enabled: Bool)
-PushNotifications.isNotificationsEnabled() -> Bool
-```
-
-### Listener
-
-Swift:
-
-```swift
-PushNotifications.setNotificationListener { userInfo, state in
-    // state: .foreground | .opened
-}
-```
-
-Objective-C:
-
-```objc
-[PushNotifications setNotificationListener:^(NSDictionary * _Nonnull userInfo,
-                                              PushNotificationState state) {
-    switch (state) {
-        case PushNotificationStateForeground:
-            NSLog(@"Foreground: %@", userInfo);
-            break;
-        case PushNotificationStateOpened:
-            NSLog(@"Opened: %@", userInfo);
-            break;
-    }
-}];
-```
-
-### Notification Service Extension
-
-Swift subclasses extend `AppAmbitNotificationService` and override `handlePayload`:
-
-```swift
-override func handlePayload(_ notification: AppAmbitNotification,
-                            content: UNMutableNotificationContent) {
-    // Mutate `content` and/or run side effects
-}
-```
-
-Objective-C extensions call `AppAmbitNotificationProcessor.processRequest:contentHandler:handlePayload:`
-from `didReceiveNotificationRequest:withContentHandler:` (see the Notification Service
-Extension section above for the full template).
-
----
-
-## Architecture
-
-```
-Push arrives at iOS  (requires mutable-content: 1)
-    │
-    ├── AppAmbitNotificationService  ← extension process, always runs
-    │     → handlePayload: process data, analytics, sync
-    │     → didReceive: modify content, download images
-    │     → saves to App Groups (if configured)
-    │
-    └── Main app process
-          │
-          ├── App open → setNotificationListener(.foreground)
-          │
-          └── User taps → setNotificationListener(.opened)
-```
-
----
-
-## Differences from Android
-
-| Feature | Android | iOS |
+| Installation method | Main app | NSE |
 |---|---|---|
-| Token type | FCM Token | APNs Device Token |
-| Permissions | POST_NOTIFICATIONS (Android 13+) | User Notifications authorization |
-| Pre-display processing | N/A | `AppAmbitNotificationService` (`mutable-content: 1`) |
-| Notification states | Single callback | `.foreground` / `.opened` |
+| Swift Package Manager | Products selected for the app target | Extension product added in section 4.2 |
+| CocoaPods | Pods inside the app target block | Extension pod inside the NSE target block |
 
-## Support
+## Troubleshooting
 
-For questions or issues, refer to the example application in `Samples/AppAmbit.App.Swift/`.
+### SPM + NSE: `Undefined symbol` linker errors
+
+These errors mean that `NotificationService.swift` can see the extension module,
+but the extension product is not linked to the NSE target:
+
+```text
+Undefined symbol: direct field offset for AppAmbitPushNotificationsExtension.AppAmbitNotification.title
+Undefined symbol: method descriptor for AppAmbitPushNotificationsExtension.AppAmbitNotificationService.handlePayload(...)
+Undefined symbol: type metadata for AppAmbitPushNotificationsExtension.AppAmbitNotificationService
+Undefined symbol: _OBJC_METACLASS_$__TtC...AppAmbitNotificationService
+Linker command failed with exit code 1
+```
+
+This is an **NSE target configuration problem**, not a failure of the core
+`AppAmbit` or `AppAmbitSdk` integration. The main app can build normally while
+the separate NSE target is missing its library.
+
+#### Fix for Swift Package Manager
+
+1. Select the `NotificationServiceExtension` target.
+2. Open **General > Frameworks, Libraries, and Embedded Content**.
+3. Add `AppAmbitPushNotificationsExtension`.
+4. Open **Build Phases > Link Binary With Libraries**.
+5. Confirm that `AppAmbitPushNotificationsExtension` is listed there.
+
+The main app uses `AppAmbit` and `AppAmbitPushNotifications`. The NSE uses only
+`AppAmbitPushNotificationsExtension`.
+
+#### Fix for CocoaPods
+
+Make sure the extension pod is inside the extension target block, then run
+`pod install` and open the generated `.xcworkspace`:
+
+```ruby
+target 'NotificationServiceExtension' do
+  pod 'AppAmbitPushNotificationsExtension', '~> 1.1.2'
+end
+```
+
+### `UIApplication is unavailable in application extensions`
+
+The main push product was added to the NSE. Remove it and use only
+`AppAmbitPushNotificationsExtension` in the NSE.
+
+### The NSE does not run
+
+Check all of the following:
+
+- The payload contains `aps.mutable-content = 1`.
+- The notification contains an `aps.alert` payload.
+- The `.appex` is embedded under the main app target.
+- The NSE uses the extension product or pod, not the main push product.
+
+### CocoaPods changes do not appear in Xcode
+
+Open the generated `.xcworkspace` after `pod install`. Do not open the original
+`.xcodeproj`.
+
+For platform setup and notification delivery configuration, see the [AppAmbit
+documentation](https://docs.appambit.com).

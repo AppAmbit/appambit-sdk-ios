@@ -1,3 +1,13 @@
+## Version 1.1.2
+
+### AppAmbit Push Notifications
+
+* **[Fix]** Separated Notification Service Extension sources from the main SPM push target to prevent duplicate symbols and app-extension-incompatible APIs.
+
+* **[Documentation]** Clarified the product and target assignment for Swift Package Manager and CocoaPods integrations.
+
+___
+
 ## Version 1.1.1
 
 ### AppAmbit
