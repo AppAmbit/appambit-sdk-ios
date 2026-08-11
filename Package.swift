@@ -28,7 +28,8 @@ let package = Package(
         .target(
             name: "AppAmbitPushNotifications",
             dependencies: ["AppAmbit"],
-            path: "Push/AppAmbitPushNotifications/Sources"
+            path: "Push/AppAmbitPushNotifications/Sources",
+            exclude: ["Extension"]
         ),
         .target(
             name: "AppAmbitPushNotificationsExtension",

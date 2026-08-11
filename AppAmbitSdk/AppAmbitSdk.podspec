@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'AppAmbitSdk'
-  s.version          = '1.1.1'
+  s.version          = '1.1.2'
   s.module_name      = 'AppAmbit'
   s.summary          = 'Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.'
 
