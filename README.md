@@ -73,40 +73,32 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 | `AppAmbitPushNotifications` | Your app *(optional — only if you use push)* | `import AppAmbitPushNotifications` |
 | `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(optional)* | `import AppAmbitPushNotificationsExtension` |
 
-#### Product assignment by target
+#### Choose a push setup
 
-Add the package repository once to the Xcode project. Products are then linked to
-each target separately:
+Add the package repository once, then link products to the target that uses them:
 
-| Xcode target | Products to add | Imports used in that target |
+| Setup | Main app target | Notification Service Extension target |
 |---|---|---|
-| Main app | `AppAmbit` and, if needed, `AppAmbitPushNotifications` | `AppAmbit`, `AppAmbitPushNotifications` |
-| Notification Service Extension | `AppAmbitPushNotificationsExtension` | `AppAmbitPushNotificationsExtension` |
+| Core SDK only | `AppAmbit` | None |
+| Push notifications only | `AppAmbit`, `AppAmbitPushNotifications` | None |
+| Push notifications plus NSE | `AppAmbit`, `AppAmbitPushNotifications` | `AppAmbitPushNotificationsExtension` |
 
-For example, an app that uses push notifications and a Notification Service
-Extension has these imports in different targets:
+Adding the package does not automatically link every product to every target. In
+Xcode, select the target and add its product under **General > Frameworks,
+Libraries, and Embedded Content**. You can also verify the product under
+**Build Phases > Link Binary With Libraries**.
 
-```swift
-// Main app target
-import AppAmbit
-import AppAmbitPushNotifications
-```
+Do not link `AppAmbitPushNotificationsExtension` to the main app, and do not
+link `AppAmbitPushNotifications` to the extension. The full push product uses
+app-only APIs such as `UIApplication`; the extension product is the
+app-extension-safe implementation.
 
-```swift
-// NotificationService.swift in the extension target
-import AppAmbitPushNotificationsExtension
-import UserNotifications
-```
+If you only need push notifications, stop after configuring the main app. Create
+an NSE only when you need to modify or process a notification before display.
 
-Do not add `AppAmbitPushNotificationsExtension` to the main app target, and do
-not add `AppAmbitPushNotifications` to the extension target. The full push
-product uses app-only APIs such as `UIApplication`; the extension product is the
-App-Extension-safe implementation.
-
-If the app has no Notification Service Extension, do not add the extension
-product. If the app does not use push notifications, only add `AppAmbit`.
-
-Most apps only need `AppAmbit`. See the [Push Notifications guide](Push/AppAmbitPushNotifications/README.md) for the other two.
+See the [Push Notifications guide](Push/AppAmbitPushNotifications/README.md) for
+the complete setup, including SwiftUI, UIKit, CocoaPods, Objective-C, and NSE
+troubleshooting.
 
 #### In a `Package.swift`
 
