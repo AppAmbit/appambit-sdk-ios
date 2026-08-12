@@ -24,7 +24,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
     private lazy var cloudCodeSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForResource = 120
+        config.timeoutIntervalForResource = 80
         config.waitsForConnectivity = true
         config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
