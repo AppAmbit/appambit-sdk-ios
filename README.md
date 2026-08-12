@@ -16,6 +16,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * [Install](#install)
 * [Quickstart](#quickstart)
 * [Usage](#usage)
+* [Cloud Code](#cloud-code)
 * [Release Distribution](#release-distribution)
 * [Privacy and Data](#privacy-and-data)
 * [Troubleshooting](#troubleshooting)
@@ -36,6 +37,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
 * Database – query, insert, update and delete remote data with a fluent builder
+* Cloud Code – invoke authenticated HTTP functions with JSON, typed results, cancellation, and request correlation
 * Create mutliple app profiles for staging and production
 * Small footprint, modern Swift API with full Objective-C support
 
@@ -53,7 +55,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 
 ### Swift Package Manager
 
-> Requires **v1.1.2 or newer**. Earlier tags do not include the corrected SPM target separation.
+> Requires **v1.2.0 or newer**. Earlier tags do not include Cloud Code support.
 
 #### In Xcode
 
@@ -64,7 +66,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.1.2`.
+3. Set **Dependency Rule** to **Up to Next Major Version** starting at `v1.2.0`.
 4. Click **Add Package**, then attach each product to the target that needs it:
 
 | Product | Add to target | Import |
@@ -104,7 +106,7 @@ troubleshooting.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.1.2")
+    .package(url: "https://github.com/AppAmbit/appambit-sdk-ios", from: "1.2.0")
 ],
 targets: [
     .target(
@@ -123,7 +125,7 @@ Add this to your Podfile:
 ```ruby
 pod 'AppAmbitSdk'
 # or specify version
-pod 'AppAmbitSdk', '~> 1.1.2'
+pod 'AppAmbitSdk', '~> 1.2.0'
 ```
 
 Then run:
@@ -279,6 +281,40 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   ```
 
 ---
+
+## Cloud Code
+
+Cloud Code lets your app invoke authenticated HTTP functions hosted by AppAmbit. Initialize the SDK as usual; Cloud Code uses the same consumer and Bearer token as the rest of the SDK.
+
+```swift
+AppAmbit.start(appKey: "<YOUR-APPKEY>")
+```
+
+After configuring an active Cloud Function with an enabled HTTP trigger and slug in the Dashboard, call it from Swift or Objective-C:
+
+```swift
+CloudCode.call("hello", body: ["name": "Ada"]
+) { response, error in
+    print(response?.data ?? error ?? "Unknown result")
+}
+```
+
+```objective-c
+[CloudCode call:@"hello"
+           method:CloudCodeHttpMethodPost
+            query:nil
+             body:@{ @"name": @"Ada" }
+          headers:nil
+      completion:^(CloudCodeResponse *response, NSError *error) {
+    if (error != nil) {
+        NSLog(@"Cloud Code error: %@", error);
+        return;
+    }
+    NSLog(@"%@", response.data);
+}];
+```
+
+See the complete [Cloud Code mobile guide](https://docs.appambit.com/sdk-guides/cloud-code/) for function setup, HTTP triggers, typed and dynamic responses, errors, request IDs, cancellation, timeouts, and backend examples.
 
 ## Release Distribution
 
