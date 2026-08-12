@@ -4,6 +4,7 @@
 #import "RemoteConfigViewController.h"
 #import "CmsViewController.h"
 #import "DatabaseViewController.h"
+#import "CloudCodeViewController.h"
 
 #pragma mark - TabBarItemView
 
@@ -99,10 +100,14 @@
     database.title = @"Database";
     UINavigationController *navDatabase = [[UINavigationController alloc] initWithRootViewController:database];
 
-    self.tabControllers = @[navCrashes, navAnalytics, navRemoteConfig, navCms, navDatabase];
+    CloudCodeViewController *cloudCode = [CloudCodeViewController new];
+    cloudCode.title = @"Cloud Code";
+    UINavigationController *navCloudCode = [[UINavigationController alloc] initWithRootViewController:cloudCode];
 
-    NSArray<NSString *> *titles = @[@"Crashes", @"Analytics", @"RemoteConfig", @"CMS", @"Database"];
-    NSArray<NSString *> *icons = @[@"exclamationmark.triangle", @"chart.bar", @"arrow.2.circlepath.circle", @"doc.richtext", @"cylinder.split.1x2"];
+    self.tabControllers = @[navCrashes, navAnalytics, navRemoteConfig, navCms, navDatabase, navCloudCode];
+
+    NSArray<NSString *> *titles = @[@"Crashes", @"Analytics", @"RemoteConfig", @"CMS", @"Database", @"Cloud Code"];
+    NSArray<NSString *> *icons = @[@"exclamationmark.triangle", @"chart.bar", @"arrow.2.circlepath.circle", @"doc.richtext", @"cylinder.split.1x2", @"cloud.bolt"];
 
     [self setupContainerAndTabBar];
     [self setupTabButtonsWithTitles:titles icons:icons];

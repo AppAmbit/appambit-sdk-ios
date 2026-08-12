@@ -22,6 +22,14 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         return URLSession(configuration: config)
     }()
 
+    private lazy var cloudCodeSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForResource = 120
+        config.waitsForConnectivity = true
+        config.httpMaximumConnectionsPerHost = 2
+        return URLSession(configuration: config)
+    }()
+
     // MARK: - Init
 
     init(storageService: StorageService) {
@@ -142,21 +150,34 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     // MARK: - Refresh token
 
     private func handleTokenRefresh<T: Decodable>(
-        originalRequest: URLRequest?,
+        originalRequest: URLRequest,
         skipAuth: Bool,
         responseType: T.Type,
         completion: @escaping @Sendable (ApiResult<T>) -> Void
     ) {
-        let retryAction: (ApiErrorType) -> Void = { [weak self] error in
+        let retryAction: () -> Void = { [weak self] in
             guard let self else { return }
-            if error == .none, let originalRequest {
-                var newRequest = originalRequest
-                if !skipAuth, let token = self.token {
-                    newRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                }
-                self.processResponse(request: newRequest, responseType: responseType, completion: completion)
+            var newRequest = originalRequest
+            if !skipAuth, let token = self.token {
+                newRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            self.processResponse(request: newRequest, responseType: responseType, completion: completion)
+        }
+
+        refreshTokenAndRetryRequests(retry: retryAction) { error in
+            completion(.fail(error, message: "Token renewal failure"))
+        }
+    }
+
+    private func refreshTokenAndRetryRequests(
+        retry: @escaping () -> Void,
+        failure: @escaping (ApiErrorType) -> Void
+    ) {
+        let retryAction: (ApiErrorType) -> Void = { error in
+            if error == .none {
+                retry()
             } else {
-                completion(.fail(error, message: "Token renewal failure"))
+                failure(error)
             }
         }
 
@@ -555,4 +576,109 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
         return result
     }
+
+    func executeCloudCodeRequest(
+        _ endpoint: CloudCodeEndpoint,
+        timeout: TimeInterval,
+        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+    ) {
+        performCloudCodeRequest(endpoint, timeout: timeout) { [weak self] response in
+            guard let self else { return }
+            guard response.statusCode == 401 else {
+                completion(response)
+                return
+            }
+
+            self.refreshTokenAndRetryRequests(retry: {
+                [weak self] in
+                guard let self else { return }
+                self.performCloudCodeRequest(endpoint, timeout: timeout, completion: completion)
+            }) { _ in
+                completion(CloudCodeTransportResponse(
+                    statusCode: 401,
+                    data: response.data,
+                    headers: response.headers,
+                    error: nil
+                ))
+            }
+        }
+    }
+
+    private func performCloudCodeRequest(
+        _ endpoint: CloudCodeEndpoint,
+        timeout: TimeInterval,
+        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+    ) {
+        Queues.state.async { [weak self] in
+            guard let self else { return }
+
+            guard ServiceContainer.shared.reachabilityService.isConnected() else {
+                completion(CloudCodeTransportResponse(
+                    statusCode: nil,
+                    data: nil,
+                    headers: [:],
+                    error: URLError(.notConnectedToInternet)
+                ))
+                return
+            }
+
+            guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
+                completion(CloudCodeTransportResponse(
+                    statusCode: nil,
+                    data: nil,
+                    headers: [:],
+                    error: ApiExceptions.invalidURL
+                ))
+                return
+            }
+
+            var request = URLRequest(url: url)
+            request.httpMethod = endpoint.method.stringValue
+            request.timeoutInterval = timeout
+
+            if let customHeaders = endpoint.customHeader {
+                for (key, value) in customHeaders {
+                    request.setValue(value, forHTTPHeaderField: key)
+                }
+            }
+
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            if let token = self.token {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
+            if let body = endpoint.payload as? [String: Any] {
+                do {
+                    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                } catch {
+                    completion(CloudCodeTransportResponse(
+                        statusCode: nil,
+                        data: nil,
+                        headers: [:],
+                        error: error
+                    ))
+                    return
+                }
+            }
+
+            self.cloudCodeSession.dataTask(with: request) { data, response, error in
+                let httpResponse = response as? HTTPURLResponse
+                var responseHeaders: [String: String] = [:]
+                httpResponse?.allHeaderFields.forEach { key, value in
+                    responseHeaders[String(describing: key)] = String(describing: value)
+                }
+
+                completion(CloudCodeTransportResponse(
+                    statusCode: httpResponse?.statusCode,
+                    data: data,
+                    headers: responseHeaders,
+                    error: error
+                ))
+            }.resume()
+        }
+    }
 }
+
+extension AppAmbitApiService: CloudCodeTransport {}

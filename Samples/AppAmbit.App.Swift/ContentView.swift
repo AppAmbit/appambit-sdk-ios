@@ -15,7 +15,8 @@ struct ContentView: View {
         AppTab(title: "Load", icon: "bolt.horizontal.circle"),
         AppTab(title: "RemoteConfig", icon: "arrow.2.circlepath.circle"),
         AppTab(title: "CMS", icon: "doc.richtext"),
-        AppTab(title: "Database", icon: "cylinder.split.1x2")
+        AppTab(title: "Database", icon: "cylinder.split.1x2"),
+        AppTab(title: "Cloud Code", icon: "cloud.bolt")
     ]
 
     var body: some View {
@@ -27,7 +28,8 @@ struct ContentView: View {
                 case 2: LoadView()
                 case 3: RemoteConfigView()
                 case 4: CmsView()
-                default: DatabaseView()
+                case 5: DatabaseView()
+                default: CloudCodeView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
