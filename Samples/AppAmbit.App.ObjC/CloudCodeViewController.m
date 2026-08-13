@@ -50,7 +50,7 @@
     self.databaseStatusLabel = [self addSetupGroup:@"Database"
                                         requirement:@"Create Database first"
                                                tint:UIColor.systemBlueColor
-                                          function:@"cloud-demo-setup-database"
+                                           function:@"cloud-demo-setup-database-ios"
                                             action:@selector(createTables)];
 
     self.cmsStatusLabel = [self addSetupGroup:@"CMS"
@@ -69,27 +69,27 @@
     [self addSectionHeader:@"Database"];
     [self.stack addArrangedSubview:self.titleField];
     [self.stack addArrangedSubview:self.taskIdField];
-    [self addFunctionCard:@"cloud-demo-create-task"
+    [self addFunctionCard:@"cloud-demo-create-task-ios"
                    detail:@"Insert a task for the signed-in consumer."
-             prerequisite:@"Requires cloud_demo_tasks"
+              prerequisite:@"Requires cloud_demo_tasks_ios"
                     action:@selector(createTask)];
-    [self addFunctionCard:@"cloud-demo-list-tasks"
+    [self addFunctionCard:@"cloud-demo-list-tasks-ios"
                    detail:@"Read the current consumer's tasks."
-             prerequisite:@"Requires cloud_demo_tasks"
+              prerequisite:@"Requires cloud_demo_tasks_ios"
                     action:@selector(listTasks)];
-    [self addFunctionCard:@"cloud-demo-complete-task"
+    [self addFunctionCard:@"cloud-demo-complete-task-ios"
                    detail:@"Update one task with consumer ownership."
              prerequisite:@"Requires a task id"
                     action:@selector(completeTask)];
-    [self addFunctionCard:@"cloud-demo-delete-task"
+    [self addFunctionCard:@"cloud-demo-delete-task-ios"
                    detail:@"Delete one task owned by the consumer."
              prerequisite:@"Requires a task id and confirmation"
                     action:@selector(deleteTask)];
-    [self addFunctionCard:@"cloud-demo-create-order"
+    [self addFunctionCard:@"cloud-demo-create-order-ios"
                    detail:@"Create an order without duplicate idempotency keys."
-             prerequisite:@"Requires cloud_demo_orders"
+              prerequisite:@"Requires cloud_demo_orders_ios"
                     action:@selector(createOrder)];
-    [self addFunctionCard:@"cloud-demo-dashboard-summary"
+    [self addFunctionCard:@"cloud-demo-dashboard-summary-ios"
                    detail:@"Combine Database and CMS in one response."
              prerequisite:@"Requires Database and CMS setup"
                     action:@selector(summary)];
@@ -98,19 +98,19 @@
     [self.stack addArrangedSubview:self.uuidField];
     [self.stack addArrangedSubview:self.publishTitleField];
     [self.stack addArrangedSubview:self.publishBodyField];
-    [self addFunctionCard:@"cloud-demo-publish-post"
+    [self addFunctionCard:@"cloud-demo-publish-post-ios"
                    detail:@"Create a published CMS entry."
-             prerequisite:@"Requires confirmation and cloud_code_demo_posts"
+              prerequisite:@"Requires confirmation and cloud_code_demo_posts_ios"
                     action:@selector(createSampleContent)];
-    [self addFunctionCard:@"cloud-demo-read-posts"
+    [self addFunctionCard:@"cloud-demo-read-posts-ios"
                    detail:@"List published entries using only CMS data."
-             prerequisite:@"Requires cloud_code_demo_posts"
+              prerequisite:@"Requires cloud_code_demo_posts_ios"
                     action:@selector(readPosts)];
 
     [self addSectionHeader:@"Push"];
-    [self addFunctionCard:@"cloud-demo-send-push"
+    [self addFunctionCard:@"cloud-demo-send-push-ios"
                    detail:@"Send a notification to all consumers."
-             prerequisite:@"Requires permission and APNs/FCM"
+              prerequisite:@"Requires permission and APNs"
                     action:@selector(sendPush)];
 
     [self addSectionHeader:@"HTTP"];
@@ -389,7 +389,7 @@
     self.cmsStatusLabel.textColor = UIColor.secondaryLabelColor;
 
     __weak typeof(self) weakSelf = self;
-    [CloudCode call:@"cloud-demo-dashboard-summary"
+     [CloudCode call:@"cloud-demo-dashboard-summary-ios"
              method:CloudCodeHttpMethodGet
               query:nil
                 body:nil
@@ -449,16 +449,16 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-- (void)createTask { [self runFunction:@"cloud-demo-create-task" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": self.titleField.text ?: @"" }]; }
+- (void)createTask { [self runFunction:@"cloud-demo-create-task-ios" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": self.titleField.text ?: @"" }]; }
 - (void)createTables {
-    [self confirmAndRun:@"cloud-demo-setup-database" handler:^{
-        [self runFunction:@"cloud-demo-setup-database" method:CloudCodeHttpMethodPost query:nil body:nil];
+     [self confirmAndRun:@"cloud-demo-setup-database-ios" handler:^{
+         [self runFunction:@"cloud-demo-setup-database-ios" method:CloudCodeHttpMethodPost query:nil body:nil];
     }];
 }
-- (void)listTasks { [self runFunction:@"cloud-demo-list-tasks" method:CloudCodeHttpMethodGet query:@{ @"limit": @"20" } body:nil]; }
-- (void)completeTask { [self runFunction:@"cloud-demo-complete-task" method:CloudCodeHttpMethodPatch query:nil body:[self taskBodyRequired]]; }
+- (void)listTasks { [self runFunction:@"cloud-demo-list-tasks-ios" method:CloudCodeHttpMethodGet query:@{ @"limit": @"20" } body:nil]; }
+- (void)completeTask { [self runFunction:@"cloud-demo-complete-task-ios" method:CloudCodeHttpMethodPatch query:nil body:[self taskBodyRequired]]; }
 - (void)deleteTask {
-    [self confirmAndRun:@"cloud-demo-delete-task" handler:^{ [self runFunction:@"cloud-demo-delete-task" method:CloudCodeHttpMethodDelete query:nil body:[self taskBodyRequired]]; }];
+     [self confirmAndRun:@"cloud-demo-delete-task-ios" handler:^{ [self runFunction:@"cloud-demo-delete-task-ios" method:CloudCodeHttpMethodDelete query:nil body:[self taskBodyRequired]]; }];
 }
 - (void)inspectContext { [self runFunction:@"cloud-demo-http-inspector" method:CloudCodeHttpMethodPost query:@{ @"source": @"objc" } body:@{ @"message": @"hello", @"count": @2 }]; }
 - (void)jsonValues { [self runFunction:@"cloud-demo-json-values" method:CloudCodeHttpMethodPost query:nil body:nil]; }
@@ -468,27 +468,27 @@
 - (void)timeoutDemo { [self runFunction:@"cloud-demo-timeout-10s" method:CloudCodeHttpMethodGet query:nil body:nil]; }
 - (void)readPosts {
     NSDictionary *query = self.uuidField.text.length > 0 ? @{ @"uuid": self.uuidField.text } : nil;
-    [self runFunction:@"cloud-demo-read-posts" method:CloudCodeHttpMethodGet query:query body:nil];
+     [self runFunction:@"cloud-demo-read-posts-ios" method:CloudCodeHttpMethodGet query:query body:nil];
 }
 - (void)createSampleContent {
-    [self confirmAndRun:@"cloud-demo-publish-post" handler:^{
-        [self runFunction:@"cloud-demo-publish-post" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": self.publishTitleField.text ?: @"", @"body": self.publishBodyField.text ?: @"" }];
+     [self confirmAndRun:@"cloud-demo-publish-post-ios" handler:^{
+         [self runFunction:@"cloud-demo-publish-post-ios" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": self.publishTitleField.text ?: @"", @"body": self.publishBodyField.text ?: @"" }];
     }];
 }
 - (void)runtimeContext { [self runFunction:@"cloud-demo-runtime-context" method:CloudCodeHttpMethodGet query:nil body:nil]; }
 - (void)sendPush {
-    [self confirmAndRun:@"cloud-demo-send-push" handler:^{
-        [self prepareResultForFunction:@"cloud-demo-send-push"];
+     [self confirmAndRun:@"cloud-demo-send-push-ios" handler:^{
+         [self prepareResultForFunction:@"cloud-demo-send-push-ios"];
         [self setResultText:@"Checking notification permission..."];
         [self ensurePushReady:^(BOOL ready) {
             if (ready) {
-                [self runFunction:@"cloud-demo-send-push" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": @"Cloud Code demo", @"body": @"Push from Objective-C sample" }];
+                 [self runFunction:@"cloud-demo-send-push-ios" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": @"Cloud Code iOS demo", @"body": @"Push from Objective-C sample" }];
             }
         }];
     }];
 }
-- (void)createOrder { [self runFunction:@"cloud-demo-create-order" method:CloudCodeHttpMethodPost query:nil body:@{ @"idempotency_key": NSUUID.UUID.UUIDString, @"amount": @100 }]; }
-- (void)summary { [self runFunction:@"cloud-demo-dashboard-summary" method:CloudCodeHttpMethodGet query:nil body:nil]; }
+- (void)createOrder { [self runFunction:@"cloud-demo-create-order-ios" method:CloudCodeHttpMethodPost query:nil body:@{ @"idempotency_key": NSUUID.UUID.UUIDString, @"amount": @100 }]; }
+- (void)summary { [self runFunction:@"cloud-demo-dashboard-summary-ios" method:CloudCodeHttpMethodGet query:nil body:nil]; }
 
 - (void)ensurePushReady:(void (^)(BOOL ready))completion {
     // Keep the action safe if the host app did not initialize Push yet.

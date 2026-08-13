@@ -25,15 +25,15 @@ struct CloudCodeView: View {
     private let sectionNames = ["Database", "CMS", "Push", "HTTP"]
 
     private let demos: [CloudCodeDemo] = [
-        CloudCodeDemo(id: "create-task", section: "Database", title: "Create task", slug: "cloud-demo-create-task", detail: "Insert a task for the signed-in consumer.", prerequisite: "cloud_demo_tasks", action: .createTask),
-        CloudCodeDemo(id: "list-tasks", section: "Database", title: "List tasks", slug: "cloud-demo-list-tasks", detail: "Read the current consumer's tasks.", prerequisite: "cloud_demo_tasks", action: .listTasks),
-        CloudCodeDemo(id: "complete-task", section: "Database", title: "Complete task", slug: "cloud-demo-complete-task", detail: "Update one task with consumer ownership.", prerequisite: "Task id", action: .completeTask),
-        CloudCodeDemo(id: "delete-task", section: "Database", title: "Delete task", slug: "cloud-demo-delete-task", detail: "Delete one task owned by the consumer.", prerequisite: "Task id + confirmation", action: .deleteTask),
-        CloudCodeDemo(id: "order", section: "Database", title: "Create idempotent order", slug: "cloud-demo-create-order", detail: "Create an order without duplicate idempotency keys.", prerequisite: "cloud_demo_orders", action: .createOrder),
-        CloudCodeDemo(id: "summary", section: "Database", title: "Dashboard summary", slug: "cloud-demo-dashboard-summary", detail: "Combine Database and CMS in one typed response.", prerequisite: "Database + CMS", action: .summary),
-        CloudCodeDemo(id: "create-sample-content", section: "CMS", title: "Create sample content", slug: "cloud-demo-publish-post", detail: "Create a published CMS entry.", prerequisite: "Confirmation", action: .publishPost),
-        CloudCodeDemo(id: "read-posts", section: "CMS", title: "Read CMS posts", slug: "cloud-demo-read-posts", detail: "List published entries using only CMS data.", prerequisite: "cloud_code_demo_posts", action: .readPosts),
-        CloudCodeDemo(id: "push", section: "Push", title: "Send push notification", slug: "cloud-demo-send-push", detail: "Send a notification to all consumers.", prerequisite: "Permission + APNs/FCM", action: .push),
+        CloudCodeDemo(id: "create-task", section: "Database", title: "Create task", slug: "cloud-demo-create-task-ios", detail: "Insert a task for the signed-in consumer.", prerequisite: "cloud_demo_tasks_ios", action: .createTask),
+        CloudCodeDemo(id: "list-tasks", section: "Database", title: "List tasks", slug: "cloud-demo-list-tasks-ios", detail: "Read the current consumer's tasks.", prerequisite: "cloud_demo_tasks_ios", action: .listTasks),
+        CloudCodeDemo(id: "complete-task", section: "Database", title: "Complete task", slug: "cloud-demo-complete-task-ios", detail: "Update one task with consumer ownership.", prerequisite: "Task id", action: .completeTask),
+        CloudCodeDemo(id: "delete-task", section: "Database", title: "Delete task", slug: "cloud-demo-delete-task-ios", detail: "Delete one task owned by the consumer.", prerequisite: "Task id + confirmation", action: .deleteTask),
+        CloudCodeDemo(id: "order", section: "Database", title: "Create idempotent order", slug: "cloud-demo-create-order-ios", detail: "Create an order without duplicate idempotency keys.", prerequisite: "cloud_demo_orders_ios", action: .createOrder),
+        CloudCodeDemo(id: "summary", section: "Database", title: "Dashboard summary", slug: "cloud-demo-dashboard-summary-ios", detail: "Combine Database and CMS in one typed response.", prerequisite: "Database + CMS", action: .summary),
+        CloudCodeDemo(id: "create-sample-content", section: "CMS", title: "Create sample content", slug: "cloud-demo-publish-post-ios", detail: "Create a published CMS entry.", prerequisite: "Confirmation", action: .publishPost),
+        CloudCodeDemo(id: "read-posts", section: "CMS", title: "Read CMS posts", slug: "cloud-demo-read-posts-ios", detail: "List published entries using only CMS data.", prerequisite: "cloud_code_demo_posts_ios", action: .readPosts),
+        CloudCodeDemo(id: "push", section: "Push", title: "Send push notification", slug: "cloud-demo-send-push-ios", detail: "Send a notification to all iOS consumers.", prerequisite: "Permission + APNs", action: .push),
         CloudCodeDemo(id: "inspector", section: "HTTP", title: "Inspect HTTP context", slug: "cloud-demo-http-inspector", detail: "Inspect method, query, body and consumer context.", prerequisite: "HTTP trigger", action: .inspector),
         CloudCodeDemo(id: "json-values", section: "HTTP", title: "JSON values", slug: "cloud-demo-json-values", detail: "Return common JSON value types.", prerequisite: "HTTP trigger", action: .jsonValues),
         CloudCodeDemo(id: "null-contract", section: "HTTP", title: "Null contract", slug: "cloud-demo-null-contract", detail: "Compare raw null and an explicit value.", prerequisite: "HTTP trigger", action: .nullContract),
@@ -62,7 +62,7 @@ struct CloudCodeView: View {
                                   Button {
                                       runOrConfirm(.setupDatabase, demoID: "setup-database")
                                   } label: {
-                                      Label("cloud-demo-setup-database", systemImage: "play.fill")
+                                      Label("cloud-demo-setup-database-ios", systemImage: "play.fill")
                                   }
                                  .buttonStyle(.borderedProminent)
                                  .disabled(isRunning || isVerifyingBackend)
@@ -221,7 +221,7 @@ struct CloudCodeView: View {
         databaseStatus = "Checking..."
         cmsStatus = "Checking..."
         CloudCode.call(
-            "cloud-demo-dashboard-summary",
+            "cloud-demo-dashboard-summary-ios",
             method: .get,
             query: nil,
             body: nil,
@@ -391,23 +391,23 @@ struct CloudCodeView: View {
         let taskValue = Int(taskId) ?? 0
         let headers = ["X-Sample-Client": "swift"]
         switch action {
-        case .setupDatabase: return ("cloud-demo-setup-database", .post, nil, nil, headers)
-        case .createTask: return ("cloud-demo-create-task", .post, nil, ["title": taskTitle], headers)
-        case .listTasks: return ("cloud-demo-list-tasks", .get, ["limit": "20"], nil, headers)
-        case .completeTask: return ("cloud-demo-complete-task", .patch, nil, ["task_id": taskValue], headers)
-        case .deleteTask: return ("cloud-demo-delete-task", .delete, nil, ["task_id": taskValue], headers)
+        case .setupDatabase: return ("cloud-demo-setup-database-ios", .post, nil, nil, headers)
+        case .createTask: return ("cloud-demo-create-task-ios", .post, nil, ["title": taskTitle], headers)
+        case .listTasks: return ("cloud-demo-list-tasks-ios", .get, ["limit": "20"], nil, headers)
+        case .completeTask: return ("cloud-demo-complete-task-ios", .patch, nil, ["task_id": taskValue], headers)
+        case .deleteTask: return ("cloud-demo-delete-task-ios", .delete, nil, ["task_id": taskValue], headers)
         case .inspector: return ("cloud-demo-http-inspector", .post, ["source": "swift"], ["message": "hello", "count": 2], headers)
         case .jsonValues: return ("cloud-demo-json-values", .post, nil, nil, headers)
         case .nullContract: return ("cloud-demo-null-contract", .get, nil, nil, headers)
         case .responseShapes: return ("cloud-demo-response-shapes", .post, nil, nil, headers)
         case .controlledError: return ("cloud-demo-error-response", .post, nil, ["invalid": true], headers)
         case .timeout: return ("cloud-demo-timeout-10s", .get, nil, nil, headers)
-        case .readPosts: return ("cloud-demo-read-posts", .get, postUUID.isEmpty ? nil : ["uuid": postUUID], nil, headers)
-        case .publishPost: return ("cloud-demo-publish-post", .post, nil, ["title": publishTitle, "body": publishBody], headers)
+        case .readPosts: return ("cloud-demo-read-posts-ios", .get, postUUID.isEmpty ? nil : ["uuid": postUUID], nil, headers)
+        case .publishPost: return ("cloud-demo-publish-post-ios", .post, nil, ["title": publishTitle, "body": publishBody], headers)
         case .runtimeContext: return ("cloud-demo-runtime-context", .get, nil, nil, headers)
-        case .push: return ("cloud-demo-send-push", .post, nil, ["title": "Cloud Code demo", "body": "Push from Swift sample"], headers)
-        case .createOrder: return ("cloud-demo-create-order", .post, nil, ["idempotency_key": UUID().uuidString, "amount": 100], headers)
-        case .summary: return ("cloud-demo-dashboard-summary", .get, nil, nil, headers)
+        case .push: return ("cloud-demo-send-push-ios", .post, nil, ["title": "Cloud Code iOS demo", "body": "Push from Swift sample"], headers)
+        case .createOrder: return ("cloud-demo-create-order-ios", .post, nil, ["idempotency_key": UUID().uuidString, "amount": 100], headers)
+        case .summary: return ("cloud-demo-dashboard-summary-ios", .get, nil, nil, headers)
         }
     }
 
