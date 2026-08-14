@@ -1,16 +1,18 @@
 import Foundation
 
-struct CloudCodeTransportResponse: @unchecked Sendable {
+struct HTTPTransportResponse: @unchecked Sendable {
     let statusCode: Int?
     let data: Data?
     let headers: [String: String]
     let error: Error?
 }
 
-protocol CloudCodeTransport: AnyObject {
-    func executeCloudCodeRequest(
-        _ endpoint: CloudCodeEndpoint,
+typealias CloudCodeTransportResponse = HTTPTransportResponse
+
+protocol HTTPTransport: AnyObject {
+    func executeRawRequest(
+        _ endpoint: Endpoint,
         timeout: TimeInterval,
-        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     )
 }

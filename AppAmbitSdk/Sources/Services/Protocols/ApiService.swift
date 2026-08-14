@@ -1,4 +1,4 @@
-protocol ApiService {
+protocol ApiService: HTTPTransport {
     func executeRequest<T: Decodable>(
         _ endpoint: Endpoint,
         responseType: T.Type,

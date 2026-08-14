@@ -19,6 +19,7 @@ struct CloudCodeView: View {
     @State private var databaseStatus = "Not available"
     @State private var cmsStatus = "Not available"
     @State private var databaseAvailable = false
+    @State private var databaseTablesReady = false
     @State private var cmsAvailable = false
     @State private var isVerifyingBackend = false
 
@@ -50,24 +51,40 @@ struct CloudCodeView: View {
                      GroupBox("Database") {
                          VStack(alignment: .leading, spacing: 8) {
                              setupRequirement("Create Database first", tint: .blue)
-                             HStack(spacing: 8) {
-                                 Label(databaseStatus, systemImage: databaseAvailable ? "checkmark.circle.fill" : "xmark.circle")
-                                     .font(.caption.weight(.semibold))
-                                     .foregroundColor(databaseAvailable ? .green : .secondary)
-                                 Spacer()
-                                 if isVerifyingBackend {
-                                     ProgressView()
-                                         .controlSize(.small)
-                                 }
+                              HStack(spacing: 8) {
+                                  Label(databaseStatus, systemImage: databaseAvailable ? "checkmark.circle.fill" : "xmark.circle")
+                                      .font(.caption.weight(.semibold))
+                                      .foregroundColor(databaseAvailable ? .green : .secondary)
+                                  Spacer()
+                                  if isVerifyingBackend {
+                                      ProgressView()
+                                          .controlSize(.small)
+                                  }
+                              }
+                              HStack(alignment: .firstTextBaseline) {
+                                  VStack(alignment: .leading, spacing: 2) {
+                                      Text("cloud-demo-setup-database-ios")
+                                          .font(.subheadline.weight(.semibold))
+                                      Text("Provision the app database before using database demos.")
+                                          .font(.caption)
+                                          .foregroundColor(.secondary)
+                                  }
+                                  Spacer(minLength: 8)
                                   Button {
                                       runOrConfirm(.setupDatabase, demoID: "setup-database")
                                   } label: {
-                                      Label("cloud-demo-setup-database-ios", systemImage: "play.fill")
+                                      Label("Run", systemImage: "play.fill")
                                   }
-                                 .buttonStyle(.borderedProminent)
-                                 .disabled(isRunning || isVerifyingBackend)
-                             }
-                             resultCard(for: "setup-database")
+                                  .buttonStyle(.borderedProminent)
+                                  .frame(minWidth: 44, minHeight: 44)
+                                  .disabled(isRunning || isVerifyingBackend || !databaseAvailable || databaseTablesReady)
+                              }
+                              .padding(.horizontal, 12)
+                              .padding(.vertical, 8)
+                              .frame(maxWidth: .infinity, alignment: .leading)
+                              .background(Color.secondary.opacity(0.08))
+                              .clipShape(RoundedRectangle(cornerRadius: 10))
+                              resultCard(for: "setup-database")
                          }
                          .frame(maxWidth: .infinity, alignment: .leading)
                      }
@@ -229,25 +246,37 @@ struct CloudCodeView: View {
         ) { response, error in
             DispatchQueue.main.async {
                 isVerifyingBackend = false
-                guard let response, response.statusCode == 200,
-                      let payload = response.data as? [String: Any] else {
-                    databaseAvailable = false
-                    cmsAvailable = false
-                    databaseStatus = "Not available"
-                    cmsStatus = "Not available"
+                 guard let response, response.statusCode == 200,
+                       let payload = response.data as? [String: Any] else {
+                     databaseAvailable = false
+                     databaseTablesReady = false
+                     cmsAvailable = false
+                     databaseStatus = "Not available"
+                     cmsStatus = "Not available"
                     return
                 }
 
-                databaseAvailable = payload["task_count"] != nil
-                cmsAvailable = payload["posts"] != nil
-                databaseStatus = databaseAvailable ? "Available" : "Not available"
-                cmsStatus = cmsAvailable ? "Available" : "Not available"
-                _ = error
+                 databaseAvailable = payload["database_available"] as? Bool ?? false
+                 databaseTablesReady = payload["database_tables_ready"] as? Bool ?? false
+                 cmsAvailable = payload["posts"] != nil
+                 if !databaseAvailable {
+                     databaseStatus = "Not available"
+                 } else if databaseTablesReady {
+                     databaseStatus = "Tables ready"
+                 } else {
+                     databaseStatus = "Available"
+                 }
+                 cmsStatus = cmsAvailable ? "Available" : "Not available"
+                 _ = error
             }
         }
     }
 
     private func runOrConfirm(_ action: CloudCodeDemoAction, demoID: String) {
+        if action == .setupDatabase && (!databaseAvailable || databaseTablesReady) {
+            return
+        }
+
         switch action {
         case .deleteTask, .publishPost, .push:
             pendingConfirmation = action

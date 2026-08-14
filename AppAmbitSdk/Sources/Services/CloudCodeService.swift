@@ -1,11 +1,11 @@
 import Foundation
 
 final class CloudCodeService: @unchecked Sendable {
-    static let defaultTimeout: TimeInterval = 60
+    static let defaultTimeout: TimeInterval = AppConstants.cloudCodeTimeout
 
-    private let transport: CloudCodeTransport
+    private let transport: HTTPTransport
 
-    init(transport: CloudCodeTransport) {
+    init(transport: HTTPTransport) {
         self.transport = transport
     }
 
@@ -38,14 +38,21 @@ final class CloudCodeService: @unchecked Sendable {
             case .failure(let error):
                 completion(nil, error)
             case .success(let metadata):
-                completion(
-                    CloudCodeResponse(
-                        data: Self.anyValue(from: response.data),
-                        statusCode: metadata.statusCode,
-                        requestId: metadata.requestId
-                    ),
-                    nil
-                )
+                do {
+                    completion(
+                        CloudCodeResponse(
+                            data: try Self.anyValue(from: response.data, statusCode: metadata.statusCode),
+                            statusCode: metadata.statusCode,
+                            requestId: metadata.requestId,
+                            headers: metadata.headers
+                        ),
+                        nil
+                    )
+                } catch let error as CloudCodeError {
+                    completion(nil, error)
+                } catch {
+                    completion(nil, CloudCodeError.decoding(error.localizedDescription))
+                }
             }
         }
 
@@ -88,7 +95,15 @@ final class CloudCodeService: @unchecked Sendable {
 
                 do {
                     let value = try JSONDecoder().decode(T.self, from: responseData)
-                    completion(CloudCodeResult(data: value, statusCode: metadata.statusCode, requestId: metadata.requestId), nil)
+                    completion(
+                        CloudCodeResult(
+                            data: value,
+                            statusCode: metadata.statusCode,
+                            requestId: metadata.requestId,
+                            headers: metadata.headers
+                        ),
+                        nil
+                    )
                 } catch {
                     completion(nil, .decoding(error.localizedDescription))
                 }
@@ -101,9 +116,9 @@ final class CloudCodeService: @unchecked Sendable {
     private func execute(
         _ endpoint: CloudCodeEndpoint,
         cancellation: CloudCodeCancellationToken,
-        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     ) {
-        transport.executeCloudCodeRequest(endpoint, timeout: Self.defaultTimeout) { response in
+        transport.executeRawRequest(endpoint, timeout: Self.defaultTimeout) { response in
             guard !cancellation.isCancelled else { return }
             completion(response)
         }
@@ -117,8 +132,8 @@ final class CloudCodeService: @unchecked Sendable {
     }
 
     private static func validateSuccessfulResponse(
-        _ response: CloudCodeTransportResponse
-    ) -> Result<(statusCode: Int, requestId: String?), CloudCodeError> {
+        _ response: HTTPTransportResponse
+    ) -> Result<(statusCode: Int, headers: [String: String], requestId: String?), CloudCodeError> {
         if let error = response.error {
             return .failure(transportError(from: error))
         }
@@ -130,7 +145,7 @@ final class CloudCodeService: @unchecked Sendable {
             let rawBody = parsed == nil ? response.data.flatMap { String(data: $0, encoding: .utf8) } : nil
             return .failure(.http(statusCode: statusCode, body: parsed, rawBody: rawBody, requestId: requestId(from: response)))
         }
-        return .success((statusCode, requestId(from: response)))
+        return .success((statusCode, response.headers, requestId(from: response)))
     }
 
     private static func transportError(from error: Error) -> CloudCodeError {
@@ -149,16 +164,27 @@ final class CloudCodeService: @unchecked Sendable {
     }
 
     private func isValidFunction(_ function: String) -> Bool {
-        !function.isEmpty && !function.contains("/")
+        guard !function.isEmpty, !function.contains("/") else { return false }
+        return !function.unicodeScalars.contains { scalar in
+            CharacterSet.whitespacesAndNewlines.contains(scalar) ||
+            CharacterSet.controlCharacters.contains(scalar)
+        }
     }
 
     private func invalidReservedHeader(in headers: [String: String]?) -> String? {
         let reserved = Set([
             "authorization", "cookie", "host", "content-length", "content-type", "accept",
-            "x-app-key", "x-request-id", "x-forwarded-for", "x-forwarded-host",
-            "x-forwarded-proto", "x-amzn-trace-id"
+            "x-app-key", "x-request-id", "x-correlation-id", "x-trace-id", "traceparent",
+            "tracestate", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto",
+            "x-amzn-trace-id"
         ])
-        return headers?.keys.first { reserved.contains($0.lowercased()) }
+
+        return headers?.first { key, value in
+            let normalized = key.lowercased()
+            return key.isEmpty || value.contains("\r") || value.contains("\n") ||
+                reserved.contains(normalized) || normalized.hasPrefix("x-appambit-") ||
+                normalized.hasPrefix("x-internal-")
+        }?.key
     }
 
     private static func jsonValue(from data: Data?) -> JSONValue? {
@@ -170,15 +196,18 @@ final class CloudCodeService: @unchecked Sendable {
         return JSONValue.from(any: object)
     }
 
-    private static func anyValue(from data: Data?) -> Any {
-        guard let data, !data.isEmpty,
-              let object = try? JSONSerialization.jsonObject(with: data, options: [.allowFragments]) else {
-            return NSNull()
+    private static func anyValue(from data: Data?, statusCode: Int) throws -> Any {
+        guard statusCode != 204 else { return NSNull() }
+        guard let data, !data.isEmpty else { return NSNull() }
+        do {
+            let object = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
+            return JSONValue.from(any: object).toAny()
+        } catch {
+            throw CloudCodeError.decoding("The response body is not valid JSON.")
         }
-        return JSONValue.from(any: object).toAny()
     }
 
-    private static func requestId(from response: CloudCodeTransportResponse) -> String? {
+    private static func requestId(from response: HTTPTransportResponse) -> String? {
         if let header = response.headers.first(where: { $0.key.caseInsensitiveCompare("X-Request-Id") == .orderedSame })?.value {
             return header
         }

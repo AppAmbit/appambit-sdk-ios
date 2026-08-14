@@ -370,6 +370,82 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(transport.requestCount, 1)
     }
 
+    func testSharedTransportOmitsCloudCodeGETBodyAndPreservesDELETEBody() throws {
+        let requestCapture = RequestCapture()
+        TestURLProtocol.requestHandler = { request in
+            requestCapture.append(request)
+            let response = HTTPURLResponse(
+                url: try XCTUnwrap(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["X-Request-Id": "raw-id"]
+            )!
+            return (response, Data("{\"ok\":true}".utf8))
+        }
+        defer { TestURLProtocol.reset() }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TestURLProtocol.self]
+        let apiService = AppAmbitApiService(
+            storageService: InMemoryStorage(),
+            urlSession: URLSession(configuration: configuration),
+            isConnected: { true }
+        )
+
+        let getEndpoint = CloudCodeEndpoint(
+            function: "get-function",
+            method: .get,
+            query: ["message": "hello world"],
+            body: ["ignored": true],
+            headers: ["X-Test": "get"]
+        )
+        getEndpoint.skipAuthorization = true
+        let getResponse = waitForRawResponse(apiService, endpoint: getEndpoint)
+
+        let deleteEndpoint = CloudCodeEndpoint(
+            function: "delete-function",
+            method: .delete,
+            query: nil,
+            body: ["keep": true],
+            headers: ["X-Test": "delete"]
+        )
+        deleteEndpoint.skipAuthorization = true
+        let deleteResponse = waitForRawResponse(apiService, endpoint: deleteEndpoint)
+
+        XCTAssertEqual(getResponse.statusCode, 200)
+        XCTAssertEqual(getResponse.headers["X-Request-Id"], "raw-id")
+        XCTAssertEqual(deleteResponse.statusCode, 200)
+
+        let requests = requestCapture.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests[0].httpMethod, "GET")
+        XCTAssertNil(requests[0].httpBody)
+        XCTAssertEqual(requests[0].value(forHTTPHeaderField: "X-Test"), "get")
+        XCTAssertEqual(
+            URLComponents(url: try XCTUnwrap(requests[0].url), resolvingAgainstBaseURL: false)?.queryItems,
+            [URLQueryItem(name: "message", value: "hello world")]
+        )
+
+        XCTAssertEqual(requests[1].httpMethod, "DELETE")
+        XCTAssertEqual(requests[1].value(forHTTPHeaderField: "X-Test"), "delete")
+        XCTAssertEqual(requests[1].value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: try XCTUnwrap(requests[1].httpBody)) as? [String: Bool],
+            ["keep": true]
+        )
+    }
+
+    private func waitForRawResponse(_ apiService: AppAmbitApiService, endpoint: Endpoint) -> HTTPTransportResponse {
+        let expectation = expectation(description: "raw response")
+        let box = RawResponseBox()
+        apiService.executeRawRequest(endpoint, timeout: 2) { response in
+            box.set(response)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+        return box.value!
+    }
+
     private func waitForUntyped(
         _ start: (@escaping @Sendable (CloudCodeResponse?, Error?) -> Void) -> Void
     ) -> (CloudCodeResponse?, Error?) {
@@ -384,19 +460,19 @@ final class CloudCodeTests: XCTestCase {
     }
 }
 
-private final class TestCloudCodeTransport: CloudCodeTransport, @unchecked Sendable {
+private final class TestCloudCodeTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
-    private var pendingCompletion: (@Sendable (CloudCodeTransportResponse) -> Void)?
+    private var pendingCompletion: (@Sendable (HTTPTransportResponse) -> Void)?
 
     var response: CloudCodeTransportResponse?
     private(set) var requestCount = 0
     private(set) var lastTimeout: TimeInterval?
-    private(set) var lastEndpoint: CloudCodeEndpoint?
+    private(set) var lastEndpoint: Endpoint?
 
-    func executeCloudCodeRequest(
-        _ endpoint: CloudCodeEndpoint,
+    func executeRawRequest(
+        _ endpoint: Endpoint,
         timeout: TimeInterval,
-        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     ) {
         lock.lock()
         requestCount += 1
@@ -413,7 +489,7 @@ private final class TestCloudCodeTransport: CloudCodeTransport, @unchecked Senda
         }
     }
 
-    func deliver(_ response: CloudCodeTransportResponse) {
+    func deliver(_ response: HTTPTransportResponse) {
         lock.lock()
         let completion = pendingCompletion
         pendingCompletion = nil
@@ -431,6 +507,34 @@ private final class ResultBox<Value, Failure: Error>: @unchecked Sendable {
         lock.lock()
         self.value = value
         self.error = error
+        lock.unlock()
+    }
+}
+
+private final class RequestCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedRequests: [URLRequest] = []
+
+    var requests: [URLRequest] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedRequests
+    }
+
+    func append(_ request: URLRequest) {
+        lock.lock()
+        storedRequests.append(request)
+        lock.unlock()
+    }
+}
+
+private final class RawResponseBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var value: HTTPTransportResponse?
+
+    func set(_ value: HTTPTransportResponse) {
+        lock.lock()
+        self.value = value
         lock.unlock()
     }
 }

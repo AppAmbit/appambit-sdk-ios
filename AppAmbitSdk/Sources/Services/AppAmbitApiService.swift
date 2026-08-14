@@ -13,27 +13,28 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
     // MARK: - Networking
 
-    private lazy var urlSession: URLSession = {
+    private let urlSession: URLSession
+    private let isConnected: @Sendable () -> Bool
+
+    private static func makeURLSession() -> URLSession {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 20
+        config.timeoutIntervalForResource = AppConstants.cloudCodeTimeout
         config.waitsForConnectivity = true
         config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
-    }()
-
-    private lazy var cloudCodeSession: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForResource = 80
-        config.waitsForConnectivity = true
-        config.httpMaximumConnectionsPerHost = 2
-        return URLSession(configuration: config)
-    }()
+    }
 
     // MARK: - Init
 
-    init(storageService: StorageService) {
+    init(
+        storageService: StorageService,
+        urlSession: URLSession? = nil,
+        isConnected: @escaping @Sendable () -> Bool = { ServiceContainer.shared.reachabilityService.isConnected() }
+    ) {
         self.storageService = storageService
+        self.urlSession = urlSession ?? Self.makeURLSession()
+        self.isConnected = isConnected
     }
 
     // MARK: - Token (thread-safe using internal queue)
@@ -43,11 +44,13 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     }
 
     func setToken(_ newToken: String) {
-        Queues.token.async(flags: .barrier) { self._token = newToken }
+        Queues.token.sync(flags: .barrier) {
+            self._token = newToken.isEmpty ? nil : newToken
+        }
     }
 
     private func clearToken() {
-        Queues.token.async(flags: .barrier) { self._token = "" }
+        setToken("")
     }
 
     // MARK: - Public API
@@ -57,10 +60,19 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         responseType: T.Type,
         completion: @Sendable @escaping (ApiResult<T>) -> Void
     ) {
+        executeRequest(endpoint, responseType: responseType, allowTokenRefresh: true, completion: completion)
+    }
+
+    private func executeRequest<T: Decodable>(
+        _ endpoint: Endpoint,
+        responseType: T.Type,
+        allowTokenRefresh: Bool,
+        completion: @Sendable @escaping (ApiResult<T>) -> Void
+    ) {
         Queues.state.async { [weak self] in
             guard let self else { return }
 
-            if !ServiceContainer.shared.reachabilityService.isConnected() {
+            if !self.isConnected() {
                 completion(.fail(.unknown, message: "No internet connection"))
                 return
             }
@@ -72,42 +84,26 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 return
             }
 
-            guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
-                completion(.fail(.unknown, message: "Invalid URL"))
+            if allowTokenRefresh, self.requiresConsumerToken(endpoint), !self.hasToken {
+                self.refreshTokenAndRetryRequests(retry: {
+                    self.executeRequest(
+                        endpoint,
+                        responseType: responseType,
+                        allowTokenRefresh: false,
+                        completion: completion
+                    )
+                }) { error in
+                    completion(.fail(error, message: "Token renewal failure"))
+                }
                 return
             }
 
-            var request = URLRequest(url: url)
-            request.httpMethod = endpoint.method.stringValue
-
-            #if DEBUG
-            if endpoint is CmsEndpoint {
-                AppAmbitLogger.log(message: "CMS REQUEST URL: \(url.absoluteString)")
-            }
-            #endif
-
-            self.configureHeaders(for: &request, endpoint: endpoint)
-
-            if let payload = endpoint.payload {
-                if endpoint.method == .get {
-                    self.handleGETWithQueryParameters(
-                        payload: payload,
-                        request: &request,
-                        responseType: T.self,
-                        completion: completion
-                    )
-                } else {
-                    if self.isMultipartPayload(payload) {
-                        self.handleMultipartPayload(payload, request: &request)
-                    } else {
-                        self.handleJSONPayload(
-                            payload,
-                            request: &request,
-                            responseType: T.self,
-                            completion: completion
-                        )
-                    }
-                }
+            let request: URLRequest
+            do {
+                request = try self.buildRequest(for: endpoint, timeout: nil)
+            } catch {
+                completion(.fail(.unknown, message: error.localizedDescription))
+                return
             }
 
             let isTokenEndpoint = endpoint is TokenEndpoint
@@ -117,6 +113,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 Queues.state.async {
                     switch result.errorType {
                     case .unauthorized where !isTokenEndpoint:
+                        self.clearToken()
                         self.handleTokenRefresh(
                             originalRequest: request,
                             skipAuth: skipAuth,
@@ -129,6 +126,18 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private var hasToken: Bool {
+        guard let token else { return false }
+        return !token.isEmpty
+    }
+
+    private func requiresConsumerToken(_ endpoint: Endpoint) -> Bool {
+        !(endpoint is TokenEndpoint) &&
+        !(endpoint is RegisterEndpoint) &&
+        !(endpoint is CmsEndpoint) &&
+        !endpoint.skipAuthorization
     }
 
     func getNewToken(completion: @escaping @Sendable (ApiErrorType) -> Void) {
@@ -229,7 +238,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     private func configureHeaders(for request: inout URLRequest, endpoint: Endpoint) {
         if let headers = endpoint.customHeader {
             for (k, v) in headers {
-                request.addValue(v, forHTTPHeaderField: k)
+                request.setValue(v, forHTTPHeaderField: k)
             }
         }
         request.addValue("application/json", forHTTPHeaderField: "Accept")
@@ -249,40 +258,6 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         }
     }
 
-    private func handleGETWithQueryParameters<T: Decodable>(
-        payload: Any,
-        request: inout URLRequest,
-        responseType: T.Type,
-        completion: @escaping (ApiResult<T>) -> Void
-    ) {
-        guard var urlComponents = URLComponents(url: request.url!, resolvingAgainstBaseURL: false) else {
-            completion(.fail(.unknown, message: "Invalid URL"))
-            return
-        }
-
-        var queryItems = [URLQueryItem]()
-
-        if let dictConvertible = payload as? DictionaryConvertible {
-            let dictionary = dictConvertible.toDictionary()
-            queryItems = dictionary.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
-        } else if let dictionary = payload as? [String: Any] {
-            queryItems = dictionary.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
-        }
-
-        urlComponents.queryItems = queryItems.isEmpty ? nil : queryItems
-
-        guard let urlWithQueryParams = urlComponents.url else {
-            completion(.fail(.unknown, message: "Invalid URL with query parameters"))
-            return
-        }
-
-        request.url = urlWithQueryParams
-
-        #if DEBUG
-        AppAmbitLogger.log(message: "HTTP - REQUEST - URL with QueryParams: \(request.url?.absoluteString ?? "N/A")")
-        #endif
-    }
-
     private func isMultipartPayload(_ payload: Any) -> Bool {
         payload is Log || payload is LogBatch
     }
@@ -300,32 +275,82 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         printMultipartRequest(request: request, body: body)
     }
 
-    private func handleJSONPayload<T: Decodable>(
-        _ payload: Any,
-        request: inout URLRequest,
-        responseType: T.Type,
-        completion: @escaping (ApiResult<T>) -> Void
-    ) {
-        do {
-            let payloadDict = try convertToDictionary(payload: payload)
-            guard JSONSerialization.isValidJSONObject(payloadDict) else {
-                return completion(.fail(.unknown, message: "The payload object is not a valid JSON"))
-            }
-            let jsonData = try JSONSerialization.data(withJSONObject: payloadDict, options: [.prettyPrinted])
-            request.httpBody = jsonData
-            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            printJSONRequest(request: request, jsonData: jsonData)
-        } catch let error as ApiErrorType {
-            completion(.fail(error, message: "Payload not convertible"))
-        } catch {
-            completion(.fail(.unknown, message: "Error serializing payload: \(error.localizedDescription)"))
+    private func buildRequest(for endpoint: Endpoint, timeout: TimeInterval?) throws -> URLRequest {
+        guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
+            throw ApiExceptions.invalidURL
         }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = endpoint.method.stringValue
+        if let timeout {
+            request.timeoutInterval = timeout
+        }
+        configureHeaders(for: &request, endpoint: endpoint)
+
+        if let cloudCodeEndpoint = endpoint as? CloudCodeEndpoint {
+            // Cloud Code GET requests never carry a body, even if one was supplied.
+            if endpoint.method != .get, let bodyData = cloudCodeEndpoint.bodyData {
+                request.httpBody = bodyData
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                printJSONRequest(request: request, jsonData: bodyData)
+            }
+            return request
+        }
+
+        guard let payload = endpoint.payload else { return request }
+        if endpoint.method == .get {
+            try applyGETQueryParameters(payload: payload, request: &request)
+        } else if isMultipartPayload(payload) {
+            handleMultipartPayload(payload, request: &request)
+        } else {
+            let jsonData = try serializeJSONPayload(payload)
+            request.httpBody = jsonData
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            printJSONRequest(request: request, jsonData: jsonData)
+        }
+        return request
     }
 
-    private func convertToDictionary(payload: Any) throws -> [String: Any] {
-        if let convertible = payload as? DictionaryConvertible { return convertible.toDictionary() }
-        if let dict = payload as? [String: Any] { return dict }
-        throw ApiErrorType.unknown
+    private func applyGETQueryParameters(payload: Any, request: inout URLRequest) throws {
+        guard var urlComponents = request.url.flatMap({ URLComponents(url: $0, resolvingAgainstBaseURL: false) }) else {
+            throw ApiExceptions.invalidURL
+        }
+
+        let dictionary: [String: Any]
+        if let dictConvertible = payload as? DictionaryConvertible {
+            dictionary = dictConvertible.toDictionary()
+        } else if let dictionaryPayload = payload as? [String: Any] {
+            dictionary = dictionaryPayload
+        } else {
+            return
+        }
+
+        let queryItems = URLQueryBuilder.queryItems(from: dictionary)
+        urlComponents.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let urlWithQueryParams = urlComponents.url else {
+            throw ApiExceptions.invalidURL
+        }
+        request.url = urlWithQueryParams
+
+        #if DEBUG
+        AppAmbitLogger.log(message: "HTTP - REQUEST URL with QueryParams: \(urlWithQueryParams.absoluteString)")
+        #endif
+    }
+
+    private func serializeJSONPayload(_ payload: Any) throws -> Data {
+        let payloadDictionary: [String: Any]
+        if let convertible = payload as? DictionaryConvertible {
+            payloadDictionary = convertible.toDictionary()
+        } else if let dictionary = payload as? [String: Any] {
+            payloadDictionary = dictionary
+        } else {
+            throw ApiErrorType.unknown
+        }
+
+        guard JSONSerialization.isValidJSONObject(payloadDictionary) else {
+            throw ApiErrorType.unknown
+        }
+        return try JSONSerialization.data(withJSONObject: payloadDictionary, options: [.prettyPrinted])
     }
 
     // MARK: - Low level response/decoding
@@ -577,43 +602,16 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         return result
     }
 
-    func executeCloudCodeRequest(
-        _ endpoint: CloudCodeEndpoint,
+    func executeRawRequest(
+        _ endpoint: Endpoint,
         timeout: TimeInterval,
-        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
-    ) {
-        performCloudCodeRequest(endpoint, timeout: timeout) { [weak self] response in
-            guard let self else { return }
-            guard response.statusCode == 401 else {
-                completion(response)
-                return
-            }
-
-            self.refreshTokenAndRetryRequests(retry: {
-                [weak self] in
-                guard let self else { return }
-                self.performCloudCodeRequest(endpoint, timeout: timeout, completion: completion)
-            }) { _ in
-                completion(CloudCodeTransportResponse(
-                    statusCode: 401,
-                    data: response.data,
-                    headers: response.headers,
-                    error: nil
-                ))
-            }
-        }
-    }
-
-    private func performCloudCodeRequest(
-        _ endpoint: CloudCodeEndpoint,
-        timeout: TimeInterval,
-        completion: @escaping @Sendable (CloudCodeTransportResponse) -> Void
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     ) {
         Queues.state.async { [weak self] in
             guard let self else { return }
 
-            guard ServiceContainer.shared.reachabilityService.isConnected() else {
-                completion(CloudCodeTransportResponse(
+            guard self.isConnected() else {
+                completion(HTTPTransportResponse(
                     statusCode: nil,
                     data: nil,
                     headers: [:],
@@ -622,63 +620,86 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 return
             }
 
-            guard let url = URL(string: endpoint.baseUrl + endpoint.url) else {
-                completion(CloudCodeTransportResponse(
-                    statusCode: nil,
-                    data: nil,
-                    headers: [:],
-                    error: ApiExceptions.invalidURL
-                ))
+            if self.requiresConsumerToken(endpoint), !self.hasToken {
+                self.refreshTokenAndRetryRequests(retry: {
+                    self.executeRawRequestAfterToken(
+                        endpoint,
+                        timeout: timeout,
+                        allowUnauthorizedRetry: true,
+                        completion: completion
+                    )
+                }) { _ in
+                    completion(HTTPTransportResponse(
+                        statusCode: 401,
+                        data: nil,
+                        headers: [:],
+                        error: nil
+                    ))
+                }
                 return
             }
 
-            var request = URLRequest(url: url)
-            request.httpMethod = endpoint.method.stringValue
-            request.timeoutInterval = timeout
-
-            if let customHeaders = endpoint.customHeader {
-                for (key, value) in customHeaders {
-                    request.setValue(value, forHTTPHeaderField: key)
-                }
-            }
-
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-            if let token = self.token {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            }
-
-            if let body = endpoint.payload as? [String: Any] {
-                do {
-                    request.httpBody = try JSONSerialization.data(withJSONObject: body)
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                } catch {
-                    completion(CloudCodeTransportResponse(
-                        statusCode: nil,
-                        data: nil,
-                        headers: [:],
-                        error: error
-                    ))
-                    return
-                }
-            }
-
-            self.cloudCodeSession.dataTask(with: request) { data, response, error in
-                let httpResponse = response as? HTTPURLResponse
-                var responseHeaders: [String: String] = [:]
-                httpResponse?.allHeaderFields.forEach { key, value in
-                    responseHeaders[String(describing: key)] = String(describing: value)
-                }
-
-                completion(CloudCodeTransportResponse(
-                    statusCode: httpResponse?.statusCode,
-                    data: data,
-                    headers: responseHeaders,
-                    error: error
-                ))
-            }.resume()
+            self.executeRawRequestAfterToken(
+                endpoint,
+                timeout: timeout,
+                allowUnauthorizedRetry: true,
+                completion: completion
+            )
         }
     }
-}
 
-extension AppAmbitApiService: CloudCodeTransport {}
+    private func executeRawRequestAfterToken(
+        _ endpoint: Endpoint,
+        timeout: TimeInterval,
+        allowUnauthorizedRetry: Bool,
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
+    ) {
+        let request: URLRequest
+        do {
+            request = try buildRequest(for: endpoint, timeout: timeout)
+        } catch {
+            completion(HTTPTransportResponse(
+                statusCode: nil,
+                data: nil,
+                headers: [:],
+                error: error
+            ))
+            return
+        }
+
+        urlSession.dataTask(with: request) { [weak self] data, response, error in
+            guard let self else { return }
+            let httpResponse = response as? HTTPURLResponse
+            var responseHeaders: [String: String] = [:]
+            httpResponse?.allHeaderFields.forEach { key, value in
+                responseHeaders[String(describing: key)] = String(describing: value)
+            }
+
+            let rawResponse = HTTPTransportResponse(
+                statusCode: httpResponse?.statusCode,
+                data: data,
+                headers: responseHeaders,
+                error: error
+            )
+
+            guard rawResponse.statusCode == 401,
+                  allowUnauthorizedRetry,
+                  self.requiresConsumerToken(endpoint) else {
+                completion(rawResponse)
+                return
+            }
+
+            self.clearToken()
+            self.refreshTokenAndRetryRequests(retry: {
+                self.executeRawRequestAfterToken(
+                    endpoint,
+                    timeout: timeout,
+                    allowUnauthorizedRetry: false,
+                    completion: completion
+                )
+            }) { _ in
+                completion(rawResponse)
+            }
+        }.resume()
+    }
+}
