@@ -17,6 +17,9 @@
 @property (nonatomic, strong) UIStackView *resultContainer;
 @property (nonatomic, strong) UILabel *databaseStatusLabel;
 @property (nonatomic, strong) UILabel *cmsStatusLabel;
+@property (nonatomic, strong) UIButton *databaseSetupButton;
+@property (nonatomic, assign) BOOL databaseAvailable;
+@property (nonatomic, assign) BOOL databaseTablesReady;
 @property (nonatomic, copy) NSString *fullResultText;
 @property (nonatomic, assign) BOOL resultExpanded;
 @property (nonatomic, assign) BOOL verifyingBackend;
@@ -238,23 +241,66 @@
     UILabel *status = [self label:@"Not available" style:UIFontTextStyleCaption1];
     status.font = [UIFont systemFontOfSize:status.font.pointSize weight:UIFontWeightSemibold];
     status.textColor = UIColor.secondaryLabelColor;
-    [statusRow addArrangedSubview:status];
-    [statusRow addArrangedSubview:[UIView new]];
-    if (function.length > 0) {
-        UIButton *button = [self actionButtonWithTitle:function action:action];
-        [statusRow addArrangedSubview:button];
-    }
-    [content addArrangedSubview:statusRow];
+     [statusRow addArrangedSubview:status];
+     [statusRow addArrangedSubview:[UIView new]];
+     [content addArrangedSubview:statusRow];
 
-    [NSLayoutConstraint activateConstraints:@[
+     if (function.length > 0) {
+         UIView *setupCard = [UIView new];
+         setupCard.backgroundColor = [UIColor.secondarySystemBackgroundColor colorWithAlphaComponent:0.9];
+         setupCard.layer.cornerRadius = 10;
+
+         UIStackView *setupContent = [[UIStackView alloc] init];
+         setupContent.axis = UILayoutConstraintAxisVertical;
+         setupContent.spacing = 6;
+         setupContent.translatesAutoresizingMaskIntoConstraints = NO;
+         [setupCard addSubview:setupContent];
+
+         UIStackView *setupRow = [[UIStackView alloc] init];
+         setupRow.axis = UILayoutConstraintAxisHorizontal;
+         setupRow.alignment = UIStackViewAlignmentCenter;
+         setupRow.spacing = 8;
+
+         UIStackView *info = [[UIStackView alloc] init];
+         info.axis = UILayoutConstraintAxisVertical;
+         info.spacing = 2;
+         UILabel *functionLabel = [self label:function style:UIFontTextStyleSubheadline];
+         functionLabel.font = [UIFont systemFontOfSize:functionLabel.font.pointSize weight:UIFontWeightSemibold];
+         UILabel *detailLabel = [self label:@"Create the tables used by the Database examples without destroying data." style:UIFontTextStyleCaption1];
+         detailLabel.textColor = UIColor.secondaryLabelColor;
+         detailLabel.numberOfLines = 0;
+         UILabel *prerequisiteLabel = [self label:@"Existing linked Database" style:UIFontTextStyleCaption2];
+         prerequisiteLabel.textColor = UIColor.secondaryLabelColor;
+         prerequisiteLabel.numberOfLines = 0;
+         [info addArrangedSubview:functionLabel];
+         [info addArrangedSubview:detailLabel];
+         [info addArrangedSubview:prerequisiteLabel];
+
+         self.databaseSetupButton = [self actionButtonWithTitle:@"Run" action:action];
+         self.databaseSetupButton.accessibilityLabel = function;
+         self.databaseSetupButton.enabled = NO;
+         [setupRow addArrangedSubview:info];
+         [setupRow addArrangedSubview:self.databaseSetupButton];
+         [setupContent addArrangedSubview:setupRow];
+         [content addArrangedSubview:setupCard];
+
+         [NSLayoutConstraint activateConstraints:@[
+             [setupContent.topAnchor constraintEqualToAnchor:setupCard.topAnchor constant:10],
+             [setupContent.leadingAnchor constraintEqualToAnchor:setupCard.leadingAnchor constant:12],
+             [setupContent.trailingAnchor constraintEqualToAnchor:setupCard.trailingAnchor constant:-12],
+             [setupContent.bottomAnchor constraintEqualToAnchor:setupCard.bottomAnchor constant:-10]
+         ]];
+         self.functionCards[function] = group;
+     }
+
+     [NSLayoutConstraint activateConstraints:@[
         [content.topAnchor constraintEqualToAnchor:group.topAnchor constant:12],
         [content.leadingAnchor constraintEqualToAnchor:group.leadingAnchor constant:12],
         [content.trailingAnchor constraintEqualToAnchor:group.trailingAnchor constant:-12],
         [content.bottomAnchor constraintEqualToAnchor:group.bottomAnchor constant:-12]
-    ]];
-    [self.stack addArrangedSubview:group];
-    if (function.length > 0) self.functionCards[function] = group;
-    return status;
+     ]];
+     [self.stack addArrangedSubview:group];
+     return status;
 }
 
 - (UIButton *)actionButtonWithTitle:(NSString *)title action:(SEL)action {
@@ -344,6 +390,7 @@
 - (void)runFunction:(NSString *)function method:(CloudCodeHttpMethod)method query:(NSDictionary *)query body:(NSDictionary *)body {
     if (self.spinner.isAnimating) return;
     [self.spinner startAnimating];
+    [self updateDatabaseSetupButtonState];
     [self prepareResultForFunction:function];
     [self setResultText:[NSString stringWithFormat:@"Calling %@...", function]];
     NSDate *started = [NSDate date];
@@ -352,13 +399,17 @@
         NSTimeInterval elapsed = -[started timeIntervalSinceNow];
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf;
-            if (!self) return;
-            [self.spinner stopAnimating];
-            if (response) {
-                [self setResultText:[NSString stringWithFormat:@"HTTP %ld\nDuration: %.2f s\nrequestId: %@\nBody: %@", (long)response.statusCode, elapsed, response.requestId ?: @"none", [self jsonText:response.data]]];
-            } else {
-                [self setResultText:[NSString stringWithFormat:@"Duration: %.2f s\nError: %@", elapsed, error.localizedDescription ?: @"Unknown error"]];
-            }
+             if (!self) return;
+             [self.spinner stopAnimating];
+             [self updateDatabaseSetupButtonState];
+             if (response) {
+                 [self setResultText:[NSString stringWithFormat:@"HTTP %ld\nDuration: %.2f s\nrequestId: %@\nBody: %@", (long)response.statusCode, elapsed, response.requestId ?: @"none", [self jsonText:response.data]]];
+             } else {
+                 [self setResultText:[NSString stringWithFormat:@"Duration: %.2f s\nError: %@", elapsed, error.localizedDescription ?: @"Unknown error"]];
+             }
+             if ([function isEqualToString:@"cloud-demo-setup-database-ios"]) {
+                 [self verifyBackend];
+             }
         });
     }];
 }
@@ -380,9 +431,12 @@
     }
 }
 
-- (void)verifyBackend {
+ - (void)verifyBackend {
     if (self.verifyingBackend) return;
-    self.verifyingBackend = YES;
+     self.verifyingBackend = YES;
+     self.databaseAvailable = NO;
+     self.databaseTablesReady = NO;
+     [self updateDatabaseSetupButtonState];
     self.databaseStatusLabel.text = @"Checking...";
     self.cmsStatusLabel.text = @"Checking...";
     self.databaseStatusLabel.textColor = UIColor.secondaryLabelColor;
@@ -398,24 +452,39 @@
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf;
             if (!self) return;
-            self.verifyingBackend = NO;
-            if (!response || response.statusCode != 200 || ![response.data isKindOfClass:NSDictionary.class]) {
-                self.databaseStatusLabel.text = @"Not available";
-                self.cmsStatusLabel.text = @"Not available";
-                self.databaseStatusLabel.textColor = UIColor.secondaryLabelColor;
-                self.cmsStatusLabel.textColor = UIColor.secondaryLabelColor;
-                return;
-            }
+             self.verifyingBackend = NO;
+             if (!response || response.statusCode != 200 || ![response.data isKindOfClass:NSDictionary.class]) {
+                 self.databaseAvailable = NO;
+                 self.databaseTablesReady = NO;
+                 self.databaseStatusLabel.text = @"Not available";
+                 self.cmsStatusLabel.text = @"Not available";
+                 self.databaseStatusLabel.textColor = UIColor.secondaryLabelColor;
+                 self.cmsStatusLabel.textColor = UIColor.secondaryLabelColor;
+                 [self updateDatabaseSetupButtonState];
+                 return;
+             }
 
-            NSDictionary *payload = (NSDictionary *)response.data;
-            BOOL databaseAvailable = payload[@"task_count"] != nil;
-            BOOL cmsAvailable = payload[@"posts"] != nil;
-            self.databaseStatusLabel.text = databaseAvailable ? @"Available" : @"Not available";
-            self.cmsStatusLabel.text = cmsAvailable ? @"Available" : @"Not available";
-            self.databaseStatusLabel.textColor = databaseAvailable ? UIColor.systemGreenColor : UIColor.secondaryLabelColor;
-            self.cmsStatusLabel.textColor = cmsAvailable ? UIColor.systemGreenColor : UIColor.secondaryLabelColor;
-        });
-    }];
+             NSDictionary *payload = (NSDictionary *)response.data;
+             self.databaseAvailable = [payload[@"database_available"] boolValue];
+             self.databaseTablesReady = [payload[@"database_tables_ready"] boolValue];
+             BOOL cmsAvailable = payload[@"posts"] != nil;
+             if (!self.databaseAvailable) {
+                 self.databaseStatusLabel.text = @"Not available";
+             } else if (self.databaseTablesReady) {
+                 self.databaseStatusLabel.text = @"Tables ready";
+             } else {
+                 self.databaseStatusLabel.text = @"Available";
+             }
+             self.cmsStatusLabel.text = cmsAvailable ? @"Available" : @"Not available";
+             self.databaseStatusLabel.textColor = self.databaseAvailable ? UIColor.systemGreenColor : UIColor.secondaryLabelColor;
+             self.cmsStatusLabel.textColor = cmsAvailable ? UIColor.systemGreenColor : UIColor.secondaryLabelColor;
+             [self updateDatabaseSetupButtonState];
+         });
+     }];
+}
+
+- (void)updateDatabaseSetupButtonState {
+    self.databaseSetupButton.enabled = self.databaseAvailable && !self.databaseTablesReady && !self.verifyingBackend && !self.spinner.isAnimating;
 }
 
 - (void)toggleResult {
@@ -451,6 +520,7 @@
 
 - (void)createTask { [self runFunction:@"cloud-demo-create-task-ios" method:CloudCodeHttpMethodPost query:nil body:@{ @"title": self.titleField.text ?: @"" }]; }
 - (void)createTables {
+     if (!self.databaseAvailable || self.databaseTablesReady) return;
      [self confirmAndRun:@"cloud-demo-setup-database-ios" handler:^{
          [self runFunction:@"cloud-demo-setup-database-ios" method:CloudCodeHttpMethodPost query:nil body:nil];
     }];
