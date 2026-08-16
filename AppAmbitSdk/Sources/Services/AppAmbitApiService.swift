@@ -14,12 +14,16 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     // MARK: - Networking
 
     private let urlSession: URLSession
+    private let cloudCodeSession: URLSession
     private let isConnected: @Sendable () -> Bool
 
-    private static func makeURLSession() -> URLSession {
+    private static func makeURLSession(
+        requestTimeout: TimeInterval,
+        resourceTimeout: TimeInterval
+    ) -> URLSession {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = AppConstants.cloudCodeTimeout
+        config.timeoutIntervalForRequest = requestTimeout
+        config.timeoutIntervalForResource = resourceTimeout
         config.waitsForConnectivity = true
         config.httpMaximumConnectionsPerHost = 2
         return URLSession(configuration: config)
@@ -30,10 +34,19 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
     init(
         storageService: StorageService,
         urlSession: URLSession? = nil,
+        cloudCodeSession: URLSession? = nil,
         isConnected: @escaping @Sendable () -> Bool = { ServiceContainer.shared.reachabilityService.isConnected() }
     ) {
         self.storageService = storageService
-        self.urlSession = urlSession ?? Self.makeURLSession()
+        let configuredURLSession = urlSession ?? Self.makeURLSession(
+            requestTimeout: AppConstants.networkTimeout,
+            resourceTimeout: AppConstants.networkTimeout
+        )
+        self.urlSession = configuredURLSession
+        self.cloudCodeSession = cloudCodeSession ?? urlSession ?? Self.makeURLSession(
+            requestTimeout: AppConstants.cloudCodeTimeout,
+            resourceTimeout: AppConstants.cloudCodeTimeout
+        )
         self.isConnected = isConnected
     }
 
@@ -144,7 +157,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         Queues.state.async { [weak self] in
             guard let self else { return }
 
-            TokenService.createTokenEndpoint { [weak self] result in
+            TokenService.createTokenEndpoint(storageService: self.storageService) { [weak self] result in
                 guard let self else { return }
                 switch result {
                 case .success(let endpoint):
@@ -325,8 +338,12 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             return
         }
 
-        let queryItems = URLQueryBuilder.queryItems(from: dictionary)
-        urlComponents.queryItems = queryItems.isEmpty ? nil : queryItems
+        let query = URLQueryBuilder.percentEncodedQuery(from: dictionary)
+        guard !query.isEmpty else { return }
+        urlComponents.percentEncodedQuery = [urlComponents.percentEncodedQuery, query]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: "&")
         guard let urlWithQueryParams = urlComponents.url else {
             throw ApiExceptions.invalidURL
         }
@@ -360,7 +377,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         responseType: T.Type,
         completion: @escaping @Sendable (ApiResult<T>) -> Void
     ) {
-        urlSession.dataTask(with: request) { [weak self] data, response, error in
+        cloudCodeSession.dataTask(with: request) { [weak self] data, response, error in
             guard let self else { return }
 
             Queues.netDecode.async {

@@ -37,6 +37,18 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(endpoint.payload as? [String: Int], ["count": 2])
     }
 
+    func testEndpointPercentEncodesPlusInQueryValues() {
+        let endpoint = CloudCodeEndpoint(
+            function: "search",
+            method: .get,
+            query: ["email": "user+test@example.com"],
+            body: nil,
+            headers: nil
+        )
+
+        XCTAssertEqual(endpoint.url, "/fn/search?email=user%2Btest%40example.com")
+    }
+
     func testHttpMethodsAreMappedToApiMethods() {
         XCTAssertEqual(CloudCodeHttpMethod.get.apiMethod, .get)
         XCTAssertEqual(CloudCodeHttpMethod.post.apiMethod, .post)
@@ -98,6 +110,37 @@ final class CloudCodeTests: XCTestCase {
         }
         XCTAssertEqual(header, "authorization")
         XCTAssertEqual(transport.requestCount, 0)
+    }
+
+    func testTracingHeadersAreAcceptedAsBusinessHeaders() {
+        let transport = TestCloudCodeTransport()
+        transport.response = CloudCodeTransportResponse(
+            statusCode: 200,
+            data: Data("{}".utf8),
+            headers: [:],
+            error: nil
+        )
+        let service = CloudCodeService(transport: transport)
+
+        let (response, error) = waitForUntyped { completion in
+            service.call(
+                function: "traceable",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: [
+                    "X-Trace-Id": "trace",
+                    "traceparent": "parent",
+                    "X-AppAmbit-Correlation": "correlation",
+                    "X-Internal-Test": "internal"
+                ],
+                completion: completion
+            )
+        }
+
+        XCTAssertNil(error)
+        XCTAssertNotNil(response)
+        XCTAssertEqual(transport.requestCount, 1)
     }
 
     func testDefaultTimeoutIsSixtySecondsAndCustomRequestDataIsForwarded() {
@@ -174,6 +217,51 @@ final class CloudCodeTests: XCTestCase {
         }
     }
 
+    func testHTTPErrorBridgesStructuredMetadataToNSError() {
+        let error = CloudCodeError.http(
+            statusCode: 404,
+            body: .object(["error": .string("not_found")]),
+            rawBody: nil,
+            requestId: "error-id"
+        ) as NSError
+
+        XCTAssertEqual(error.domain, CloudCodeError.errorDomain)
+        XCTAssertEqual(error.code, 10)
+        XCTAssertEqual(error.userInfo[CloudCodeErrorKeys.statusCode] as? Int, 404)
+        XCTAssertEqual(
+            (error.userInfo[CloudCodeErrorKeys.body] as? [String: Any])?["error"] as? String,
+            "not_found"
+        )
+        XCTAssertEqual(error.userInfo[CloudCodeErrorKeys.requestId] as? String, "error-id")
+    }
+
+    func testEmptySuccessfulBodyMapsToNSNullForUntypedResponse() {
+        let transport = TestCloudCodeTransport()
+        transport.response = CloudCodeTransportResponse(
+            statusCode: 200,
+            data: nil,
+            headers: ["X-Request-Id": "empty-body-id"],
+            error: nil
+        )
+        let service = CloudCodeService(transport: transport)
+
+        let (response, error) = waitForUntyped { completion in
+            service.call(
+                function: "empty-body",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: nil,
+                completion: completion
+            )
+        }
+
+        XCTAssertNil(error)
+        XCTAssertTrue(response?.data is NSNull)
+        XCTAssertEqual(response?.statusCode, 200)
+        XCTAssertEqual(response?.requestId, "empty-body-id")
+    }
+
     func testTypedResultAndRequestIdFallbackArePreserved() {
         struct Greeting: Decodable, Equatable {
             let greeting: String
@@ -234,8 +322,80 @@ final class CloudCodeTests: XCTestCase {
         }
 
         wait(for: [expectation], timeout: 2)
-        XCTAssertNil(resultBox.value)
+        XCTAssertNil(resultBox.value?.data)
+        XCTAssertEqual(resultBox.value?.statusCode, 204)
+        XCTAssertEqual(resultBox.value?.requestId, "empty-id")
+        XCTAssertEqual(resultBox.value?.headers["X-Request-Id"], "empty-id")
         XCTAssertNil(resultBox.error)
+    }
+
+    func testTypedEmptySuccessfulBodyCompletesWithNilDataAndMetadata() {
+        let transport = TestCloudCodeTransport()
+        transport.response = CloudCodeTransportResponse(
+            statusCode: 200,
+            data: nil,
+            headers: ["X-Request-Id": "empty-body-id"],
+            error: nil
+        )
+        let service = CloudCodeService(transport: transport)
+        let expectation = expectation(description: "typed empty result")
+        let resultBox = ResultBox<CloudCodeResult<String>, CloudCodeError>()
+
+        service.call(
+            function: "empty-body",
+            method: .get,
+            query: nil,
+            body: nil,
+            headers: nil,
+            as: String.self
+        ) { receivedResult, receivedError in
+            resultBox.set(receivedResult, receivedError)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 2)
+        XCTAssertNil(resultBox.value?.data)
+        XCTAssertEqual(resultBox.value?.statusCode, 200)
+        XCTAssertEqual(resultBox.value?.requestId, "empty-body-id")
+        XCTAssertEqual(resultBox.value?.headers["X-Request-Id"], "empty-body-id")
+        XCTAssertNil(resultBox.error)
+    }
+
+    func testCallbacksAreDeliveredOnMainQueue() {
+        let transport = TestCloudCodeTransport()
+        transport.response = CloudCodeTransportResponse(
+            statusCode: 200,
+            data: Data("{}".utf8),
+            headers: [:],
+            error: nil
+        )
+        let service = CloudCodeService(transport: transport)
+        let validationExpectation = expectation(description: "validation callback on main")
+        let transportExpectation = expectation(description: "transport callback on main")
+
+        service.call(
+            function: "invalid/function",
+            method: .get,
+            query: nil,
+            body: nil,
+            headers: nil
+        ) { _, _ in
+            XCTAssertTrue(Thread.isMainThread)
+            validationExpectation.fulfill()
+        }
+
+        service.call(
+            function: "valid",
+            method: .get,
+            query: nil,
+            body: nil,
+            headers: nil
+        ) { _, _ in
+            XCTAssertTrue(Thread.isMainThread)
+            transportExpectation.fulfill()
+        }
+
+        wait(for: [validationExpectation, transportExpectation], timeout: 2)
     }
 
     func testTransportErrorsKeepTheirMeaning() {
@@ -419,7 +579,8 @@ final class CloudCodeTests: XCTestCase {
         let requests = requestCapture.requests
         XCTAssertEqual(requests.count, 2)
         XCTAssertEqual(requests[0].httpMethod, "GET")
-        XCTAssertNil(requests[0].httpBody)
+        XCTAssertTrue(try requestBodyData(from: requests[0])?.isEmpty ?? true)
+        XCTAssertNil(requests[0].value(forHTTPHeaderField: "Content-Type"))
         XCTAssertEqual(requests[0].value(forHTTPHeaderField: "X-Test"), "get")
         XCTAssertEqual(
             URLComponents(url: try XCTUnwrap(requests[0].url), resolvingAgainstBaseURL: false)?.queryItems,
@@ -430,9 +591,261 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(requests[1].value(forHTTPHeaderField: "X-Test"), "delete")
         XCTAssertEqual(requests[1].value(forHTTPHeaderField: "Content-Type"), "application/json")
         XCTAssertEqual(
-            try JSONSerialization.jsonObject(with: try XCTUnwrap(requests[1].httpBody)) as? [String: Bool],
+            try JSONSerialization.jsonObject(with: try XCTUnwrap(requestBodyData(from: requests[1]))) as? [String: Bool],
             ["keep": true]
         )
+    }
+
+    func testCloudCodeGatewayRefreshesAfter401AndRetriesOnce() throws {
+        let requestCapture = RequestCapture()
+        TestURLProtocol.requestHandler = { request in
+            requestCapture.append(request)
+            let path = request.url?.path ?? ""
+            let cloudRequests = requestCapture.requests.filter { $0.url?.path.hasSuffix("/fn/retry") == true }
+            let response: HTTPURLResponse
+            let body: Data
+
+            if path.hasSuffix("/consumer/token") {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"id\":123,\"token\":\"fresh-token\"}".utf8)
+            } else if cloudRequests.count == 1 {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 401,
+                    httpVersion: nil,
+                    headerFields: ["X-Request-Id": "first-unauthorized"]
+                )!
+                body = Data("{\"error\":\"expired\"}".utf8)
+            } else {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["X-Request-Id": "retried"]
+                )!
+                body = Data("{\"ok\":true}".utf8)
+            }
+            return (response, body)
+        }
+        defer { TestURLProtocol.reset() }
+
+        let storage = InMemoryStorage()
+        try storage.putAppId("test-app")
+        try storage.putConsumerId("test-consumer")
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TestURLProtocol.self]
+        let apiService = AppAmbitApiService(
+            storageService: storage,
+            urlSession: URLSession(configuration: configuration),
+            isConnected: { true }
+        )
+        apiService.setToken("stale-token")
+        let service = CloudCodeService(transport: apiService)
+
+        let (response, error) = waitForUntyped { completion in
+            service.call(
+                function: "retry",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: nil,
+                completion: completion
+            )
+        }
+
+        let cloudRequests = requestCapture.requests.filter { $0.url?.path.hasSuffix("/fn/retry") == true }
+        XCTAssertNil(error)
+        XCTAssertEqual(response?.statusCode, 200)
+        XCTAssertEqual(response?.data as? [String: Bool], ["ok": true])
+        XCTAssertEqual(cloudRequests.count, 2)
+        XCTAssertEqual(cloudRequests[0].value(forHTTPHeaderField: "Authorization"), "Bearer stale-token")
+        XCTAssertEqual(cloudRequests[1].value(forHTTPHeaderField: "Authorization"), "Bearer fresh-token")
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
+    }
+
+    func testCloudCodeGatewayStopsAfterSecond401() throws {
+        let requestCapture = RequestCapture()
+        TestURLProtocol.requestHandler = { request in
+            requestCapture.append(request)
+            let response: HTTPURLResponse
+            let body: Data
+            if request.url?.path.hasSuffix("/consumer/token") == true {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"id\":123,\"token\":\"fresh-token\"}".utf8)
+            } else {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 401,
+                    httpVersion: nil,
+                    headerFields: ["X-Request-Id": "still-unauthorized"]
+                )!
+                body = Data("{\"error\":\"unauthorized\"}".utf8)
+            }
+            return (response, body)
+        }
+        defer { TestURLProtocol.reset() }
+
+        let storage = InMemoryStorage()
+        try storage.putAppId("test-app")
+        try storage.putConsumerId("test-consumer")
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TestURLProtocol.self]
+        let apiService = AppAmbitApiService(
+            storageService: storage,
+            urlSession: URLSession(configuration: configuration),
+            isConnected: { true }
+        )
+        apiService.setToken("stale-token")
+        let service = CloudCodeService(transport: apiService)
+
+        let (response, error) = waitForUntyped { completion in
+            service.call(
+                function: "retry-failure",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: nil,
+                completion: completion
+            )
+        }
+
+        let cloudRequests = requestCapture.requests.filter { $0.url?.path.hasSuffix("/fn/retry-failure") == true }
+        guard case .http(let statusCode, _, _, let requestId) = error as? CloudCodeError else {
+            return XCTFail("Expected second HTTP 401, got \(String(describing: error))")
+        }
+        XCTAssertNil(response)
+        XCTAssertEqual(statusCode, 401)
+        XCTAssertEqual(requestId, "still-unauthorized")
+        XCTAssertEqual(cloudRequests.count, 2)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
+    }
+
+    func testConcurrentCloudCode401RequestsShareOneTokenRenewal() throws {
+        let requestCapture = RequestCapture()
+        let firstUnauthorizedResponses = DispatchSemaphore(value: 0)
+        TestURLProtocol.requestHandler = { request in
+            requestCapture.append(request)
+            let path = request.url?.path ?? ""
+            let pathRequests = requestCapture.requests.filter { $0.url?.path == path }
+            let response: HTTPURLResponse
+            let body: Data
+
+            if path.hasSuffix("/consumer/token") {
+                _ = firstUnauthorizedResponses.wait(timeout: .now() + 2)
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"id\":123,\"token\":\"shared-token\"}".utf8)
+            } else if pathRequests.count == 1 {
+                firstUnauthorizedResponses.signal()
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 401,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"error\":\"expired\"}".utf8)
+            } else {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"ok\":true}".utf8)
+            }
+            return (response, body)
+        }
+        defer { TestURLProtocol.reset() }
+
+        let storage = InMemoryStorage()
+        try storage.putAppId("test-app")
+        try storage.putConsumerId("test-consumer")
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TestURLProtocol.self]
+        let apiService = AppAmbitApiService(
+            storageService: storage,
+            urlSession: URLSession(configuration: configuration),
+            isConnected: { true }
+        )
+        apiService.setToken("stale-token")
+        let service = CloudCodeService(transport: apiService)
+        let firstResult = ResultBox<CloudCodeResponse, Error>()
+        let secondResult = ResultBox<CloudCodeResponse, Error>()
+        let firstExpectation = expectation(description: "first concurrent result")
+        let secondExpectation = expectation(description: "second concurrent result")
+
+        DispatchQueue.global().async {
+            service.call(
+                function: "concurrent-one",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: nil
+            ) { response, error in
+                firstResult.set(response, error)
+                firstExpectation.fulfill()
+            }
+        }
+        DispatchQueue.global().async {
+            service.call(
+                function: "concurrent-two",
+                method: .get,
+                query: nil,
+                body: nil,
+                headers: nil
+            ) { response, error in
+                secondResult.set(response, error)
+                secondExpectation.fulfill()
+            }
+        }
+
+        wait(for: [firstExpectation, secondExpectation], timeout: 5)
+
+        XCTAssertNil(firstResult.error)
+        XCTAssertNil(secondResult.error)
+        XCTAssertEqual(firstResult.value?.data as? [String: Bool], ["ok": true])
+        XCTAssertEqual(secondResult.value?.data as? [String: Bool], ["ok": true])
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/fn/concurrent-one") == true }.count, 2)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/fn/concurrent-two") == true }.count, 2)
+    }
+
+    private func requestBodyData(from request: URLRequest) throws -> Data? {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count > 0 {
+                data.append(buffer, count: count)
+            } else if count == 0 {
+                break
+            } else {
+                throw stream.streamError ?? NSError(domain: "CloudCodeTests", code: 1)
+            }
+        }
+        return data
     }
 
     private func waitForRawResponse(_ apiService: AppAmbitApiService, endpoint: Endpoint) -> HTTPTransportResponse {

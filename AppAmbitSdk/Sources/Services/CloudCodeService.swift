@@ -21,7 +21,7 @@ final class CloudCodeService: @unchecked Sendable {
         let cancellation = CloudCodeCancellationToken()
 
         if let validationError = validationError(function: function, body: body, headers: headers) {
-            completion(nil, validationError)
+            deliverOnMain { completion(nil, validationError) }
             return cancellation
         }
 
@@ -36,22 +36,23 @@ final class CloudCodeService: @unchecked Sendable {
         execute(endpoint, cancellation: cancellation) { response in
             switch Self.validateSuccessfulResponse(response) {
             case .failure(let error):
-                completion(nil, error)
+                self.deliverOnMain { completion(nil, error) }
             case .success(let metadata):
                 do {
-                    completion(
-                        CloudCodeResponse(
-                            data: try Self.anyValue(from: response.data, statusCode: metadata.statusCode),
-                            statusCode: metadata.statusCode,
-                            requestId: metadata.requestId,
-                            headers: metadata.headers
-                        ),
-                        nil
+                    let data = try Self.anyValue(from: response.data, statusCode: metadata.statusCode)
+                    let cloudResponse = CloudCodeResponse(
+                        data: data,
+                        statusCode: metadata.statusCode,
+                        requestId: metadata.requestId,
+                        headers: metadata.headers
                     )
+                    self.deliverOnMain {
+                        completion(cloudResponse, nil)
+                    }
                 } catch let error as CloudCodeError {
-                    completion(nil, error)
+                    self.deliverOnMain { completion(nil, error) }
                 } catch {
-                    completion(nil, CloudCodeError.decoding(error.localizedDescription))
+                    self.deliverOnMain { completion(nil, CloudCodeError.decoding(error.localizedDescription)) }
                 }
             }
         }
@@ -72,7 +73,7 @@ final class CloudCodeService: @unchecked Sendable {
         let cancellation = CloudCodeCancellationToken()
 
         if let validationError = validationError(function: function, body: body, headers: headers) {
-            completion(nil, validationError)
+            deliverOnMain { completion(nil, validationError) }
             return cancellation
         }
         let endpoint = CloudCodeEndpoint(function: function, method: method, query: query, body: body, headers: headers)
@@ -80,32 +81,36 @@ final class CloudCodeService: @unchecked Sendable {
         execute(endpoint, cancellation: cancellation) { response in
             switch Self.validateSuccessfulResponse(response) {
             case .failure(let error):
-                completion(nil, error)
+                self.deliverOnMain { completion(nil, error) }
             case .success(let metadata):
-                if metadata.statusCode == 204 {
-                    // A 204 is successful but has no T to construct. Preserve the existing API contract.
-                    completion(nil, nil)
-                    return
-                }
-
                 guard let responseData = response.data, !responseData.isEmpty else {
-                    completion(nil, .decoding("The response body is empty."))
+                    self.deliverOnMain {
+                        completion(
+                            CloudCodeResult(
+                                data: nil,
+                                statusCode: metadata.statusCode,
+                                requestId: metadata.requestId,
+                                headers: metadata.headers
+                            ),
+                            nil
+                        )
+                    }
                     return
                 }
 
                 do {
                     let value = try JSONDecoder().decode(T.self, from: responseData)
-                    completion(
-                        CloudCodeResult(
-                            data: value,
-                            statusCode: metadata.statusCode,
-                            requestId: metadata.requestId,
-                            headers: metadata.headers
-                        ),
-                        nil
+                    let result = CloudCodeResult(
+                        data: value,
+                        statusCode: metadata.statusCode,
+                        requestId: metadata.requestId,
+                        headers: metadata.headers
                     )
+                    self.deliverOnMain {
+                        completion(result, nil)
+                    }
                 } catch {
-                    completion(nil, .decoding(error.localizedDescription))
+                    self.deliverOnMain { completion(nil, .decoding(error.localizedDescription)) }
                 }
             }
         }
@@ -122,6 +127,10 @@ final class CloudCodeService: @unchecked Sendable {
             guard !cancellation.isCancelled else { return }
             completion(response)
         }
+    }
+
+    private func deliverOnMain(_ completion: @escaping @Sendable () -> Void) {
+        DispatchQueue.main.async(execute: completion)
     }
 
     private func validationError(function: String, body: [String: Any]?, headers: [String: String]?) -> CloudCodeError? {
@@ -174,16 +183,13 @@ final class CloudCodeService: @unchecked Sendable {
     private func invalidReservedHeader(in headers: [String: String]?) -> String? {
         let reserved = Set([
             "authorization", "cookie", "host", "content-length", "content-type", "accept",
-            "x-app-key", "x-request-id", "x-correlation-id", "x-trace-id", "traceparent",
-            "tracestate", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto",
-            "x-amzn-trace-id"
+            "x-app-key", "x-request-id"
         ])
 
         return headers?.first { key, value in
             let normalized = key.lowercased()
             return key.isEmpty || value.contains("\r") || value.contains("\n") ||
-                reserved.contains(normalized) || normalized.hasPrefix("x-appambit-") ||
-                normalized.hasPrefix("x-internal-")
+                reserved.contains(normalized)
         }?.key
     }
 

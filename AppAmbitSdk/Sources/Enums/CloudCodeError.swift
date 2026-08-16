@@ -1,6 +1,14 @@
 import Foundation
 
-public enum CloudCodeError: Error, LocalizedError, Equatable, @unchecked Sendable {
+@objcMembers
+public final class CloudCodeErrorKeys: NSObject {
+    public static let statusCode = "CloudCodeErrorStatusCodeKey"
+    public static let body = "CloudCodeErrorBodyKey"
+    public static let rawBody = "CloudCodeErrorRawBodyKey"
+    public static let requestId = "CloudCodeErrorRequestIdKey"
+}
+
+public enum CloudCodeError: Error, LocalizedError, CustomNSError, Equatable, @unchecked Sendable {
     case notInitialized
     case invalidFunction(String)
     case invalidBody
@@ -11,6 +19,34 @@ public enum CloudCodeError: Error, LocalizedError, Equatable, @unchecked Sendabl
     case transport(String)
     case decoding(String)
     case http(statusCode: Int, body: JSONValue?, rawBody: String?, requestId: String?)
+
+    public static let errorDomain = "com.appambit.cloud-code"
+
+    public var errorCode: Int {
+        switch self {
+        case .notInitialized: return 1
+        case .invalidFunction: return 2
+        case .invalidBody: return 3
+        case .invalidHeader: return 4
+        case .networkUnavailable: return 5
+        case .timedOut: return 6
+        case .invalidURL: return 7
+        case .transport: return 8
+        case .decoding: return 9
+        case .http: return 10
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: errorDescription ?? "Cloud Code error"]
+        if case .http(let statusCode, let body, let rawBody, let requestId) = self {
+            userInfo[CloudCodeErrorKeys.statusCode] = statusCode
+            if let body { userInfo[CloudCodeErrorKeys.body] = body.toAny() }
+            if let rawBody { userInfo[CloudCodeErrorKeys.rawBody] = rawBody }
+            if let requestId { userInfo[CloudCodeErrorKeys.requestId] = requestId }
+        }
+        return userInfo
+    }
 
     public var errorDescription: String? {
         switch self {

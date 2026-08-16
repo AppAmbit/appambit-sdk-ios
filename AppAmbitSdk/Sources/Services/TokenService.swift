@@ -1,14 +1,16 @@
 final class TokenService {
     static func createTokenEndpoint(
+        storageService: StorageService? = nil,
         completion: @escaping (Result<TokenEndpoint, Error>) -> Void
     ) {
         do {
-            guard let appKey = try ServiceContainer.shared.storageService.getAppId() else {
+            let storage = storageService ?? ServiceContainer.shared.storageService
+            guard let appKey = try storage.getAppId() else {
                 completion(.failure(DatabaseErrorType.missingAppKey))
                 return
             }
 
-            guard let consumerId = try ServiceContainer.shared.storageService.getConsumerId() else {
+            guard let consumerId = try storage.getConsumerId() else {
                 completion(.failure(DatabaseErrorType.missingConsumerId))
                 return
             }

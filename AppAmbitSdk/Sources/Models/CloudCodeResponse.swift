@@ -1,13 +1,13 @@
 import Foundation
 
 public struct CloudCodeResult<T: Decodable>: @unchecked Sendable {
-    public let data: T
+    public let data: T?
     public let statusCode: Int
     public let requestId: String?
     public let headers: [String: String]
 
     public init(
-        data: T,
+        data: T?,
         statusCode: Int,
         requestId: String?,
         headers: [String: String] = [:]

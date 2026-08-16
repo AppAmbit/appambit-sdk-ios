@@ -446,8 +446,8 @@ struct CloudCodeView: View {
             isRunning = false
             if let result {
                 let data: [String: Any] = [
-                    "task_count": result.data.taskCount ?? NSNull(),
-                    "posts": result.data.posts?.map { $0.toAny() } ?? []
+                    "task_count": result.data?.taskCount ?? NSNull(),
+                    "posts": result.data?.posts?.map { $0.toAny() } ?? []
                 ]
                 resultText = "HTTP \(result.statusCode)\nDuration: \(formatDuration(elapsed))\nrequestId: \(result.requestId ?? "none")\nBody: \(jsonText(data))"
             } else if let error {

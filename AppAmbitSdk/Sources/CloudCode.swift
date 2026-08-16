@@ -30,7 +30,9 @@ public final class CloudCode: NSObject {
     ) -> CloudCodeCancellationToken {
         guard let service = currentService() else {
             let token = CloudCodeCancellationToken()
-            completion(nil, CloudCodeError.notInitialized)
+            DispatchQueue.main.async {
+                completion(nil, CloudCodeError.notInitialized)
+            }
             return token
         }
         return service.call(
@@ -56,7 +58,9 @@ public final class CloudCode: NSObject {
     ) -> CloudCodeCancellationToken {
         guard let service = currentService() else {
             let token = CloudCodeCancellationToken()
-            completion(nil, CloudCodeError.notInitialized)
+            DispatchQueue.main.async {
+                completion(nil, CloudCodeError.notInitialized)
+            }
             return token
         }
         return service.call(
