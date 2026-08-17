@@ -819,7 +819,7 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
     }
 
-    func testCloudCodeGatewayDoesNotRetryMutatingMethodsAfter401() throws {
+    func testCloudCodeGatewayRetriesMutatingMethodsAfter401() throws {
         let requestCapture = RequestCapture()
         TestURLProtocol.requestHandler = { request in
             requestCapture.append(request)
@@ -834,13 +834,24 @@ final class CloudCodeTests: XCTestCase {
                 )!
                 body = Data("{\"id\":123,\"token\":\"fresh-token\"}".utf8)
             } else {
-                response = HTTPURLResponse(
-                    url: try XCTUnwrap(request.url),
-                    statusCode: 401,
-                    httpVersion: nil,
-                    headerFields: ["X-Request-Id": "mutation-unauthorized"]
-                )!
-                body = Data("{\"error\":\"expired\"}".utf8)
+                let requestCount = requestCapture.requests.filter { $0.url == request.url }.count
+                if requestCount == 1 {
+                    response = HTTPURLResponse(
+                        url: try XCTUnwrap(request.url),
+                        statusCode: 401,
+                        httpVersion: nil,
+                        headerFields: ["X-Request-Id": "mutation-unauthorized"]
+                    )!
+                    body = Data("{\"error\":\"expired\"}".utf8)
+                } else {
+                    response = HTTPURLResponse(
+                        url: try XCTUnwrap(request.url),
+                        statusCode: 200,
+                        httpVersion: nil,
+                        headerFields: ["X-Request-Id": "mutation-retried"]
+                    )!
+                    body = Data("{\"ok\":true}".utf8)
+                }
             }
             return (response, body)
         }
@@ -873,16 +884,13 @@ final class CloudCodeTests: XCTestCase {
                 )
             }
 
-            guard case .http(let statusCode, _, _, let requestId) = error as? CloudCodeError else {
-                return XCTFail("Expected HTTP 401 for \(method), got \(String(describing: error))")
-            }
-            XCTAssertNil(response)
-            XCTAssertEqual(statusCode, 401)
-            XCTAssertEqual(requestId, "mutation-unauthorized")
+            XCTAssertNil(error)
+            XCTAssertEqual(response?.statusCode, 200)
+            XCTAssertEqual(response?.data as? [String: Bool], ["ok": true])
         }
 
-        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.contains("/fn/") == true }.count, 3)
-        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 0)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.contains("/fn/") == true }.count, 6)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 3)
     }
 
     func testConcurrentCloudCode401RequestsShareOneTokenRenewal() throws {

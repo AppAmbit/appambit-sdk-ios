@@ -125,7 +125,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             self.processResponse(request: request, responseType: responseType) { result in
                 Queues.state.async {
                     switch result.errorType {
-                    case .unauthorized where !isTokenEndpoint && self.allowsUnauthorizedRetry(for: endpoint):
+                    case .unauthorized where !isTokenEndpoint:
                         self.clearToken()
                         self.handleTokenRefresh(
                             originalRequest: request,
@@ -643,7 +643,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                     self.executeRawRequestAfterToken(
                         endpoint,
                         deadline: deadline,
-                        allowUnauthorizedRetry: self.allowsUnauthorizedRetry(for: endpoint),
+                        allowUnauthorizedRetry: true,
                         completion: completion
                     )
                 }) { _ in
@@ -660,14 +660,10 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             self.executeRawRequestAfterToken(
                 endpoint,
                 deadline: deadline,
-                allowUnauthorizedRetry: self.allowsUnauthorizedRetry(for: endpoint),
+                allowUnauthorizedRetry: true,
                 completion: completion
             )
         }
-    }
-
-    private func allowsUnauthorizedRetry(for endpoint: Endpoint) -> Bool {
-        endpoint.method == .get
     }
 
     private func executeRawRequestAfterToken(
@@ -717,7 +713,6 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
             guard rawResponse.statusCode == 401,
                   allowUnauthorizedRetry,
-                  self.allowsUnauthorizedRetry(for: endpoint),
                   self.requiresConsumerToken(endpoint) else {
                 completion(rawResponse)
                 return
