@@ -21,7 +21,7 @@ final class CloudCodeService: @unchecked Sendable {
         let cancellation = CloudCodeCancellationToken()
 
         if let validationError = validationError(function: function, body: body, headers: headers) {
-            deliverOnMain { completion(nil, validationError) }
+            deliverOnMain(cancellation: cancellation) { completion(nil, validationError) }
             return cancellation
         }
 
@@ -36,7 +36,7 @@ final class CloudCodeService: @unchecked Sendable {
         execute(endpoint, cancellation: cancellation) { response in
             switch Self.validateSuccessfulResponse(response) {
             case .failure(let error):
-                self.deliverOnMain { completion(nil, error) }
+                self.deliverOnMain(cancellation: cancellation) { completion(nil, error) }
             case .success(let metadata):
                 do {
                     let data = try Self.anyValue(from: response.data, statusCode: metadata.statusCode)
@@ -46,13 +46,15 @@ final class CloudCodeService: @unchecked Sendable {
                         requestId: metadata.requestId,
                         headers: metadata.headers
                     )
-                    self.deliverOnMain {
+                    self.deliverOnMain(cancellation: cancellation) {
                         completion(cloudResponse, nil)
                     }
                 } catch let error as CloudCodeError {
-                    self.deliverOnMain { completion(nil, error) }
+                    self.deliverOnMain(cancellation: cancellation) { completion(nil, error) }
                 } catch {
-                    self.deliverOnMain { completion(nil, CloudCodeError.decoding(error.localizedDescription)) }
+                    self.deliverOnMain(cancellation: cancellation) {
+                        completion(nil, CloudCodeError.decoding(error.localizedDescription))
+                    }
                 }
             }
         }
@@ -73,7 +75,7 @@ final class CloudCodeService: @unchecked Sendable {
         let cancellation = CloudCodeCancellationToken()
 
         if let validationError = validationError(function: function, body: body, headers: headers) {
-            deliverOnMain { completion(nil, validationError) }
+            deliverOnMain(cancellation: cancellation) { completion(nil, validationError) }
             return cancellation
         }
         let endpoint = CloudCodeEndpoint(function: function, method: method, query: query, body: body, headers: headers)
@@ -81,10 +83,10 @@ final class CloudCodeService: @unchecked Sendable {
         execute(endpoint, cancellation: cancellation) { response in
             switch Self.validateSuccessfulResponse(response) {
             case .failure(let error):
-                self.deliverOnMain { completion(nil, error) }
+                self.deliverOnMain(cancellation: cancellation) { completion(nil, error) }
             case .success(let metadata):
                 guard let responseData = response.data, !responseData.isEmpty else {
-                    self.deliverOnMain {
+                    self.deliverOnMain(cancellation: cancellation) {
                         completion(
                             CloudCodeResult(
                                 data: nil,
@@ -106,11 +108,13 @@ final class CloudCodeService: @unchecked Sendable {
                         requestId: metadata.requestId,
                         headers: metadata.headers
                     )
-                    self.deliverOnMain {
+                    self.deliverOnMain(cancellation: cancellation) {
                         completion(result, nil)
                     }
                 } catch {
-                    self.deliverOnMain { completion(nil, .decoding(error.localizedDescription)) }
+                    self.deliverOnMain(cancellation: cancellation) {
+                        completion(nil, .decoding(error.localizedDescription))
+                    }
                 }
             }
         }
@@ -129,8 +133,14 @@ final class CloudCodeService: @unchecked Sendable {
         }
     }
 
-    private func deliverOnMain(_ completion: @escaping @Sendable () -> Void) {
-        DispatchQueue.main.async(execute: completion)
+    private func deliverOnMain(
+        cancellation: CloudCodeCancellationToken,
+        _ completion: @escaping @Sendable () -> Void
+    ) {
+        DispatchQueue.main.async {
+            guard !cancellation.isCancelled else { return }
+            completion()
+        }
     }
 
     private func validationError(function: String, body: [String: Any]?, headers: [String: String]?) -> CloudCodeError? {
@@ -150,7 +160,7 @@ final class CloudCodeService: @unchecked Sendable {
             return .failure(.decoding("Missing HTTP status code."))
         }
         guard (200..<300).contains(statusCode) else {
-            let parsed = jsonValue(from: response.data)
+            let parsed = jsonObjectOrArray(from: response.data)
             let rawBody = parsed == nil ? response.data.flatMap { String(data: $0, encoding: .utf8) } : nil
             return .failure(.http(statusCode: statusCode, body: parsed, rawBody: rawBody, requestId: requestId(from: response)))
         }
@@ -193,13 +203,19 @@ final class CloudCodeService: @unchecked Sendable {
         }?.key
     }
 
-    private static func jsonValue(from data: Data?) -> JSONValue? {
+    private static func jsonObjectOrArray(from data: Data?) -> JSONValue? {
         guard let data,
               !data.isEmpty else { return nil }
         guard let object = try? JSONSerialization.jsonObject(with: data, options: [.allowFragments]) else {
             return nil
         }
-        return JSONValue.from(any: object)
+        let value = JSONValue.from(any: object)
+        switch value {
+        case .object, .array:
+            return value
+        default:
+            return nil
+        }
     }
 
     private static func anyValue(from data: Data?, statusCode: Int) throws -> Any {

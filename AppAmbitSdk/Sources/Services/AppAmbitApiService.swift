@@ -125,7 +125,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             self.processResponse(request: request, responseType: responseType) { result in
                 Queues.state.async {
                     switch result.errorType {
-                    case .unauthorized where !isTokenEndpoint:
+                    case .unauthorized where !isTokenEndpoint && self.allowsUnauthorizedRetry(for: endpoint):
                         self.clearToken()
                         self.handleTokenRefresh(
                             originalRequest: request,
@@ -377,7 +377,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         responseType: T.Type,
         completion: @escaping @Sendable (ApiResult<T>) -> Void
     ) {
-        cloudCodeSession.dataTask(with: request) { [weak self] data, response, error in
+        urlSession.dataTask(with: request) { [weak self] data, response, error in
             guard let self else { return }
 
             Queues.netDecode.async {
@@ -624,6 +624,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
         timeout: TimeInterval,
         completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     ) {
+        let deadline = Date().addingTimeInterval(timeout)
         Queues.state.async { [weak self] in
             guard let self else { return }
 
@@ -641,8 +642,8 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
                 self.refreshTokenAndRetryRequests(retry: {
                     self.executeRawRequestAfterToken(
                         endpoint,
-                        timeout: timeout,
-                        allowUnauthorizedRetry: true,
+                        deadline: deadline,
+                        allowUnauthorizedRetry: self.allowsUnauthorizedRetry(for: endpoint),
                         completion: completion
                     )
                 }) { _ in
@@ -658,22 +659,37 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
             self.executeRawRequestAfterToken(
                 endpoint,
-                timeout: timeout,
-                allowUnauthorizedRetry: true,
+                deadline: deadline,
+                allowUnauthorizedRetry: self.allowsUnauthorizedRetry(for: endpoint),
                 completion: completion
             )
         }
     }
 
+    private func allowsUnauthorizedRetry(for endpoint: Endpoint) -> Bool {
+        endpoint.method == .get
+    }
+
     private func executeRawRequestAfterToken(
         _ endpoint: Endpoint,
-        timeout: TimeInterval,
+        deadline: Date,
         allowUnauthorizedRetry: Bool,
         completion: @escaping @Sendable (HTTPTransportResponse) -> Void
     ) {
+        let remaining = deadline.timeIntervalSinceNow
+        guard remaining > 0 else {
+            completion(HTTPTransportResponse(
+                statusCode: nil,
+                data: nil,
+                headers: [:],
+                error: URLError(.timedOut)
+            ))
+            return
+        }
+
         let request: URLRequest
         do {
-            request = try buildRequest(for: endpoint, timeout: timeout)
+            request = try buildRequest(for: endpoint, timeout: remaining)
         } catch {
             completion(HTTPTransportResponse(
                 statusCode: nil,
@@ -684,7 +700,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             return
         }
 
-        urlSession.dataTask(with: request) { [weak self] data, response, error in
+        cloudCodeSession.dataTask(with: request) { [weak self] data, response, error in
             guard let self else { return }
             let httpResponse = response as? HTTPURLResponse
             var responseHeaders: [String: String] = [:]
@@ -701,6 +717,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
 
             guard rawResponse.statusCode == 401,
                   allowUnauthorizedRetry,
+                  self.allowsUnauthorizedRetry(for: endpoint),
                   self.requiresConsumerToken(endpoint) else {
                 completion(rawResponse)
                 return
@@ -710,7 +727,7 @@ final class AppAmbitApiService: ApiService, @unchecked Sendable {
             self.refreshTokenAndRetryRequests(retry: {
                 self.executeRawRequestAfterToken(
                     endpoint,
-                    timeout: timeout,
+                    deadline: deadline,
                     allowUnauthorizedRetry: false,
                     completion: completion
                 )

@@ -79,6 +79,27 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(transport.requestCount, 0)
     }
 
+    func testFunctionSlugsRejectSpacesAndControlCharactersBeforeTransport() {
+        for function in ["hello world", "hello\u{0000}world"] {
+            let transport = TestCloudCodeTransport()
+            let service = CloudCodeService(transport: transport)
+
+            let (_, error) = waitForUntyped { completion in
+                service.call(
+                    function: function,
+                    method: .get,
+                    query: nil,
+                    body: nil,
+                    headers: nil,
+                    completion: completion
+                )
+            }
+
+            XCTAssertEqual(error as? CloudCodeError, .invalidFunction(function))
+            XCTAssertEqual(transport.requestCount, 0)
+        }
+    }
+
     func testInvalidBodyAndReservedHeadersAreRejectedBeforeTransport() {
         let transport = TestCloudCodeTransport()
         let service = CloudCodeService(transport: transport)
@@ -485,6 +506,69 @@ final class CloudCodeTests: XCTestCase {
         }
     }
 
+    func testHTTPErrorParsesOnlyObjectsAndArraysAndPreservesRawScalars() {
+        let structuredBodies: [(String, JSONValue)] = [
+            ("{\"error\":\"failed\"}", .object(["error": .string("failed")])),
+            ("[\"failed\",1]", .array([.string("failed"), .int(1)]))
+        ]
+
+        for (rawBody, expectedBody) in structuredBodies {
+            let transport = TestCloudCodeTransport()
+            transport.response = CloudCodeTransportResponse(
+                statusCode: 500,
+                data: Data(rawBody.utf8),
+                headers: [:],
+                error: nil
+            )
+            let service = CloudCodeService(transport: transport)
+
+            let (_, error) = waitForUntyped { completion in
+                service.call(
+                    function: "structured-error",
+                    method: .get,
+                    query: nil,
+                    body: nil,
+                    headers: nil,
+                    completion: completion
+                )
+            }
+
+            guard case .http(_, let body, let rawBody, _) = error as? CloudCodeError else {
+                return XCTFail("Expected structured HTTP error, got \(String(describing: error))")
+            }
+            XCTAssertEqual(body, expectedBody)
+            XCTAssertNil(rawBody)
+        }
+
+        for rawBody in ["<html><body>gateway failure</body></html>", "\"failed\"", "42", "true", "null"] {
+            let transport = TestCloudCodeTransport()
+            transport.response = CloudCodeTransportResponse(
+                statusCode: 500,
+                data: Data(rawBody.utf8),
+                headers: [:],
+                error: nil
+            )
+            let service = CloudCodeService(transport: transport)
+
+            let (_, error) = waitForUntyped { completion in
+                service.call(
+                    function: "raw-error",
+                    method: .get,
+                    query: nil,
+                    body: nil,
+                    headers: nil,
+                    completion: completion
+                )
+            }
+
+            guard case .http(_, let body, let preservedBody, _) = error as? CloudCodeError else {
+                return XCTFail("Expected raw HTTP error, got \(String(describing: error))")
+            }
+            XCTAssertNil(body)
+            XCTAssertEqual(preservedBody, rawBody)
+        }
+    }
+
     func testNoCallbackAfterCancellation() {
         let transport = TestCloudCodeTransport()
         let service = CloudCodeService(transport: transport)
@@ -501,13 +585,13 @@ final class CloudCodeTests: XCTestCase {
             callbackExpectation.fulfill()
         }
 
-        token.cancel()
         transport.deliver(CloudCodeTransportResponse(
             statusCode: 200,
             data: Data("{\"ok\":true}".utf8),
             headers: [:],
             error: nil
         ))
+        token.cancel()
         wait(for: [callbackExpectation], timeout: 0.2)
     }
 
@@ -663,6 +747,11 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(response?.statusCode, 200)
         XCTAssertEqual(response?.data as? [String: Bool], ["ok": true])
         XCTAssertEqual(cloudRequests.count, 2)
+        XCTAssertEqual(
+            cloudRequests[0].timeoutInterval,
+            AppConstants.cloudCodeTimeout,
+            accuracy: 0.1
+        )
         XCTAssertEqual(cloudRequests[0].value(forHTTPHeaderField: "Authorization"), "Bearer stale-token")
         XCTAssertEqual(cloudRequests[1].value(forHTTPHeaderField: "Authorization"), "Bearer fresh-token")
         XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
@@ -728,6 +817,72 @@ final class CloudCodeTests: XCTestCase {
         XCTAssertEqual(requestId, "still-unauthorized")
         XCTAssertEqual(cloudRequests.count, 2)
         XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 1)
+    }
+
+    func testCloudCodeGatewayDoesNotRetryMutatingMethodsAfter401() throws {
+        let requestCapture = RequestCapture()
+        TestURLProtocol.requestHandler = { request in
+            requestCapture.append(request)
+            let response: HTTPURLResponse
+            let body: Data
+            if request.url?.path.hasSuffix("/consumer/token") == true {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                body = Data("{\"id\":123,\"token\":\"fresh-token\"}".utf8)
+            } else {
+                response = HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 401,
+                    httpVersion: nil,
+                    headerFields: ["X-Request-Id": "mutation-unauthorized"]
+                )!
+                body = Data("{\"error\":\"expired\"}".utf8)
+            }
+            return (response, body)
+        }
+        defer { TestURLProtocol.reset() }
+
+        let storage = InMemoryStorage()
+        try storage.putAppId("test-app")
+        try storage.putConsumerId("test-consumer")
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TestURLProtocol.self]
+        let apiService = AppAmbitApiService(
+            storageService: storage,
+            urlSession: URLSession(configuration: configuration),
+            isConnected: { true }
+        )
+        apiService.setToken("stale-token")
+        let service = CloudCodeService(transport: apiService)
+
+        for (function, method) in [("post-mutation", CloudCodeHttpMethod.post),
+                                    ("put-mutation", .put),
+                                    ("delete-mutation", .delete)] {
+            let (response, error) = waitForUntyped { completion in
+                service.call(
+                    function: function,
+                    method: method,
+                    query: nil,
+                    body: ["value": true],
+                    headers: nil,
+                    completion: completion
+                )
+            }
+
+            guard case .http(let statusCode, _, _, let requestId) = error as? CloudCodeError else {
+                return XCTFail("Expected HTTP 401 for \(method), got \(String(describing: error))")
+            }
+            XCTAssertNil(response)
+            XCTAssertEqual(statusCode, 401)
+            XCTAssertEqual(requestId, "mutation-unauthorized")
+        }
+
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.contains("/fn/") == true }.count, 3)
+        XCTAssertEqual(requestCapture.requests.filter { $0.url?.path.hasSuffix("/consumer/token") == true }.count, 0)
     }
 
     func testConcurrentCloudCode401RequestsShareOneTokenRenewal() throws {
