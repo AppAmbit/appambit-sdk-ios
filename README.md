@@ -316,6 +316,8 @@ CloudCode.call("hello", body: ["name": "Ada"]
 
 See the complete [Cloud Code mobile guide](https://docs.appambit.com/sdk-guides/cloud-code/) for function setup, HTTP triggers, typed and dynamic responses, errors, request IDs, cancellation, timeouts, and backend examples.
 
+For the dynamic response API, a successful empty body, a `204 No Content` response, and an explicit JSON `null` are represented as `NSNull()` in `CloudCodeResponse.data`. Android exposes the equivalent value as `null`. Typed responses preserve their status and request metadata; an empty successful body produces `nil` typed data.
+
 ## Release Distribution
 
 * Push the artifact to your AppAmbit dashboard for distribution via email and direct installation.
