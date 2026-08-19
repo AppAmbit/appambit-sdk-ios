@@ -1,3 +1,11 @@
+## Version 1.2.0
+
+- Added Cloud Code HTTP invocation for Swift and Objective-C.
+- Added typed and untyped JSON responses, request IDs, cancellation, reserved-header validation, and a 60-second Cloud Code timeout.
+- Added Cloud Code sample tabs and backend demonstration functions for Database, CMS, Push, event triggers, manual triggers, errors, and timeout behavior.
+
+___
+
 ## Version 1.1.2
 
 ### AppAmbit Push Notifications

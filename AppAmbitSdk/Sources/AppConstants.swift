@@ -1,3 +1,5 @@
+import Foundation
+
 class AppConstants {
     static let databaseFileName = "AppAmbit"
     static let noStackTraceAvailable = "NoStackTraceAvailable";
@@ -9,6 +11,8 @@ class AppConstants {
     static let trackEventMaxPropertyLimit = 20;
     static let trackEventPropertyMaxCharacters = 80;
     static let liveSessionStreaming = "live_session_streaming"
+    static let networkTimeout: TimeInterval = 20
+    static let cloudCodeTimeout: TimeInterval = 60
     static let baseUrlSdk = "https://appambit.com/api"
     static let baseUrlCms = "https://cms.appambit.com/api/v1"
 }

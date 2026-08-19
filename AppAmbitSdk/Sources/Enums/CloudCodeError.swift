@@ -1,0 +1,82 @@
+import Foundation
+
+@objcMembers
+public final class CloudCodeErrorKeys: NSObject {
+    public static let statusCode = "CloudCodeErrorStatusCodeKey"
+    public static let body = "CloudCodeErrorBodyKey"
+    public static let rawBody = "CloudCodeErrorRawBodyKey"
+    public static let requestId = "CloudCodeErrorRequestIdKey"
+}
+
+public enum CloudCodeError: Error, LocalizedError, CustomNSError, Equatable, @unchecked Sendable {
+    case notInitialized
+    case invalidFunction(String)
+    case invalidBody
+    case invalidHeader(String)
+    case networkUnavailable
+    case timedOut
+    case invalidURL
+    case transport(String)
+    case decoding(String)
+    case http(statusCode: Int, body: JSONValue?, rawBody: String?, requestId: String?)
+
+    public static let errorDomain = "com.appambit.cloud-code"
+
+    public var errorCode: Int {
+        switch self {
+        case .notInitialized: return 1
+        case .invalidFunction: return 2
+        case .invalidBody: return 3
+        case .invalidHeader: return 4
+        case .networkUnavailable: return 5
+        case .timedOut: return 6
+        case .invalidURL: return 7
+        case .transport: return 8
+        case .decoding: return 9
+        case .http: return 10
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: errorDescription ?? "Cloud Code error"]
+        if case .http(let statusCode, let body, let rawBody, let requestId) = self {
+            userInfo[CloudCodeErrorKeys.statusCode] = statusCode
+            if let body { userInfo[CloudCodeErrorKeys.body] = body.toAny() }
+            if let rawBody { userInfo[CloudCodeErrorKeys.rawBody] = rawBody }
+            if let requestId { userInfo[CloudCodeErrorKeys.requestId] = requestId }
+        }
+        return userInfo
+    }
+
+    public var errorDescription: String? {
+        switch self {
+        case .notInitialized:
+            return "Cloud Code is not initialized. Call AppAmbit.start() first."
+        case .invalidFunction(let function):
+            return "Invalid Cloud Code function slug: \(function)"
+        case .invalidBody:
+            return "The Cloud Code body is not valid JSON."
+        case .invalidHeader(let header):
+            return "The Cloud Code header is reserved and cannot be overridden: \(header)"
+        case .networkUnavailable:
+            return "Cloud Code is unavailable because the network is offline."
+        case .timedOut:
+            return "Cloud Code request timed out."
+        case .invalidURL:
+            return "Cloud Code URL is invalid."
+        case .transport(let message):
+            return "Cloud Code network request failed: \(message)"
+        case .decoding(let message):
+            return "Cloud Code response could not be decoded: \(message)"
+        case .http(let statusCode, _, let rawBody, let requestId):
+            var message = "Cloud Code returned HTTP \(statusCode)."
+            if let rawBody, !rawBody.isEmpty {
+                message += " Body: \(rawBody)"
+            }
+            if let requestId {
+                message += " Request ID: \(requestId)"
+            }
+            return message
+        }
+    }
+}

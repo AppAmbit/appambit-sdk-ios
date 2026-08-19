@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1388B6EE0A134AFCB0F32F3E /* Samples/AppAmbit.App.Swift/CloudCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E90F6A8CC44479B7CCA237 /* Samples/AppAmbit.App.Swift/CloudCodeView.swift */; };
 		7916DAD32E171C9B00CFEFA2 /* AppAmbit in Frameworks */ = {isa = PBXBuildFile; productRef = 7916DAD22E171C9B00CFEFA2 /* AppAmbit */; };
 		7928260C2FAEAB8C00766B64 /* AppAmbitPushNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 7928260B2FAEAB8C00766B64 /* AppAmbitPushNotifications */; };
 		7928260D2FAEAB8C00766B64 /* AppAmbitPushNotifications in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 7928260B2FAEAB8C00766B64 /* AppAmbitPushNotifications */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -126,6 +127,7 @@
 		792825FE2FAEA6AD00766B64 /* NotificationServiceObjC.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceObjC.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		79712D1C2E7CD50D00B99DB6 /* AppAmbit.App.ObjC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppAmbit.App.ObjC.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		797B71692F1050260032E3ED /* NotificationServiceSwift.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceSwift.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C6E90F6A8CC44479B7CCA237 /* Samples/AppAmbit.App.Swift/CloudCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Samples/AppAmbit.App.Swift/CloudCodeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -149,12 +151,15 @@
 				AppAmbit.App.Swift/AnalyticsView.swift,
 				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
 				AppAmbit.App.Swift/Assets.xcassets,
+				AppAmbit.App.Swift/CloudCodeView.swift,
 				AppAmbit.App.Swift/CmsView.swift,
 				AppAmbit.App.Swift/ContentView.swift,
 				AppAmbit.App.Swift/CrashesView.swift,
 				AppAmbit.App.Swift/DatabaseView.swift,
 				AppAmbit.App.Swift/LoadView.swift,
+				AppAmbit.App.Swift/models/CloudCodeDemo.swift,
 				AppAmbit.App.Swift/models/CmsExampleModel.swift,
+				AppAmbit.App.Swift/models/DashboardSummary.swift,
 				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
 				AppAmbit.App.Swift/RemoteConfigView.swift,
 				AppAmbit.App.Swift/SecondView.swift,
@@ -172,12 +177,15 @@
 				AppAmbit.App.Swift/AnalyticsView.swift,
 				AppAmbit.App.Swift/AppAmbitTestingApp.swift,
 				AppAmbit.App.Swift/Assets.xcassets,
+				AppAmbit.App.Swift/CloudCodeView.swift,
 				AppAmbit.App.Swift/CmsView.swift,
 				AppAmbit.App.Swift/ContentView.swift,
 				AppAmbit.App.Swift/CrashesView.swift,
 				AppAmbit.App.Swift/DatabaseView.swift,
 				AppAmbit.App.Swift/LoadView.swift,
+				AppAmbit.App.Swift/models/CloudCodeDemo.swift,
 				AppAmbit.App.Swift/models/CmsExampleModel.swift,
+				AppAmbit.App.Swift/models/DashboardSummary.swift,
 				"AppAmbit.App.Swift/Preview Content/Preview Assets.xcassets",
 				AppAmbit.App.Swift/RemoteConfigView.swift,
 				AppAmbit.App.Swift/SecondView.swift,
@@ -280,6 +288,7 @@
 				7916DAB22E1719AF00CFEFA2 /* Frameworks */,
 				79260B8D2E139E23008BF6CB /* Products */,
 				791D978D2EEA0506002FC398 /* AppAmbitSdk */,
+				79768E1C302CDD67008CA0D1 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -292,6 +301,14 @@
 				792825FE2FAEA6AD00766B64 /* NotificationServiceObjC.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		79768E1C302CDD67008CA0D1 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				C6E90F6A8CC44479B7CCA237 /* Samples/AppAmbit.App.Swift/CloudCodeView.swift */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -485,6 +502,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1388B6EE0A134AFCB0F32F3E /* Samples/AppAmbit.App.Swift/CloudCodeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
