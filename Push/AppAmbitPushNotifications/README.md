@@ -42,9 +42,9 @@ product when it is not linked to the NSE target.
 - iOS 12.0 or newer
 - Xcode 16 or newer
 - Swift 6.0 or newer
-- AppAmbit SDK `1.1.2` or newer
+- AppAmbit SDK `1.2.0` or newer
 
-The `1.1.2` release keeps the main push product and the NSE product separate.
+The `1.2.0` release keeps the main push product and the NSE product separate.
 
 ## 1. Install the SDK
 
@@ -62,7 +62,7 @@ notifications, or notification tap events. You do **not** need an NSE.
    https://github.com/AppAmbit/appambit-sdk-ios
    ```
 
-3. Select **Up to Next Major Version** starting at `1.1.2`.
+3. Select **Up to Next Major Version** starting at `1.2.0`.
 4. Add the package to the project.
 5. When Xcode asks which products belong to the **main app target**, select:
 
@@ -89,8 +89,8 @@ Add the pods to the **main app target** in your `Podfile`:
 
 ```ruby
 target 'MyApp' do
-  pod 'AppAmbitSdk', '~> 1.1.2'
-  pod 'AppAmbitPushNotifications', '~> 1.1.2'
+  pod 'AppAmbitSdk', '~> 1.2.0'
+  pod 'AppAmbitPushNotifications', '~> 1.2.0'
 end
 ```
 
@@ -309,7 +309,7 @@ Add this block to the same `Podfile`:
 
 ```ruby
 target 'NotificationServiceExtension' do
-  pod 'AppAmbitPushNotificationsExtension', '~> 1.1.2'
+  pod 'AppAmbitPushNotificationsExtension', '~> 1.2.0'
 end
 ```
 
@@ -565,7 +565,7 @@ Make sure the extension pod is inside the extension target block, then run
 
 ```ruby
 target 'NotificationServiceExtension' do
-  pod 'AppAmbitPushNotificationsExtension', '~> 1.1.2'
+  pod 'AppAmbitPushNotificationsExtension', '~> 1.2.0'
 end
 ```
 
