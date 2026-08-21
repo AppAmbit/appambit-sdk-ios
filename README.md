@@ -39,7 +39,6 @@ Analytics, crashes, session timeline, remote config, cms, database, and cloud co
 ## Features
 
 * Session analytics with automatic lifecycle tracking
-* Ambit Trail records detailed navigation for debugging
 * Event tracking with custom properties
 * Remote Config – dynamic configuration values fetched and applied at runtime
 * Error logging for quick diagnostics 
@@ -177,7 +176,6 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 ## Usage
 
 * **Session activity** – automatically tracks user session starts, stops, and durations
-* **Ambit Trail** – records detailed navigation of user and system actions leading up to an issue for easier debugging
 * **Track events** – send structured events with custom properties
   ### Swift
   ```swift
