@@ -29,6 +29,14 @@ final class StubApiService: ApiService {
         completion(ApiResult(data: nil, errorType: .none))
     }
 
+    func executeRawRequest(
+        _ endpoint: Endpoint,
+        timeout: TimeInterval,
+        completion: @escaping @Sendable (HTTPTransportResponse) -> Void
+    ) {
+        completion(HTTPTransportResponse(statusCode: nil, data: nil, headers: [:], error: nil))
+    }
+
     func getNewToken(completion: @escaping @Sendable (ApiErrorType) -> Void) {
         completion(.none)
     }

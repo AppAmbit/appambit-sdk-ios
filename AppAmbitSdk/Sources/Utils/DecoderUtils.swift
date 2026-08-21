@@ -241,7 +241,7 @@ private struct FlexibleSingleValueContainer: SingleValueDecodingContainer {
 
 // MARK: - JSON Handling
 
-public enum JSONValue: Codable, @unchecked Sendable {
+public enum JSONValue: Codable, Equatable, @unchecked Sendable {
     case string(String)
     case int(Int)
     case double(Double)

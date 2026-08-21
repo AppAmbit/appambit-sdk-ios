@@ -6,6 +6,7 @@ final class ServiceContainer {
     let storageService: StorageService
     let reachabilityService: ReachabilityService
     let dbService: DbService
+    let cloudCodeService: CloudCodeService
 
     private nonisolated(unsafe) static let _instance: ServiceContainer = {
         let dataStore: DataStore
@@ -37,7 +38,8 @@ final class ServiceContainer {
             appInfoService: AppAmbitInfoService(),
             storageService: storageService,
             reachabilityService: reachabilityService,
-            dbService: DbService(apiService: apiService)
+            dbService: DbService(apiService: apiService),
+            cloudCodeService: CloudCodeService(transport: apiService)
         )
     }()
 
@@ -57,12 +59,14 @@ final class ServiceContainer {
         appInfoService: AppInfoService,
         storageService: StorageService,
         reachabilityService: ReachabilityService,
-        dbService: DbService
+        dbService: DbService,
+        cloudCodeService: CloudCodeService
     ) {
         self.apiService = apiService
         self.appInfoService = appInfoService
         self.storageService = storageService
         self.reachabilityService = reachabilityService
         self.dbService = dbService
+        self.cloudCodeService = cloudCodeService
     }
 }
