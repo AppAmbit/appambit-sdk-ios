@@ -1,9 +1,18 @@
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://assets.appambit.com/logo-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://assets.appambit.com/logo-dark.svg">
+  <img alt="AppAmbit logo" src="https://assets.appambit.com/logo-dark.svg" width="280">
+</picture>
+
 # AppAmbit iOS SDK
 
-**Track. Debug. Distribute.**
-**AppAmbit: track, debug, and distribute your apps from one dashboard.**
+**The App Command Center.**
+Everything your app needs after you build it, in one connected platform instead of stitching together separate tools.
 
-Lightweight SDK for analytics, events, logging, crashes, and offline support. Simple setup, minimal overhead.
+[![Discord](https://img.shields.io/discord/1418426396836888617?label=Discord&logo=discord&color=5865F2)](https://discord.gg/nJyetYue2s)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Analytics, crashes, session timeline, remote config, cms, database, and cloud code for iOS, one lightweight package, simple setup, minimal overhead.
 
 > Full product docs live here: **[docs.appambit.com](https://docs.appambit.com)**
 
@@ -36,6 +45,7 @@ Lightweight SDK for analytics, events, logging, crashes, and offline support. Si
 * Error logging for quick diagnostics 
 * Crash capture with stack traces and threads
 * Offline support with batching, retry, and queue
+* CMS – fetch published content entries with a fluent query builder: filters, full-text search, sorting and pagination
 * Database – query, insert, update and delete remote data with a fluent builder
 * Cloud Code – invoke authenticated HTTP functions with JSON, typed results, cancellation, and request correlation
 * Create mutliple app profiles for staging and production
@@ -142,7 +152,10 @@ Open the generated `.xcworkspace` project.
 
 ## Quickstart
 
-Configure the SDK at app launch with your **API Key**.
+1. Sign up free at [appambit.com](https://appambit.com) — no credit card required
+2. Create an app in the dashboard and grab your appkey
+3. Install the SDK ([see above](#install))
+4. Configure it at app launch with your **API Key**:
 
 ### Swift
 
@@ -238,6 +251,33 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
   NSInteger discount = [RemoteConfig getLong:@"discount"];
   double maxUpload = [RemoteConfig getDouble:@"max_upload"];
+  ```
+
+* **CMS**: read content you publish from the dashboard — articles, FAQs, promos — without shipping a new build. `Cms.content(_:modelType:)` decodes entries into your own `Decodable` model; `Cms.content(_:)` returns them untyped.
+
+  ### Swift
+
+  ```swift
+  Cms.content("blog_extended", modelType: BlogPost.self)
+    .equals("is_published", "true")
+    .orderByDescending("views_count")
+    .getPerPage(20)
+    .getList { posts in
+      print(posts)
+    }
+  ```
+
+  Also available: `search`, `notEquals`, `contains`, `startsWith`, `greaterThan(OrEqual)`, `lessThan(OrEqual)`, `inList`, `notInList`, `orderByAscending`, `getPage`.
+
+  ### Objective-C
+
+  ```objective-c
+  CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
+  [query equals:@"is_published" value:@"true"];
+
+  [query getListWithCompletion:^(NSArray * _Nonnull items) {
+      NSLog(@"%@", items); // each item is an NSDictionary of the entry's fields
+  }];
   ```
 
 * **Database**: query, insert, update and delete rows in your AppAmbit database with a fluent builder.
@@ -382,7 +422,11 @@ Open source under the terms described in the [LICENSE](./LICENSE) file.
 
 * **Docs**: [docs.appambit.com](https://docs.appambit.com)
 * **Dashboard**: [appambit.com](https://appambit.com)
+* **Pricing**: [appambit.com/pricing](https://appambit.com/pricing) — free plan with all core features, paid plans from $5.99/mo with hard spend caps
 * **Discord**: [discord.gg](https://discord.gg/nJyetYue2s)
-* **Examples**: Sample Swift test app `AppAmbit.App.Swift` and Objective-C test app `AppAmbit.App.ObjC` are included in this repo. 
+* **Contact**: [hello@appambit.com](mailto:hello@appambit.com)
+* **Other platforms**: [Android](https://github.com/AppAmbit/appambit-sdk-android) · [.NET](https://github.com/AppAmbit/appambit-sdk-dotnet) · [Flutter](https://github.com/AppAmbit/appambit-sdk-flutter) · [React Native](https://github.com/AppAmbit/appambit-sdk-react-native)
+* **REST API**: [Getting started guide](https://docs.appambit.com/Rest/getting-started/) — every capability is also reachable over HTTP
+* **Examples**: Sample Swift test app `AppAmbit.App.Swift` and Objective-C test app `AppAmbit.App.ObjC` are included in this repo.
 
 ---
