@@ -11,8 +11,10 @@ Everything your app needs after you build it, in one connected platform instead 
 
 [![Discord](https://img.shields.io/discord/1418426396836888617?label=Discord&logo=discord&color=5865F2)](https://discord.gg/nJyetYue2s)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Swift Package Manager](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)](https://swiftpackageindex.com/AppAmbit/appambit-sdk-ios)
+[![CocoaPods](https://img.shields.io/cocoapods/v/AppAmbitSdk.svg)](https://cocoapods.org/pods/AppAmbitSdk)
 
-Analytics, crashes, session timeline, remote config, cms, database, and cloud code for iOS, one lightweight package, simple setup, minimal overhead.
+Analytics, crashes, session timeline, remote config, CMS, database, and cloud code for iOS, one lightweight package, simple setup, minimal overhead.
 
 > Full product docs live here: **[docs.appambit.com](https://docs.appambit.com)**
 
@@ -20,35 +22,74 @@ Analytics, crashes, session timeline, remote config, cms, database, and cloud co
 
 ## Contents
 
-* [Features](#features)
+* [Quick start](#quick-start)
+* [What's inside](#whats-inside)
 * [Requirements](#requirements)
 * [Install](#install)
-* [Quickstart](#quickstart)
 * [Usage](#usage)
-* [Cloud Code](#cloud-code)
-* [Release Distribution](#release-distribution)
-* [Privacy and Data](#privacy-and-data)
+* [Cloud code](#cloud-code)
+* [Sample apps](#sample-apps)
+* [Release distribution](#release-distribution)
+* [Privacy and data](#privacy-and-data)
 * [Troubleshooting](#troubleshooting)
 * [Contributing](#contributing)
 * [Versioning](#versioning)
 * [Security](#security)
-* [License](#license)
+* [Starter apps](#starter-apps)
+* [Built for agentic coding](#built-for-agentic-coding)
 
 ---
 
-## Features
+## Quick start
 
-* Session analytics with automatic lifecycle tracking
-* Event tracking with custom properties
-* Remote Config – dynamic configuration values fetched and applied at runtime
-* Error logging for quick diagnostics 
-* Crash capture with stack traces and threads
-* Offline support with batching, retry, and queue
-* CMS – fetch published content entries with a fluent query builder: filters, full-text search, sorting and pagination
-* Database – query, insert, update and delete remote data with a fluent builder
-* Cloud Code – invoke authenticated HTTP functions with JSON, typed results, cancellation, and request correlation
-* Create mutliple app profiles for staging and production
-* Small footprint, modern Swift API with full Objective-C support
+1. Sign up free at [appambit.com](https://appambit.com), no credit card required
+2. Create an app in the dashboard and grab your app key
+3. Install the SDK ([see below](#install))
+4. Initialize it at app launch:
+
+### Swift
+
+```swift
+// AppDelegate
+AppAmbit.start(appKey: "<YOUR-APPKEY>")
+```
+
+### Objective-C
+
+```objective-c
+// AppDelegate
+[AppAmbit startWithAppKey:@"<YOUR-APPKEY>"];
+```
+
+That's it. Crashes, sessions, and analytics start flowing immediately.
+
+---
+
+## What's inside
+
+### 🚀 Ship
+- **Build delivery**: push a build from GitHub, Bitbucket, Azure DevOps, or manually, then send it to team, testers, or clients and track installs
+- **Live updates**: ship changes without waiting on an app store review
+
+### 📊 Monitor
+- **Crash & error monitoring**: uncaught crashes are captured with full stack traces and threads, then uploaded on the next launch, grouped with who's affected and email alerts on new issues
+- **Error logging**: structured log messages with custom properties for quick diagnostics, sent even when the app does not crash
+- **Session timeline & breadcrumbs**: automatic screen navigation trail so you see exactly what led to a crash
+- **Analytics & event tracking**: automatic session starts, stops, and durations plus structured events with custom properties, live and compared across versions
+
+### 📈 Grow
+- **Push notifications**: APNs through the optional `AppAmbitPushNotifications` product, targeted by segment and scheduled from the dashboard
+- **Remote config & feature flags**: typed keys (`getString`, `getBoolean`, `getLong`, `getDouble`) with version targeting, so you can flip features, run gradual rollouts, or hit the kill switch without a release
+- **CMS**: read content types and entries with a fluent query builder that supports filters, full-text search, sorting, and pagination, decoded straight into your own `Decodable` models
+
+### 🗄️ Backend
+- **App database**: a managed SQL database with a fluent query builder, batches, and transactions, straight from the SDK or the dashboard
+- **Cloud code**: invoke authenticated JavaScript functions over HTTP with typed results, cancellation, and request correlation
+- **AI agent (MCP)**: build your backend from a conversation with Claude or Cursor ([more below](#built-for-agentic-coding))
+
+### 👥 Teams
+- Workspaces, squads, roles and access, per-app reporting
+
 
 ---
 
@@ -81,7 +122,7 @@ Analytics, crashes, session timeline, remote config, cms, database, and cloud co
 | Product | Add to target | Import |
 |---|---|---|
 | `AppAmbit` | Your app | `import AppAmbit` |
-| `AppAmbitPushNotifications` | Your app *(optional — only if you use push)* | `import AppAmbitPushNotifications` |
+| `AppAmbitPushNotifications` | Your app *(optional, only if you use push)* | `import AppAmbitPushNotifications` |
 | `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(optional)* | `import AppAmbitPushNotificationsExtension` |
 
 #### Choose a push setup
@@ -149,34 +190,10 @@ Open the generated `.xcworkspace` project.
 
 ---
 
-## Quickstart
-
-1. Sign up free at [appambit.com](https://appambit.com) — no credit card required
-2. Create an app in the dashboard and grab your appkey
-3. Install the SDK ([see above](#install))
-4. Configure it at app launch with your **API Key**:
-
-### Swift
-
-```swift
-
-// AppDelegate
-AppAmbit.start(appKey: "<YOUR-APPKEY>")
-```
-
-### Objective-C
-
-```objective-c
-
-// AppDelegate
-[AppAmbit startWithAppKey:@"<YOUR-APPKEY>"];
-```
----
-
 ## Usage
 
-* **Session activity** – automatically tracks user session starts, stops, and durations
-* **Track events** – send structured events with custom properties
+* **Session activity**: automatically tracks user session starts, stops, and durations
+* **Track events**: send structured events with custom properties
   ### Swift
   ```swift
     Analytics.trackEvent(eventTitle: "Test TrackEvent", data: ["test1":"test1"])
@@ -251,7 +268,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
   double maxUpload = [RemoteConfig getDouble:@"max_upload"];
   ```
 
-* **CMS**: read content you publish from the dashboard — articles, FAQs, promos — without shipping a new build. `Cms.content(_:modelType:)` decodes entries into your own `Decodable` model; `Cms.content(_:)` returns them untyped.
+* **CMS**: read content you publish from the dashboard (articles, FAQs, promos) without shipping a new build. `Cms.content(_:modelType:)` decodes entries into your own `Decodable` model; `Cms.content(_:)` returns them untyped.
 
   ### Swift
 
@@ -320,7 +337,7 @@ AppAmbit.start(appKey: "<YOUR-APPKEY>")
 
 ---
 
-## Cloud Code
+## Cloud code
 
 Cloud Code lets your app invoke authenticated HTTP functions hosted by AppAmbit. Initialize the SDK as usual; Cloud Code uses the same consumer and Bearer token as the rest of the SDK.
 
@@ -356,16 +373,31 @@ See the complete [Cloud Code mobile guide](https://docs.appambit.com/sdk-guides/
 
 For the dynamic response API, a successful empty body, a `204 No Content` response, and an explicit JSON `null` are represented as `NSNull()` in `CloudCodeResponse.data`. Android exposes the equivalent value as `null`. Typed responses preserve their status and request metadata; an empty successful body produces `nil` typed data.
 
-## Release Distribution
+---
+
+## Sample apps
+
+This repo ships two manual-test apps that exercise every public feature, one tab per capability:
+
+| App | Language | Path |
+| --- | --- | --- |
+| `AppAmbit.App.Swift` | Swift / SwiftUI | [Samples/AppAmbit.App.Swift](Samples/AppAmbit.App.Swift) |
+| `AppAmbit.App.ObjC` | Objective-C / UIKit | [Samples/AppAmbit.App.ObjC](Samples/AppAmbit.App.ObjC) |
+
+Replace `<YOUR-APPKEY>` with a real app key before running them. The Cloud Code tab is backed by the deployable handlers in [Samples/CloudCodeExamples.js](Samples/CloudCodeExamples.js).
+
+---
+
+## Release distribution
 
 * Push the artifact to your AppAmbit dashboard for distribution via email and direct installation.
 
 ---
 
-## Privacy and Data
+## Privacy and data
 
 * The SDK batches and transmits data efficiently
-* You control what is sent — avoid secrets or sensitive PII
+* You control what is sent, so avoid secrets or sensitive PII
 * Supports compliance with Apple platform policies
 
 For details, see the docs: **[docs.appambit.com](https://docs.appambit.com)**
@@ -410,21 +442,47 @@ If you find a security issue, please contact us at **[hello@appambit.com](mailto
 
 ---
 
+## Starter apps
+
+Skip the blank-project setup. Clone a starter with AppAmbit already wired in: auth, push notifications, analytics, and a CMS-driven feed that needs no rebuild to change content. Each one ships with ready-made content sets you can import directly into your AppAmbit dashboard, then customize to make the app your own.
+
+| Starter | Repo |
+| --- | --- |
+| .NET MAUI | [organization-app-starter-maui](https://github.com/AppAmbit/organization-app-starter-maui) |
+| Flutter | [organization-app-starter-flutter](https://github.com/AppAmbit/organization-app-starter-flutter) |
+| React Native | [organization-app-starter-react-native](https://github.com/AppAmbit/organization-app-starter-react-native) |
+
+---
+
+## Built for agentic coding
+
+Point Claude or Cursor at the AppAmbit MCP server and it can provision your entire backend from a conversation (content types, database schema, and cloud code functions) while writing the app code that calls them.
+
+Because the agent is driving both sides at once, it wires up the integration as it goes: new CMS field, new database table, new cloud function, and the corresponding app-side code gets built and connected in the same pass instead of as a separate step. Paired with a [starter app](#starter-apps), that means going from a prompt to a working app with a live backend in a single sitting, with scoped, revocable tokens keeping access tight.
+
+---
+
+## Documentation
+
+📚 [docs.appambit.com](https://docs.appambit.com) · 🖥️ [Dashboard](https://appambit.com)
+
+---
+
+## Community
+
+- 💬 [Discord](https://discord.gg/nJyetYue2s)
+- ✉️ [hello@appambit.com](mailto:hello@appambit.com)
+
+---
+
+## Pricing
+
+Free plan with all core features, no credit card required. Paid plans start at $5.99/mo with hard spend caps, so there are no overage surprises.
+
+🔗 [appambit.com](https://appambit.com) · [See pricing](https://appambit.com/pricing)
+
+---
+
 ## License
 
-Open source under the terms described in the [LICENSE](./LICENSE) file.
-
----
-
-## Links
-
-* **Docs**: [docs.appambit.com](https://docs.appambit.com)
-* **Dashboard**: [appambit.com](https://appambit.com)
-* **Pricing**: [appambit.com/pricing](https://appambit.com/pricing) — free plan with all core features, paid plans from $5.99/mo with hard spend caps
-* **Discord**: [discord.gg](https://discord.gg/nJyetYue2s)
-* **Contact**: [hello@appambit.com](mailto:hello@appambit.com)
-* **Other platforms**: [Android](https://github.com/AppAmbit/appambit-sdk-android) · [.NET](https://github.com/AppAmbit/appambit-sdk-dotnet) · [Flutter](https://github.com/AppAmbit/appambit-sdk-flutter) · [React Native](https://github.com/AppAmbit/appambit-sdk-react-native)
-* **REST API**: [Getting started guide](https://docs.appambit.com/Rest/getting-started/) — every capability is also reachable over HTTP
-* **Examples**: Sample Swift test app `AppAmbit.App.Swift` and Objective-C test app `AppAmbit.App.ObjC` are included in this repo.
-
----
+Open source under the MIT License. See the [LICENSE](./LICENSE) file for the full terms.
