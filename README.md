@@ -492,7 +492,7 @@ No SDK? No problem. Every capability (sessions, events, logs, breadcrumbs, consu
 
 ## Documentation
 
-📚 [docs.appambit.com](https://docs.appambit.com) · 🖥️ [Dashboard](https://appambit.com)
+📚 [docs.appambit.com](https://docs.appambit.com)
 
 ---
 
