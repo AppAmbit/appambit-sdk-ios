@@ -14,7 +14,6 @@ Everything your app needs after you build it, in one connected platform instead 
 [![Swift Package Manager](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)](https://swiftpackageindex.com/AppAmbit/appambit-sdk-ios)
 [![CocoaPods](https://img.shields.io/cocoapods/v/AppAmbitSdk.svg)](https://cocoapods.org/pods/AppAmbitSdk)
 
-
 ---
 
 ## Quick start
@@ -70,6 +69,14 @@ That's it. Crashes, sessions, and analytics start flowing immediately. Full setu
 
 ### 👥 Teams
 - Workspaces, squads, roles and access, per-app reporting
+
+---
+
+## Built for agentic coding
+
+Point Claude or Cursor at the AppAmbit MCP server and it can provision your entire backend from a conversation (content types, database schema, and cloud code functions) while writing the app code that calls them. Paired with a [sample app](#sample-apps) or a [starter app](#starter-apps), that means going from a prompt to a working app with a live backend in a single sitting.
+
+Set it up from the AppAmbit dashboard under **Settings → AI Assistant**, where you create the personal access token and get the connection details for your assistant.
 
 ---
 
@@ -171,39 +178,6 @@ an NSE only when you need to modify or process a notification before display.
 See the [Push Notifications guide](Push/AppAmbitPushNotifications/README.md) for
 the complete setup, including SwiftUI, UIKit, CocoaPods, Objective-C, and NSE
 troubleshooting.
-
----
-
-## Sample apps
-
-This repo ships two manual-test apps that exercise every public feature, one tab per capability:
-
-| App | Language | Path |
-| --- | --- | --- |
-| `AppAmbit.App.Swift` | Swift / SwiftUI | [Samples/AppAmbit.App.Swift](Samples/AppAmbit.App.Swift) |
-| `AppAmbit.App.ObjC` | Objective-C / UIKit | [Samples/AppAmbit.App.ObjC](Samples/AppAmbit.App.ObjC) |
-
-Replace `<YOUR-APPKEY>` with a real app key before running them. The Cloud Code tab is backed by the deployable handlers in [Samples/CloudCodeExamples.js](Samples/CloudCodeExamples.js).
-
----
-
-## Starter apps
-
-Skip the blank-project setup. Clone a starter with AppAmbit already wired in: auth, push notifications, analytics, and a CMS-driven feed that needs no rebuild to change content. Each one ships with ready-made content sets you can import directly into your AppAmbit dashboard, then customize to make the app your own.
-
-| Starter | Repo |
-| --- | --- |
-| .NET MAUI | [organization-app-starter-maui](https://github.com/AppAmbit/organization-app-starter-maui) |
-| Flutter | [organization-app-starter-flutter](https://github.com/AppAmbit/organization-app-starter-flutter) |
-| React Native | [organization-app-starter-react-native](https://github.com/AppAmbit/organization-app-starter-react-native) |
-
----
-
-## Built for agentic coding
-
-Point Claude or Cursor at the AppAmbit MCP server and it can provision your entire backend from a conversation (content types, database schema, and cloud code functions) while writing the app code that calls them. Paired with a [sample app](#sample-apps) or a [starter app](#starter-apps), that means going from a prompt to a working app with a live backend in a single sitting.
-
-Set it up from the AppAmbit dashboard under **Settings → AI Assistant**, where you create the personal access token and get the connection details for your assistant.
 
 ---
 
@@ -427,6 +401,31 @@ CloudCode.call("hello", body: ["name": "Ada"]) { response, error in
 With the dynamic response API, a successful empty body, a `204 No Content` response, and an explicit JSON `null` are all represented as `NSNull()` in `CloudCodeResponse.data`. Typed responses preserve their status and request metadata, and an empty successful body produces `nil` typed data.
 
 See the [Cloud Code mobile guide](https://docs.appambit.com/sdk-guides/cloud-code/) for function setup, HTTP triggers, typed and dynamic responses, errors, request IDs, cancellation, timeouts, and backend examples.
+
+---
+
+## Sample apps
+
+This repo ships two manual-test apps that exercise every public feature, one tab per capability:
+
+| App | Language | Path |
+| --- | --- | --- |
+| `AppAmbit.App.Swift` | Swift / SwiftUI | [Samples/AppAmbit.App.Swift](Samples/AppAmbit.App.Swift) |
+| `AppAmbit.App.ObjC` | Objective-C / UIKit | [Samples/AppAmbit.App.ObjC](Samples/AppAmbit.App.ObjC) |
+
+Replace `<YOUR-APPKEY>` with a real app key before running them. The Cloud Code tab is backed by the deployable handlers in [Samples/CloudCodeExamples.js](Samples/CloudCodeExamples.js).
+
+---
+
+## Starter apps
+
+Skip the blank-project setup. Clone a starter with AppAmbit already wired in: auth, push notifications, analytics, and a CMS-driven feed that needs no rebuild to change content. Each one ships with ready-made content sets you can import directly into your AppAmbit dashboard, then customize to make the app your own.
+
+| Starter | Repo |
+| --- | --- |
+| .NET MAUI | [organization-app-starter-maui](https://github.com/AppAmbit/organization-app-starter-maui) |
+| Flutter | [organization-app-starter-flutter](https://github.com/AppAmbit/organization-app-starter-flutter) |
+| React Native | [organization-app-starter-react-native](https://github.com/AppAmbit/organization-app-starter-react-native) |
 
 ---
 
