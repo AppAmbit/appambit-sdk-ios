@@ -88,7 +88,20 @@ Set it up from the AppAmbit dashboard under **Settings → AI Assistant**, where
 
 ---
 
-## Install and usage
+## Getting started
+
+- [Install](#install)
+  - [Swift Package Manager](#swift-package-manager)
+  - [CocoaPods](#cocoapods)
+  - [Push setup](#choose-a-push-setup)
+- [Track events](#track-events)
+- [Logs](#logs)
+- [Breadcrumbs](#breadcrumbs)
+- [Remote config](#remote-config)
+- [Release distribution](#release-distribution)
+- [CMS](#cms)
+- [Database](#database)
+- [Cloud code](#cloud-code)
 
 ### Install
 
@@ -185,7 +198,6 @@ troubleshooting.
 
 Everything below works once `AppAmbit.start(appKey:)` has run. Session activity (starts, stops, and durations) is tracked automatically, and uncaught crashes are captured and uploaded on the next launch with no extra code.
 
----
 
 ### Track events
 
@@ -294,6 +306,20 @@ BOOL isFeatureEnabled = [RemoteConfig getBoolean:@"banner"];
 NSInteger discount = [RemoteConfig getLong:@"discount"];
 double maxUpload = [RemoteConfig getDouble:@"max_upload"];
 ```
+
+---
+
+### Release distribution
+
+Ship a build to your team, testers, or clients without waiting on a store review. Connect GitHub, Bitbucket, or Azure DevOps so every pipeline run uploads its artifact. Send it out by email or a direct install link, and see who actually installed it.
+
+This repo ships a pipeline for each one that archives, signs, and exports the IPA, ready to copy into your own app:
+
+| CI | Pipeline |
+| --- | --- |
+| GitHub Actions | [.github/workflows/build-ipa.yml](.github/workflows/build-ipa.yml) |
+| Bitbucket Pipelines | [bitbucket-pipelines.yml](bitbucket-pipelines.yml) |
+| Azure DevOps | [azure-devops-pipelines-testapp.yml](azure-devops-pipelines-testapp.yml) |
 
 ---
 
