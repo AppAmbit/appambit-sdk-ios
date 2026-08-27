@@ -96,7 +96,7 @@ Set it up from the AppAmbit dashboard under **Settings → AI Assistant**, where
 
 > Requires **v1.2.0 or newer**. Earlier tags do not include Cloud Code support.
 
-**In Xcode**
+#### In Xcode
 
 1. Go to **File → Add Package Dependencies…**
 2. Paste the repository URL into the search field:
@@ -114,7 +114,7 @@ Set it up from the AppAmbit dashboard under **Settings → AI Assistant**, where
 | `AppAmbitPushNotifications` | Your app *(optional, only if you use push)* | `import AppAmbitPushNotifications` |
 | `AppAmbitPushNotificationsExtension` | Your Notification Service Extension *(optional)* | `import AppAmbitPushNotificationsExtension` |
 
-**In a `Package.swift`**
+#### In a `Package.swift`
 
 ```swift
 dependencies: [
@@ -187,7 +187,7 @@ Everything below works once `AppAmbit.start(appKey:)` has run. Session activity 
 
 ---
 
-#### Track events
+### Track events
 
 Send structured events with custom properties.
 
@@ -209,7 +209,7 @@ Analytics.trackEvent(eventTitle: "Test TrackEvent", data: ["test1": "test1"])
 
 ---
 
-#### Logs
+### Logs
 
 Add structured log messages for debugging, sent even when the app does not crash.
 
@@ -242,7 +242,7 @@ Crashes.logError(message: message, properties: properties, exception: error)
 
 ---
 
-#### Breadcrumbs
+### Breadcrumbs
 
 Screen-change breadcrumbs (push/pop, present/dismiss) are recorded automatically. To display the intended screen name, set a navigation title (`navigationTitle` in SwiftUI, `title` in UIKit and Objective-C). Without a title, the screen appears in the dashboard under the default view or controller name.
 
@@ -265,7 +265,7 @@ vc.title = @"MyView";
 
 ---
 
-#### Remote config
+### Remote config
 
 Fetch and apply remote configuration values asynchronously using type-safe methods.
 
@@ -297,7 +297,7 @@ double maxUpload = [RemoteConfig getDouble:@"max_upload"];
 
 ---
 
-#### CMS
+### CMS
 
 Read content you publish from the dashboard (articles, FAQs, promos) without shipping a new build. `Cms.content(_:modelType:)` decodes entries into your own `Decodable` model, and `Cms.content(_:)` returns them untyped.
 
@@ -328,7 +328,7 @@ CmsQueryObjC *query = [Cms contentWithType:@"blog_extended"];
 
 ---
 
-#### Database
+### Database
 
 Query, insert, update, and delete rows in your AppAmbit database with a fluent builder.
 
@@ -369,7 +369,7 @@ AppAmbitDb.from("users")
 
 ---
 
-#### Cloud code
+### Cloud code
 
 Invoke authenticated HTTP functions hosted by AppAmbit. Cloud Code uses the same consumer and Bearer token as the rest of the SDK, so no extra setup is needed beyond `AppAmbit.start(appKey:)`. Configure an active Cloud Function with an enabled HTTP trigger and slug in the dashboard, then call it:
 
