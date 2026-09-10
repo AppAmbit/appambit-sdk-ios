@@ -3,6 +3,7 @@
 - Added Cloud Code HTTP invocation for Swift and Objective-C.
 - Added typed and untyped JSON responses, request IDs, cancellation, reserved-header validation, and a 60-second Cloud Code timeout.
 - Added Cloud Code sample tabs and backend demonstration functions for Database, CMS, Push, event triggers, manual triggers, errors, and timeout behavior.
+- **[Docs]** Updated the README with a quick start, requirements, a Swift Package Manager and CocoaPods install reference, usage guides for events, logs, breadcrumbs, remote config, CMS, Database, and Cloud Code, plus release distribution pipelines, sample apps, starter apps, MCP setup, and the REST API.
 
 ___
 
